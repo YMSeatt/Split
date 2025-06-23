@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, simpledialog, messagebox, filedialog, colorchooser, font as tkfont
+from tkinter import ttk, simpledialog, messagebox, filedialog, font as tkfont
 import json
 import calendar
 import os
@@ -13,7 +13,6 @@ import re
 import shutil
 import zipfile
 import csv
-import hashlib # For password hashing
 import PIL
 from PIL import Image 
 
@@ -23,28 +22,16 @@ from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemComman
         MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand
 from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDialog, BehaviorDialog, \
     ManualHomeworkLogDialog, QuizScoreDialog, LiveQuizMarkDialog, LiveHomeworkMarkDialog, ExitConfirmationDialog, \
-        ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, \
-            ConditionalFormattingRuleDialog, ManageStudentGroupsDialog, AssignStudentsToGroupSubDialog
-from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialog, ManageMarkTypesDialog, \
-    ManageInitialsDialog, ManageLiveSelectOptionsDialog, QuizTemplateEditDialog, HomeworkTemplateEditDialog
+        ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, ManageStudentGroupsDialog
+from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialog
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
-
 import sv_ttk # For themed widgets
 import darkdetect # For dark mode detection
-
-
-
 # Conditional import for platform-specific screenshot capability
 import threading
-
-
-# def listener(callback: typing.Callable[[str], None]) -> None: ...
-
-# TODO: make conditional formatting work by quizzes. add thing for homework also.
-
-
-
+import io
+import tempfile
 try:
     if sys.platform == "win32":
         import win32gui
@@ -58,21 +45,13 @@ except ImportError:
     win32gui = None # Explicitly set to None if import fails
     print("Warning: win32gui/win32ui/win32con not found. Full window screenshot (deprecated) might not work if called.")
 
-import io
-import tempfile
 
-try:
-    from tkcalendar import DateEntry
-    from tkcalendar import DateEntryCustom
-except ImportError:
-    DateEntry = None
-    #DateEntryCustom = None
-    print("Warning: tkcalendar library not found. Date pickers in export filter will be simple text entries.")
-    print("Consider installing it: pip install tkcalendar")
+# def listener(callback: typing.Callable[[str], None]) -> None: ...
+# TODO: make conditional formatting work by quizzes. add thing for homework also.
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v52.0" # Version incremented
+APP_VERSION = "v54.0" # Version incremented
 CURRENT_DATA_VERSION_TAG = "v9" # Incremented for new homework/marks features
 
 # --- Default Configuration ---
@@ -479,61 +458,8 @@ class SeatingChartApp:
             "_last_used_hw_items_for_session": 5, # 
             "theme": "System", # Newer
         }
-    """
-    def _ensure_next_ids(self):
-        # Student IDs
-        max_s_id = 0
-        for sid in self.students:
-            if sid.startswith("student_"):
-                try: max_s_id = max(max_s_id, int(sid.split("_")[1]))
-                except (ValueError, IndexError): pass
-        self.next_student_id_num = max(self.settings.get("next_student_id_num", 1), max_s_id + 1)
-        self.settings["next_student_id_num"] = self.next_student_id_num
 
-        # Furniture IDs
-        max_f_id = 0
-        for fid in self.furniture:
-            if fid.startswith("furniture_"):
-                try: max_f_id = max(max_f_id, int(fid.split("_")[1]))
-                except (ValueError, IndexError): pass
-        self.next_furniture_id_num = max(self.settings.get("next_furniture_id_num", 1), max_f_id + 1)
-        self.settings["next_furniture_id_num"] = self.next_furniture_id_num
-
-        # Group IDs
-        max_g_id = 0
-        for gid in self.student_groups:
-            if gid.startswith("group_"):
-                try: max_g_id = max(max_g_id, int(gid.split("_")[1]))
-                except (ValueError, IndexError): pass
-        self.next_group_id_num = max(self.settings.get("next_group_id_num", 1), max_g_id + 1)
-        self.settings["next_group_id_num"] = self.next_group_id_num
-
-        # Quiz Template IDs
-        max_qt_id = 0
-        for qtid in self.quiz_templates:
-            if qtid.startswith("quiztemplate_"):
-                try: max_qt_id = max(max_qt_id, int(qtid.split("_")[1]))
-                except (ValueError, IndexError): pass
-        self.next_quiz_template_id_num = max(self.settings.get("next_quiz_template_id_num", 1), max_qt_id + 1)
-        self.settings["next_quiz_template_id_num"] = self.next_quiz_template_id_num
-
-        # Homework Template IDs (New)
-        max_ht_id = 0
-        for htid in self.homework_templates:
-            if htid.startswith("hwtemplate_"): # Consistent prefix
-                try: max_ht_id = max(max_ht_id, int(htid.split("_")[1]))
-                except (ValueError, IndexError): pass
-        self.next_homework_template_id_num = max(self.settings.get("next_homework_template_id_num", 1), max_ht_id + 1)
-        self.settings["next_homework_template_id_num"] = self.next_homework_template_id_num
-
-        # Custom Homework Type IDs (for Yes/No mode live session) - New
-        max_chwt_id = 0
-        for chwt in self.custom_homework_session_types: # Assuming these are dicts with an 'id' field
-            if isinstance(chwt, dict) and chwt.get('id', '').startswith("hwtype_"):
-                try: max_chwt_id = max(max_chwt_id, int(chwt['id'].split("_")[1]))
-                except (ValueError, IndexError): pass
-        self.settings["next_custom_homework_type_id_num"] = max(self.settings.get("next_custom_homework_type_id_num", 1), max_chwt_id + 1)
-    """
+   
     def _ensure_next_ids(self):
         # Student IDs
         max_s_id = 0
@@ -2697,7 +2623,8 @@ class SeatingChartApp:
                 "include_quiz_logs": True,
                 "include_homework_logs": True, # New
                 "include_summaries": self.settings.get("excel_export_include_summaries_by_default", True),
-                "separate_sheets_by_log_type": self.settings.get("excel_export_separate_sheets_by_default", True)
+                "separate_sheets_by_log_type": self.settings.get("excel_export_separate_sheets_by_default", True),
+                "excel_export_master_log_by_default": self.settings.get("excel_export_master_log_by_default", True)
             }
             self.export_data_to_excel(filename, "xlsx", filter_settings, is_autosave=True)
                 # self.update_status(f"Log autosaved to {os.path.basename(filename)} at {datetime.now().strftime('%H:%M:%S')}")
@@ -3944,7 +3871,7 @@ class SeatingChartApp:
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Load Layout", "Enter password to load layout template:"): return
         if not os.path.exists(LAYOUT_TEMPLATES_DIR) or not os.listdir(LAYOUT_TEMPLATES_DIR):
-            messagebox.showinfo("No Templates", "No layout templates found.", parent=self.root); return
+            messagebox.showinfo("No Templates", "No layout templates found in default folder.", parent=self.root); 
         file_path = filedialog.askopenfilename(initialdir=LAYOUT_TEMPLATES_DIR, title="Select Layout Template",
                                                filetypes=[("JSON files", "*.json"), ("All files", "*.*")], parent=self.root)
         if file_path:

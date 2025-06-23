@@ -3797,3 +3797,62 @@ class PasswordManager:
 
     def record_activity(self):
         self.last_activity_time = datetime.now()
+
+
+
+    """
+    def _ensure_next_ids(self):
+        # Student IDs
+        max_s_id = 0
+        for sid in self.students:
+            if sid.startswith("student_"):
+                try: max_s_id = max(max_s_id, int(sid.split("_")[1]))
+                except (ValueError, IndexError): pass
+        self.next_student_id_num = max(self.settings.get("next_student_id_num", 1), max_s_id + 1)
+        self.settings["next_student_id_num"] = self.next_student_id_num
+
+        # Furniture IDs
+        max_f_id = 0
+        for fid in self.furniture:
+            if fid.startswith("furniture_"):
+                try: max_f_id = max(max_f_id, int(fid.split("_")[1]))
+                except (ValueError, IndexError): pass
+        self.next_furniture_id_num = max(self.settings.get("next_furniture_id_num", 1), max_f_id + 1)
+        self.settings["next_furniture_id_num"] = self.next_furniture_id_num
+
+        # Group IDs
+        max_g_id = 0
+        for gid in self.student_groups:
+            if gid.startswith("group_"):
+                try: max_g_id = max(max_g_id, int(gid.split("_")[1]))
+                except (ValueError, IndexError): pass
+        self.next_group_id_num = max(self.settings.get("next_group_id_num", 1), max_g_id + 1)
+        self.settings["next_group_id_num"] = self.next_group_id_num
+
+        # Quiz Template IDs
+        max_qt_id = 0
+        for qtid in self.quiz_templates:
+            if qtid.startswith("quiztemplate_"):
+                try: max_qt_id = max(max_qt_id, int(qtid.split("_")[1]))
+                except (ValueError, IndexError): pass
+        self.next_quiz_template_id_num = max(self.settings.get("next_quiz_template_id_num", 1), max_qt_id + 1)
+        self.settings["next_quiz_template_id_num"] = self.next_quiz_template_id_num
+
+        # Homework Template IDs (New)
+        max_ht_id = 0
+        for htid in self.homework_templates:
+            if htid.startswith("hwtemplate_"): # Consistent prefix
+                try: max_ht_id = max(max_ht_id, int(htid.split("_")[1]))
+                except (ValueError, IndexError): pass
+        self.next_homework_template_id_num = max(self.settings.get("next_homework_template_id_num", 1), max_ht_id + 1)
+        self.settings["next_homework_template_id_num"] = self.next_homework_template_id_num
+
+        # Custom Homework Type IDs (for Yes/No mode live session) - New
+        max_chwt_id = 0
+        for chwt in self.custom_homework_session_types: # Assuming these are dicts with an 'id' field
+            if isinstance(chwt, dict) and chwt.get('id', '').startswith("hwtype_"):
+                try: max_chwt_id = max(max_chwt_id, int(chwt['id'].split("_")[1]))
+                except (ValueError, IndexError): pass
+        self.settings["next_custom_homework_type_id_num"] = max(self.settings.get("next_custom_homework_type_id_num", 1), max_chwt_id + 1)
+    """
+   

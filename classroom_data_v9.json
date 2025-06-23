@@ -1433,7 +1433,7 @@
         "show_full_recent_homeworks": true,
         "reverse_homework_order": true,
         "selected_recent_homeworks_filter": null,
-        "autosave_interval_ms": 30000,
+        "autosave_interval_ms": 10000,
         "default_student_box_width": 130,
         "default_student_box_height": 80,
         "student_box_fill_color": "skyblue",

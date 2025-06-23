@@ -1,7 +1,5 @@
-
 import os
 import sys
-
 from datetime import datetime
 
 # def listener(callback: typing.Callable[[str], None]) -> None: ...

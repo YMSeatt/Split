@@ -4,13 +4,6 @@ from tkinter import ttk, simpledialog, messagebox
 import os
 import sys
 
-try:
-    import portalocker # For file locking
-except ModuleNotFoundError: print("Install portalocker")
-# Conditional import for platform-specific screenshot capability
-
-
-
 # def listener(callback: typing.Callable[[str], None]) -> None: ...
 
 # TODO: make conditional formatting work by quizzes. add thing for homework also.

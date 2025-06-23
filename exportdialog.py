@@ -1,22 +1,14 @@
-
-
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox
-
 import os
 import sys
-
 from datetime import datetime
-
-
 from tkcalendar import DateEntry
 from tkcalendar import DateEntryCustom
 
-
-
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v52.0" # Version incremented
+APP_VERSION = "v54.0" # Version incremented
 CURRENT_DATA_VERSION_TAG = "v9" # Incremented for new homework/marks features
 
 # --- Default Configuration ---
