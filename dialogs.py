@@ -163,9 +163,6 @@ DEFAULT_HOMEWORK_MARK_TYPES = [ # New for homework marks
 
 MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
-MASTER_RECOVERY_PASSWORD_HASH = "d3c01af653d8940fc36ea1e1f33a8dc03f47dd864d2cd0d8814e2643fa37e70de0a2228e58d7d591eb2f124e2f4f9ff7c98686f4f5da3de6bbfc0267db3c1a0e" # SHA256 of "RecoverMyData123!"
-#Recovery1Master2Password!Jaffe1
-
 
 # --- Dialog Classes ---
 class PasswordPromptDialog(simpledialog.Dialog):

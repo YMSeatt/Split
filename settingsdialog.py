@@ -152,15 +152,6 @@ DEFAULT_HOMEWORK_MARK_TYPES = [ # New for homework marks
 
 MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
-MASTER_RECOVERY_PASSWORD_HASH = "d3c01af653d8940fc36ea1e1f33a8dc03f47dd864d2cd0d8814e2643fa37e70de0a2228e58d7d591eb2f124e2f4f9ff7c98686f4f5da3de6bbfc0267db3c1a0e" # SHA256 of "RecoverMyData123!"
-#Recovery1Master2Password!Jaffe1
-
-
-
-
-
-
-
 
 class SettingsDialog(simpledialog.Dialog):
     def __init__(self, parent, current_settings, custom_behaviors, all_behaviors, app,
@@ -244,24 +235,29 @@ class SettingsDialog(simpledialog.Dialog):
         self.show_zoom_var = tk.BooleanVar(value=self.settings.get("show_zoom_level_display", True))
         ttk.Checkbutton(lf, text="Show Zoom Level % Display on Main Screen", variable=self.show_zoom_var).grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
 
+
+        # Student box management visibility
+        self.show_management_var = tk.BooleanVar(value=self.settings.get("always_show_box_management", False))
+        ttk.Checkbutton(lf, text="Always show box management tools", variable=self.show_management_var).grid(row=5, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+
         # Max Undo History Days
-        ttk.Label(lf, text="Max Undo History (days):").grid(row=5, column=0, sticky=tk.W, padx=5, pady=3)
+        ttk.Label(lf, text="Max Undo History (days):").grid(row=7, column=0, sticky=tk.W, padx=5, pady=3)
         self.max_undo_days_var = tk.IntVar(value=self.settings.get("max_undo_history_days", MAX_UNDO_HISTORY_DAYS))
-        ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5).grid(row=5, column=1, sticky=tk.W, padx=5, pady=3)
+        ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5).grid(row=7, column=1, sticky=tk.W, padx=5, pady=3)
         
         # Theme
-        ttk.Label(lf, text = "Theme: ").grid(row=6,column=0,sticky='W', padx=5, pady=3)
+        ttk.Label(lf, text = "Theme: ").grid(row=8,column=0,sticky='W', padx=5, pady=3)
         
         theme_combo = ttk.Combobox(lf, values = THEME_LIST, textvariable= self.theme, state='readonly')
-        theme_combo.grid(row=6, column=1, sticky="W", padx=5, pady=3)
+        theme_combo.grid(row=8, column=1, sticky="W", padx=5, pady=3)
         theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
         theme_combo.set(self.theme.get())
         
         # Canvas Color
-        ttk.Label(lf, text = "Canvas color (background): ").grid(row=7,column=0,sticky='W', padx=5, pady=3)
+        ttk.Label(lf, text = "Canvas color (background): ").grid(row=9,column=0,sticky='W', padx=5, pady=3)
         
         canvas_color_entry = ttk.Entry(lf, textvariable= self.custom_canvas_color)
-        canvas_color_entry.grid(row=7, column=1, sticky="W", padx=5, pady=3)
+        canvas_color_entry.grid(row=9, column=1, sticky="W", padx=5, pady=3)
         
         
         #ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
@@ -928,6 +924,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["canvas_color"] = self.custom_canvas_color.get()
         self.app.theme_style_using = self.theme2
         self.app.custom_canvas_color = self.custom_canvas_color.get()
+        self.settings["always_show_box_management"] = self.show_management_var.get()
         #print("Theme2", self.theme2)
         #print(self.theme.get(), "Get")
         # Student Display Tab

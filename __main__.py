@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog, font as tkfont
 import json
-import calendar
 import os
 import sys
 import subprocess
@@ -14,8 +13,9 @@ import shutil
 import zipfile
 import csv
 import PIL
-from PIL import Image 
-
+from PIL import Image
+import PIL.ImageFile
+from PIL import EpsImagePlugin
 from settingsdialog import SettingsDialog
 from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
@@ -277,18 +277,7 @@ class SeatingChartApp:
         self.canvas_orig_width = 2000
         self.canvas_orig_height = 1500
         self.custom_canvas_color = None
-        try:
-            if self.custom_canvas_color != None and self.custom_canvas_color != "Default" and self.custom_canvas_color != "": self.canvas_color = self.custom_canvas_color
-            elif self.theme_style_using == "dark": self.canvas_color = "#1F1F1F"
-            elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-            else: self.canvas_color = "lightgrey"
-        #self.canvas_color = 
-        except:
-            if self.custom_canvas_color != None and self.custom_canvas_color != "Default" and self.custom_canvas_color != "": self.canvas_color = self.custom_canvas_color
-            elif self.theme_style_using == "dark": self.canvas_color = "#1F1F1F"
-            #elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-            else: self.canvas_color = "lightgrey"
-            
+        self.theme_auto(init=True)
         self.load_custom_behaviors()
         self.load_custom_homework_types() # NEW
         self.load_custom_homework_statuses() # RENAMED
@@ -635,33 +624,12 @@ class SeatingChartApp:
         if self.status_bar_label: self.status_bar_label.configure(text=message)
 
     def setup_ui(self):
-        main_frame = ttk.Frame(self.root, padding="5"); main_frame.pack(fill=tk.BOTH, expand=True)
-        top_controls_frame_row1 = ttk.Frame(main_frame); top_controls_frame_row1.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
+        self.main_frame = ttk.Frame(self.root, padding="5"); self.main_frame.pack(fill=tk.BOTH, expand=True)
+        top_controls_frame_row1 = ttk.Frame(self.main_frame); top_controls_frame_row1.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
         self.undo_btn = ttk.Button(top_controls_frame_row1, text="Undo", command=self.undo_last_action, state=tk.DISABLED); self.undo_btn.pack(side=tk.LEFT, padx=2)
         self.redo_btn = ttk.Button(top_controls_frame_row1, text="Redo", command=self.redo_last_action, state=tk.DISABLED); self.redo_btn.pack(side=tk.LEFT, padx=2)
-        ttk.Button(top_controls_frame_row1, text="Add Student", command=self.add_student_dialog).pack(side=tk.LEFT, padx=2)
-        ttk.Button(top_controls_frame_row1, text="Add Furniture", command=self.add_furniture_dialog).pack(side=tk.LEFT, padx=2)
 
-        self.mode_frame = ttk.LabelFrame(top_controls_frame_row1, text="Mode", padding=2); self.mode_frame.pack(side=tk.LEFT, padx=3); self.mode_frame.pack_propagate(True)
-        ttk.Radiobutton(self.mode_frame, text="Behavior", variable=self.mode_var, value="behavior", command=self.toggle_mode).pack(side=tk.LEFT)
-        ttk.Radiobutton(self.mode_frame, text="Quiz", variable=self.mode_var, value="quiz", command=self.toggle_mode).pack(side=tk.LEFT)
-        ttk.Radiobutton(self.mode_frame, text="Homework", variable=self.mode_var, value="homework", command=self.toggle_mode).pack(side=tk.LEFT) # New Homework mode
-
-        self.live_quiz_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Class Quiz")
-        self.start_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="Start Session", command=self.start_live_quiz_session_dialog); self.start_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
-        self.end_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="End Session", command=self.end_live_quiz_session, state=tk.DISABLED); self.end_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
-
-        self.live_homework_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Homework Session") # New
-        self.start_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="Start Session", command=self.start_live_homework_session_dialog); self.start_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
-        self.end_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="End Session", command=self.end_live_homework_session, state=tk.DISABLED); self.end_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
-
-        templates_groups_frame = ttk.LabelFrame(top_controls_frame_row1, text="Layout & Groups", padding=2); templates_groups_frame.pack(side=tk.LEFT, padx=0)
-        ttk.Button(templates_groups_frame, text="Save Layout...", command=self.save_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
-        ttk.Button(templates_groups_frame, text="Load Layout...", command=self.load_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
-        self.manage_groups_btn = ttk.Button(templates_groups_frame, text="Manage Groups...", command=self.manage_student_groups_dialog); self.manage_groups_btn.pack(side=tk.LEFT,pady=1, padx=1)
-
-        top_controls_frame_row2 = ttk.Frame(main_frame); top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5))
-        self.file_menu_btn = ttk.Menubutton(top_controls_frame_row2, text="File"); self.file_menu = tk.Menu(self.file_menu_btn, tearoff=0)
+        self.file_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="File"); self.file_menu = tk.Menu(self.file_menu_btn, tearoff=0)
         self.file_menu.add_command(label="Save Now", command=self.save_data_wrapper, accelerator="Ctrl+S")
         self.file_menu.add_command(label="Import Students from Excel...", command=self.import_students_from_excel_dialog)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Open Data Folder", command=self.open_data_folder)
@@ -681,7 +649,7 @@ class SeatingChartApp:
         self.root.bind_all("<Control-z>", lambda event: self.undo_last_action())
         self.root.bind_all("<Control-y>", lambda event: self.redo_last_action())
 
-        self.export_menu_btn = ttk.Menubutton(top_controls_frame_row2, text="Export Log"); self.export_menu = tk.Menu(self.export_menu_btn, tearoff=0)
+        self.export_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Export Log"); self.export_menu = tk.Menu(self.export_menu_btn, tearoff=0)
         self.export_menu.add_command(label="To Excel (.xlsx)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsx"))
         self.export_menu.add_command(label="To Excel Macro-Enabled (.xlsm)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsm"))
         self.export_menu.add_command(label="To CSV Files (.zip)", command=lambda: self.export_log_dialog_with_filter(export_type="csv"))
@@ -689,13 +657,27 @@ class SeatingChartApp:
         self.export_menu.add_command(label="Export Layout as Image (see Help)...", command=self.export_layout_as_image)
         self.export_menu.add_command(label="Generate Attendance Report...", command=self.generate_attendance_report_dialog)
         self.export_menu_btn["menu"] = self.export_menu; self.export_menu_btn.pack(side=tk.LEFT, padx=2)
-        ttk.Button(top_controls_frame_row2, text="Settings", command=self.open_settings_dialog).pack(side=tk.LEFT, padx=2)
+        ttk.Button(top_controls_frame_row1, text="Settings", command=self.open_settings_dialog).pack(side=tk.LEFT, padx=2)
+        
+        self.mode_frame = ttk.LabelFrame(top_controls_frame_row1, text="Mode", padding=2); self.mode_frame.pack(side=tk.LEFT, padx=3); self.mode_frame.pack_propagate(True)
+        ttk.Radiobutton(self.mode_frame, text="Behavior", variable=self.mode_var, value="behavior", command=self.toggle_mode).pack(side=tk.LEFT)
+        ttk.Radiobutton(self.mode_frame, text="Quiz", variable=self.mode_var, value="quiz", command=self.toggle_mode).pack(side=tk.LEFT)
+        ttk.Radiobutton(self.mode_frame, text="Homework", variable=self.mode_var, value="homework", command=self.toggle_mode).pack(side=tk.LEFT) # New Homework mode
 
+        self.live_quiz_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Class Quiz")
+        self.start_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="Start Session", command=self.start_live_quiz_session_dialog); self.start_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
+        self.end_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="End Session", command=self.end_live_quiz_session, state=tk.DISABLED); self.end_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
 
+        self.live_homework_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Homework Session") # New
+        self.start_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="Start Session", command=self.start_live_homework_session_dialog); self.start_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
+        self.end_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="End Session", command=self.end_live_homework_session, state=tk.DISABLED); self.end_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
+
+        
+
+        self.top_controls_frame_row2 = ttk.Frame(self.main_frame); self.top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5))
+        
         self.zoom_var = tk.StringVar(value=str(float(self.current_zoom_level)*100))
-        #print(self.zoom_var.get())
-
-        view_controls_frame = ttk.LabelFrame(top_controls_frame_row2, text="View & Edit", padding=2); view_controls_frame.pack(side=tk.LEFT, padx=5)
+        view_controls_frame = ttk.LabelFrame(top_controls_frame_row1, text="View & Edit", padding=2); view_controls_frame.pack(side=tk.LEFT, padx=5)
         ttk.Button(view_controls_frame, text="Zoom In", command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
         self.zoom_display_label = ttk.Entry(view_controls_frame, textvariable=self.zoom_var, width=5)
         if self.settings.get("show_zoom_level_display", True): self.zoom_display_label.pack(side=tk.LEFT, padx=1)
@@ -705,42 +687,34 @@ class SeatingChartApp:
         self.toggle_incidents_btn = ttk.Button(view_controls_frame, text="Hide Recent Logs", command=self.toggle_global_recent_logs_visibility); self.toggle_incidents_btn.pack(side=tk.LEFT, padx=2) # Renamed
         self.update_toggle_incidents_button_text()
 
-        layout_tools_frame = ttk.LabelFrame(top_controls_frame_row2, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=0)
+        self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=3)
+        layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=0)
         ttk.Button(layout_tools_frame, text="Align Top", command=lambda: self.align_selected_items("top")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Bottom", command=lambda: self.align_selected_items("bottom")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Left", command=lambda: self.align_selected_items("left")).pack(side=tk.LEFT,pady=1, padx=1)
+        templates_groups_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout & Groups", padding=2); 
+        templates_groups_frame.pack(side=tk.LEFT, padx=0)
+        ttk.Button(templates_groups_frame, text="Save Layout...", command=self.save_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
+        ttk.Button(templates_groups_frame, text="Load Layout...", command=self.load_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
+        self.manage_groups_btn = ttk.Button(templates_groups_frame, text="Manage Groups...", command=self.manage_student_groups_dialog); self.manage_groups_btn.pack(side=tk.LEFT,pady=1, padx=1)        
         ttk.Button(layout_tools_frame, text="Align Right", command=lambda: self.align_selected_items("right")).pack(side=tk.LEFT,pady=1, padx=1)
+        
+        ttk.Button(self.manage_boxes_frame, text="Add Student", command=self.add_student_dialog).pack(side=tk.LEFT, padx=2)
+        ttk.Button(self.manage_boxes_frame, text="Add Furniture", command=self.add_furniture_dialog).pack(side=tk.LEFT, padx=2)
 
         self.lock_app_btn = ttk.Button(top_controls_frame_row1, text="Lock", command=self.lock_application_ui_triggered); self.lock_app_btn.pack(side=tk.RIGHT, padx=5)
         self.update_lock_button_state()
         self.root.bind_all("<Control-l>", lambda e: self.lock_application_ui_triggered())
+        ttk.Button(top_controls_frame_row1, text="Help", command=self.show_help_dialog).pack(side=tk.RIGHT, padx=2)
         
         self.zoom_display_label.bind("<FocusOut>", lambda e: self.update_zoom_display2())
         self.zoom_display_label.bind("<Return>", lambda e: self.update_zoom_display2())
         
         
-        ttk.Button(top_controls_frame_row1, text="Help", command=self.show_help_dialog).pack(side=tk.RIGHT, padx=2)
-        #self.theme_style_using = "dark"
-        try:
-            if self.theme_style_using == "dark": var4 = "#1F1F1F"
-            elif self.theme_style_using == "System": var4 = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-            else: var4 = "lightgrey"
-        except:
-            if self.theme_style_using == "dark": var4 = "#1F1F1F"
-            #elif self.theme_style_using == "System": var4 = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-            else: var4 = "lightgrey"
-        try:
-            if self.custom_canvas_color != "Default": self.canvas_color = self.custom_canvas_color
-            elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
-            elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-            else: self.canvas_color = "lightgrey"
-        except:
-            if self.custom_canvas_color != "Default": self.canvas_color = self.custom_canvas_color
-            elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
-            #elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-            else: self.canvas_color = "lightgrey"
+
+        self.theme_auto(init=True)
             
-        self.canvas_frame = ttk.Frame(main_frame); self.canvas_frame.pack(fill=tk.BOTH, expand=True)
+        self.canvas_frame = ttk.Frame(self.main_frame); self.canvas_frame.pack(fill=tk.BOTH, after=self.top_controls_frame_row2, expand=True)
         self.h_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas_xview_custom)
         self.v_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.VERTICAL, command=self.canvas_yview_custom) #else "#1F1F1F"
         self.canvas = tk.Canvas(self.canvas_frame, bg=self.canvas_color, relief=tk.SUNKEN, borderwidth=1, xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
@@ -758,6 +732,7 @@ class SeatingChartApp:
         self.status_bar_label = ttk.Label(self.root, text="Welcome!", relief=tk.SUNKEN, anchor=tk.W, padding=5); self.status_bar_label.pack(side=tk.BOTTOM, fill=tk.X)
         self.canvas.focus_set()
         self.toggle_student_groups_ui_visibility()
+        self.toggle_manage_boxes_visibility()
 
     def canvas_xview_custom(self, *args): self.canvas.xview(*args); self.password_manager.record_activity()
     def canvas_yview_custom(self, *args): self.canvas.yview(*args); self.password_manager.record_activity()
@@ -831,7 +806,6 @@ class SeatingChartApp:
             else: return False # Cancel
         return True # No active session of this type
 
-
     def toggle_mode(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Change Mode", "Enter password to change mode:"):
@@ -872,7 +846,8 @@ class SeatingChartApp:
             if not self.prompt_for_password("Unlock to Toggle Edit Mode", "Enter password to change edit mode:"):
                 self.edit_mode_var.set(not self.edit_mode_var.get()); return
         is_edit_mode = self.edit_mode_var.get()
-        self.update_status(f"Edit Mode (Resize) {'Enabled' if is_edit_mode else 'Disabled'}. Click item corners to resize.")
+        self.update_status(f"Edit Mode {'Enabled' if is_edit_mode else 'Disabled'}. Click item corners to resize.")
+        self.toggle_manage_boxes_visibility()
         self.draw_all_items(check_collisions_on_redraw=True)
         self.password_manager.record_activity()
 
@@ -992,7 +967,6 @@ class SeatingChartApp:
             cmd = MarkLiveHomeworkCommand(self, student_id, dialog.result_actions, session_mode)
             self.execute_command(cmd)
             self.password_manager.record_activity()
-
 
     def add_student_dialog(self):
         if self.password_manager.is_locked:
@@ -1127,8 +1101,6 @@ class SeatingChartApp:
                     if temp_initials: summary_lines_list.append('  '.join(temp_initials))
         return summary_lines_list
 
-
-    
     def _get__logs_for_student(self, student_id, log_type_key, num_max, window, name_of_spec): # "behavior" or "homework"
         student = self.students.get(student_id)
         if not student: return []
@@ -1173,9 +1145,6 @@ class SeatingChartApp:
                 summary_lines_list = [log.get(behavior_key_in_log, log.get("behavior")) for log in recent_to_display if log.get(behavior_key_in_log, log.get("behavior"))]
                 
         return len(summary_lines_list)
-
-
-    
 
     def update_student_display_text(self, student_id):
         student = self.students.get(student_id)
@@ -1232,7 +1201,6 @@ class SeatingChartApp:
         student["display_lines"] = main_content_lines
         student["incident_display_lines"] = incident_display_lines
 
-
     def applies_to_conditional(self, student_id, rule):
         
         student_data = self.students.get(student_id)
@@ -1262,11 +1230,6 @@ class SeatingChartApp:
         return None
         #if student_data.get()
         
-        
-
-
-
-
     def draw_single_student(self, student_id, check_collisions=False):
         # ... (largely same as v51, but needs to handle new "homework_score_header/item" and "separator" types for drawing)
         # This method is long, so I'll highlight the key change area for incident_display_lines
@@ -1550,7 +1513,6 @@ class SeatingChartApp:
         self.current_zoom_level = float(self.zoom_var.get())/100.0
         self.zoom_var.set(value=str(float(self.current_zoom_level)*100.0))
         self.zoom_canvas(1)
-
 
     def zoom_canvas(self, factor):
         # ... (same as v51)
@@ -2185,7 +2147,6 @@ class SeatingChartApp:
                 self.draw_all_items(check_collisions_on_redraw=True)
                 self.password_manager.record_activity()
 
-
     def log_quiz_score_dialog(self, student_id):
         # ... (same as v51)
         if self.password_manager.is_locked:
@@ -2242,62 +2203,6 @@ class SeatingChartApp:
         self.save_custom_homework_statuses() # RENAMED
         self.save_quiz_templates()
         self.save_homework_templates()
-
-
-    def _migrate_v8_data(self, data): # New migration for v8 -> v9
-        """Migration for data version 8 (APP_VERSION v51) to v9 (APP_VERSION v52)."""
-        # Add new homework-related settings if missing
-        if "settings" in data:
-            data["settings"].setdefault("homework_log", []) # Initialize if not present
-            data["settings"].setdefault("show_recent_homeworks_on_boxes", True)
-            data["settings"].setdefault("num_recent_homeworks_to_show", 2)
-            data["settings"].setdefault("recent_homework_time_window_hours", 24)
-            data["settings"].setdefault("show_full_recent_homeworks", False)
-            data["settings"].setdefault("reverse_homework_order", True)
-            data["settings"].setdefault("selected_recent_homeworks_filter", None)
-            data["settings"].setdefault("homework_initial_overrides", {})
-            data["settings"].setdefault("default_homework_name", "Homework Check")
-            data["settings"].setdefault("live_homework_session_mode", "Yes/No")
-            data["settings"].setdefault("log_homework_marks_enabled", True)
-            data["settings"].setdefault("homework_mark_types", DEFAULT_HOMEWORK_MARK_TYPES.copy())
-            data["settings"].setdefault("default_homework_items_for_yes_no_mode", 5)
-            data["settings"].setdefault("live_homework_score_font_color", DEFAULT_HOMEWORK_SCORE_FONT_COLOR)
-            data["settings"].setdefault("live_homework_score_font_style_bold", DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD)
-            data["settings"].setdefault("next_homework_template_id_num", 1)
-            data["settings"].setdefault("next_custom_homework_type_id_num", 1)
-            data["settings"].setdefault("_last_used_homework_name_for_session", "")
-            data["settings"].setdefault("_last_used_homework_name_timestamp_for_session", None)
-            data["settings"].setdefault("_last_used_hw_items_for_session", 5)
-
-        # Ensure homework_log list exists at the top level of data
-        if "homework_log" not in data:
-            data["homework_log"] = []
-
-        # Migrate existing behavior_log entries that might have been intended as homework
-        # This is heuristic; might need adjustment based on how users previously logged homework.
-        # For now, assume if behavior name contains "Homework" or "HW", it might be a homework log.
-        # This is a very basic migration attempt.
-        temp_behavior_log = []
-        temp_homework_log = list(data.get("homework_log", [])) # Start with existing homework log
-
-        for log_entry in data.get("behavior_log", []):
-            behavior_name = log_entry.get("behavior", "").lower()
-            log_type = log_entry.get("type", "behavior").lower()
-            if ("homework" in behavior_name or "hw" in behavior_name) and log_type == "behavior":
-                # Convert this to a homework log entry
-                new_hw_entry = log_entry.copy()
-                new_hw_entry["type"] = "homework" # Change type
-                new_hw_entry["homework_type"] = log_entry.get("behavior") # Store original behavior as homework_type
-                if "marks_data" not in new_hw_entry and self.settings.get("log_homework_marks_enabled", True):
-                    # If marks are enabled but not present, add a placeholder or try to infer
-                    new_hw_entry["marks_data"] = {} # Add empty marks_data
-                temp_homework_log.append(new_hw_entry)
-            else:
-                temp_behavior_log.append(log_entry)
-
-        data["behavior_log"] = temp_behavior_log
-        data["homework_log"] = temp_homework_log
-        return data
 
     def load_data(self, file_path=None, is_restore=False):
         # ... (updated migration chain)
@@ -2414,7 +2319,61 @@ class SeatingChartApp:
                     print(f"Old data file {target_file} can be manually removed if no longer needed.")
                 except OSError as e_del:
                     print(f"Could not remove old data file {target_file}: {e_del}")
+ 
+    def _migrate_v8_data(self, data): # New migration for v8 -> v9
+        """Migration for data version 8 (APP_VERSION v51) to v9 (APP_VERSION v52)."""
+        # Add new homework-related settings if missing
+        if "settings" in data:
+            data["settings"].setdefault("homework_log", []) # Initialize if not present
+            data["settings"].setdefault("show_recent_homeworks_on_boxes", True)
+            data["settings"].setdefault("num_recent_homeworks_to_show", 2)
+            data["settings"].setdefault("recent_homework_time_window_hours", 24)
+            data["settings"].setdefault("show_full_recent_homeworks", False)
+            data["settings"].setdefault("reverse_homework_order", True)
+            data["settings"].setdefault("selected_recent_homeworks_filter", None)
+            data["settings"].setdefault("homework_initial_overrides", {})
+            data["settings"].setdefault("default_homework_name", "Homework Check")
+            data["settings"].setdefault("live_homework_session_mode", "Yes/No")
+            data["settings"].setdefault("log_homework_marks_enabled", True)
+            data["settings"].setdefault("homework_mark_types", DEFAULT_HOMEWORK_MARK_TYPES.copy())
+            data["settings"].setdefault("default_homework_items_for_yes_no_mode", 5)
+            data["settings"].setdefault("live_homework_score_font_color", DEFAULT_HOMEWORK_SCORE_FONT_COLOR)
+            data["settings"].setdefault("live_homework_score_font_style_bold", DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD)
+            data["settings"].setdefault("next_homework_template_id_num", 1)
+            data["settings"].setdefault("next_custom_homework_type_id_num", 1)
+            data["settings"].setdefault("_last_used_homework_name_for_session", "")
+            data["settings"].setdefault("_last_used_homework_name_timestamp_for_session", None)
+            data["settings"].setdefault("_last_used_hw_items_for_session", 5)
 
+        # Ensure homework_log list exists at the top level of data
+        if "homework_log" not in data:
+            data["homework_log"] = []
+
+        # Migrate existing behavior_log entries that might have been intended as homework
+        # This is heuristic; might need adjustment based on how users previously logged homework.
+        # For now, assume if behavior name contains "Homework" or "HW", it might be a homework log.
+        # This is a very basic migration attempt.
+        temp_behavior_log = []
+        temp_homework_log = list(data.get("homework_log", [])) # Start with existing homework log
+
+        for log_entry in data.get("behavior_log", []):
+            behavior_name = log_entry.get("behavior", "").lower()
+            log_type = log_entry.get("type", "behavior").lower()
+            if ("homework" in behavior_name or "hw" in behavior_name) and log_type == "behavior":
+                # Convert this to a homework log entry
+                new_hw_entry = log_entry.copy()
+                new_hw_entry["type"] = "homework" # Change type
+                new_hw_entry["homework_type"] = log_entry.get("behavior") # Store original behavior as homework_type
+                if "marks_data" not in new_hw_entry and self.settings.get("log_homework_marks_enabled", True):
+                    # If marks are enabled but not present, add a placeholder or try to infer
+                    new_hw_entry["marks_data"] = {} # Add empty marks_data
+                temp_homework_log.append(new_hw_entry)
+            else:
+                temp_behavior_log.append(log_entry)
+
+        data["behavior_log"] = temp_behavior_log
+        data["homework_log"] = temp_homework_log
+        return data
 
     def _migrate_v7_data(self, data):
         """Migration for data version 7 (APP_VERSION v50) to v8 (APP_VERSION v51)."""
@@ -2647,8 +2606,6 @@ class SeatingChartApp:
                 json.dump(self.custom_behaviors, f, indent=4)
         except IOError as e: print(f"Error saving custom behaviors: {e}")
 
-
-
     def load_custom_homework_log_behaviors(self): # New
         if os.path.exists(CUSTOM_HOMEWORKS_FILE): # Deprecated, now CUSTOM_HOMEWORK_LOG_BEHAVIORS_FILE
             try:
@@ -2672,8 +2629,6 @@ class SeatingChartApp:
                 json.dump(self.custom_homework_log_behaviors, f, indent=4)
         except IOError as e:
             print(f"Error saving custom homework log behaviors: {e}")
-
-
 
     def load_custom_homework_types(self): # NEW
         """Loads customizable homework types (e.g., "Reading Assignment", "Worksheet")."""
@@ -2734,7 +2689,6 @@ class SeatingChartApp:
         default_as_dicts = [{"id": f"default_{name.lower().replace(' ','_')}", "name": name} for name in DEFAULT_HOMEWORK_TYPES_LIST]
         # Custom ones already have IDs.
         self.all_homework_session_types = default_as_dicts + [ct for ct in self.custom_homework_types if isinstance(ct, dict)]
-
 
     def load_student_groups(self):
         if os.path.exists(STUDENT_GROUPS_FILE):
@@ -2800,28 +2754,9 @@ class SeatingChartApp:
         except IOError as e:
             print(f"Error saving homework templates: {e}")
 
-
-    
     def update_all_homework_log_behaviors(self): # New
         self.all_homework_log_behaviors = DEFAULT_HOMEWORK_LOG_BEHAVIORS + [b["name"] for b in self.custom_homework_statuses if "name" in b]
    
-   
-    """
-    def update_all_homework_session_types(self): # New
-        # Combines default types (strings) with custom types (dicts with 'name' and 'id')
-        # For display in dialogs, we'll need the names. For internal use, IDs are important for custom ones.
-        default_as_dicts = [{"id": f"default_{name.lower().replace(' ','_')}", "name": name} for name in DEFAULT_HOMEWORK_SESSION_BUTTONS2]
-        default_as_dicts2 = [name for name in (DEFAULT_HOMEWORK_TYPES_LIST)]
-        plus_names = [ct.get("name") for ct in self.custom_homework_session_types if isinstance(ct, dict) and "name" in ct and "id" in ct]
-        
-        
-        self.all_homework_session_types = default_as_dicts + [ct for ct in self.custom_homework_session_types if isinstance(ct, dict) and "name" in ct and "id" in ct]
-        
-        self.all_homework_session_types2 = default_as_dicts2 + plus_names
-        
-        #print(self.custom_homework_session_types, [ct.get("name") for ct in self.custom_homework_session_types if isinstance(ct, dict) and "name" in ct and "id" in ct] )
-    """
-    
     def get_earliest_log_date(self, type):
         log_source = self.behavior_log + self.homework_log
         
@@ -2850,7 +2785,6 @@ class SeatingChartApp:
         
         print(c)
         return c
-    
     
     def export_log_dialog_with_filter(self, export_type="xlsx"):
         if self.password_manager.is_locked:
@@ -2894,14 +2828,11 @@ class SeatingChartApp:
             else: self.update_status("Export cancelled.")
             self.password_manager.record_activity()
 
-
     def _make_safe_sheet_name(self, name_str, id_fallback="Sheet"):
         invalid_chars = r'[\\/?*\[\]:]' # Excel invalid sheet name characters
         safe_name = re.sub(invalid_chars, '_', str(name_str))
         if not safe_name: safe_name = str(id_fallback)
         return safe_name[:31] # Max 31 chars for sheet names
-
-
 
     def export_data_to_excel(self, file_path, export_format="xlsx", filter_settings=None, is_autosave=False, export_all_students_info = True):
         # ... (substantially updated for new log types, summaries, and filtering)
@@ -3520,7 +3451,6 @@ class SeatingChartApp:
 
         finally: shutil.rmtree(temp_dir) # Clean up temp directory
 
-
     def export_layout_as_image(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Export Image", "Enter password to export layout as image:"): return
@@ -3531,18 +3461,26 @@ class SeatingChartApp:
             # Determine current bounds of drawn items on canvas (in canvas coordinates)
             # This uses the scrollregion which should be set by draw_all_items
             s_region = self.canvas.cget("scrollregion")
+            print(s_region.split())
             if not s_region: # Fallback if scrollregion is not set (e.g. empty canvas)
                  x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()
             else:
-                try: x1,y1,x2,y2 = map(int, s_region.split())
-                except: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()
+                try: 
+                    v= s_region.split()
+                    x1 = float(v[0])
+                    y1 = float(v[1])
+                    x2 = float(v[2])
+                    y2 = float(v[3])
+                    #x1,y1,x2,y2 = map(int, s_region.split())
+                except Exception as e: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height(); print("excedpt", e)
 
             # Ensure x1, y1 are not negative for postscript (though typically they are 0 or positive)
             # If they are negative, it means content is scrolled left/up off screen.
             # We want to capture from the top-leftmost content.
+            print(y1)
             postscript_x_offset = -x1 if x1 < 0 else 0
             postscript_y_offset = -y1 if y1 < 0 else 0
-
+            print(postscript_y_offset)
             # Create PostScript of the entire scrollable region
             ps_io = io.BytesIO()
             self.canvas.postscript(
@@ -3557,8 +3495,12 @@ class SeatingChartApp:
 
             # Use PIL/Pillow to open the PostScript data and save as PNG
             # This requires Ghostscript to be installed and in PATH for PIL to use it
+            vtest = PIL.ImageFile._Tile('png', s_region.split(), 0 )
+            vtester = ps_io
+            print(EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester))
             try:
-                img = Image.open(ps_io)
+                img = EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
+                print("imp", img)
                 img.save(file_path, "png")
                 self.update_status(f"Layout exported as image: {os.path.basename(file_path)}")
                 if messagebox.askyesno("Export Successful", f"Layout image saved to:\n{file_path}\n\nDo you want to open the file location?", parent=self.root):
@@ -3569,13 +3511,14 @@ class SeatingChartApp:
                      messagebox.showerror("Image Export Error", "Failed to convert PostScript to image. Ghostscript might not be installed or found in your system's PATH. Please install Ghostscript to enable image export.", parent=self.root)
                 else:
                      messagebox.showerror("Image Export Error", f"Failed to save image: {e_pil}.\nEnsure you have image processing libraries like Pillow and its dependencies (e.g., Ghostscript for EPS/PS) installed.", parent=self.root)
+            #except Exception as e: print("e2", e)
             finally:
                 ps_io.close()
 
         except tk.TclError as e_tk:
             messagebox.showerror("Image Export Error", f"Tkinter error during PostScript generation: {e_tk}", parent=self.root)
         except Exception as e:
-            messagebox.showerror("Image Export Error", f"An unexpected error occurred: {e}", parent=self.root)
+            messagebox.showerror("Image Export Error", f"An unexpected error occurred: {e}", parent=self.root); print("e", e)
         finally:
             self.password_manager.record_activity()
 
@@ -3820,7 +3763,6 @@ class SeatingChartApp:
 
         return imported_student_count, imported_incident_count
 
-
     def import_students_from_excel_dialog(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Import", "Enter password to import from Excel:"): return
@@ -3843,8 +3785,6 @@ class SeatingChartApp:
                 self.update_status(f"Error during Excel import: {e}")
                 import traceback
                 traceback.print_exc()
-
-
 
     def save_layout_template_dialog(self):
         if self.password_manager.is_locked:
@@ -4107,8 +4047,6 @@ class SeatingChartApp:
             self.save_data_wrapper(source="assign_group_menu") # Save student data which now includes group_id
         self.password_manager.record_activity()
 
-
-
     def assign_students_to_group_via_menu(self, student_ids, group_id):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Assign Group", "Enter password to assign group:"): return
@@ -4135,9 +4073,6 @@ class SeatingChartApp:
                 self.save_data_wrapper(source="assign_group_menu") # Save student data which now includes group_id
         self.password_manager.record_activity()
 
-
-
-    
     def manage_student_groups_dialog(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Manage Groups", "Enter password to manage student groups:"): return
@@ -4171,7 +4106,10 @@ class SeatingChartApp:
             self.manage_groups_btn.config(state=tk.NORMAL if enabled else tk.DISABLED)
         self.draw_all_items(check_collisions_on_redraw=False) # Redraw to show/hide indicators
 
-
+    def toggle_manage_boxes_visibility(self):
+        if self.edit_mode_var.get() or self.settings.get("always_show_box_management", False): self.top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5), before=self.canvas_frame) # type: ignore
+        else: self.top_controls_frame_row2.pack_forget()
+            
     def manage_quiz_templates_dialog(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Manage Templates", "Enter password to manage quiz templates:"): return
@@ -4194,20 +4132,15 @@ class SeatingChartApp:
             self.update_status("Homework template management cancelled or no changes made.")
         self.password_manager.record_activity()
 
-
     def set_theme(self, theme, canvas_color):
-        if theme != "System":
-            sv_ttk.set_theme(theme)
-        else:
-            sv_ttk.set_theme(darkdetect.theme())
-
-        self.theme_style_using = theme
+        if theme != "System": sv_ttk.set_theme(theme)
+        else: sv_ttk.set_theme(darkdetect.theme())
         
+        self.theme_style_using = theme
         if canvas_color == "Default" or canvas_color == "" or canvas_color == None:
             canvas_color = None; self.custom_canvas_color = None
         else:
             self.custom_canvas_color = canvas_color
-            #print(self.custom_canvas_color)
             self.canvas_color = canvas_color
         
         if self.custom_canvas_color: self.canvas_color = self.custom_canvas_color
@@ -4216,23 +4149,16 @@ class SeatingChartApp:
         else: self.canvas_color = "lightgrey"
         self.canvas.configure(bg=self.canvas_color)
 
-    def theme_auto(self, theme):
-        #print(theme)
-        if self.theme_style_using != "System":
-            sv_ttk.set_theme(self.theme_style_using)
-        else:
-            sv_ttk.set_theme(darkdetect.theme())
-            #self.theme_style_using = darkdetect.theme()
+    def theme_auto(self, init=False):
+        if self.theme_style_using != "System": sv_ttk.set_theme(self.theme_style_using)
+        else: sv_ttk.set_theme(darkdetect.theme())
         
-        
-        if self.custom_canvas_color: self.canvas_color = self.custom_canvas_color
+        if self.custom_canvas_color != "Default": self.canvas_color = self.custom_canvas_color
         elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
         elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
         else: self.canvas_color = "lightgrey"
-        self.canvas.configure(bg=self.canvas_color)
-
-
-
+        if not init:
+            self.canvas.configure(bg=self.canvas_color) # type: ignore
 
     def open_settings_dialog(self):
         if self.password_manager.is_locked:
@@ -4254,6 +4180,7 @@ class SeatingChartApp:
             self.update_lock_button_state()
             self.toggle_student_groups_ui_visibility()
             self.set_theme(self.theme_style_using, self.custom_canvas_color)
+            self.toggle_manage_boxes_visibility()
             # Re-schedule autosave if interval changed
             self.root.after_cancel(self.autosave_data_wrapper) # Cancel existing if any (might need to store the after_id)
             self.root.after(self.settings.get("autosave_interval_ms", 30000), self.autosave_data_wrapper)
@@ -4512,10 +4439,8 @@ class SeatingChartApp:
             self.update_status(f"Error opening folder {folder_path}: {e}")
             messagebox.showerror("Error", f"Could not open folder: {e}\nPath: {folder_path}", parent=self.root)
 
-
     def show_help_dialog(self):
         HelpDialog(self.root, APP_VERSION)
-
 
     def on_exit_protocol(self, force_quit=False):
 
@@ -4563,18 +4488,6 @@ class SeatingChartApp:
     
 
 
-
-
-
-
-
-def get_calendar(locale, fwday):
-    # instantiate proper calendar class
-    if locale is None:
-        return calendar.TextCalendar(fwday)
-    else:
-        return calendar.LocaleTextCalendar(fwday, locale)
-
 # --- Main Execution ---
 if __name__ == "__main__":
     root = tk.Tk()
@@ -4588,13 +4501,12 @@ if __name__ == "__main__":
         #available_themes = style.theme_names() # ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative') on Windows
         # print("Available themes:", available_themes)
         sv_ttk.set_theme("Light")
-        #print("Startup")
         #if 'vista' in available_themes: style.theme_use('vista')
         #elif 'xpnative' in available_themes: style.theme_use('xpnative')
 
     except Exception as e_theme:
         print(f"Could not apply custom theme: {e_theme}")
-
+        
     app = SeatingChartApp(root)
     
     try:
