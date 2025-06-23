@@ -3045,9 +3045,10 @@ class SeatingChartApp:
 
         # Determine sheet strategy
         separate_sheets = filter_settings.get("separate_sheets_by_log_type", True) # type: ignore
+        master_log = filter_settings.get("include_master_log", True) if separate_sheets else False
         sheets_data = {} # {sheet_name: [entries]}
 
-        if separate_sheets:
+        if separate_sheets and not master_log:
             if filter_settings.get("include_behavior_logs", True): sheets_data["Behavior Log"] = []
             if filter_settings.get("include_quiz_logs", True): sheets_data["Quiz Log"] = []
             if filter_settings.get("include_homework_logs", True): sheets_data["Homework Log"] = [] # New
@@ -3056,6 +3057,17 @@ class SeatingChartApp:
                 if log_type == "behavior" and "Behavior Log" in sheets_data: sheets_data["Behavior Log"].append(entry)
                 elif log_type == "quiz" and "Quiz Log" in sheets_data: sheets_data["Quiz Log"].append(entry)
                 elif (log_type == "homework" or log_type == "homework_session_y" or log_type == "homework_session_s") and "Homework Log" in sheets_data: sheets_data["Homework Log"].append(entry)
+        elif separate_sheets and master_log:
+            if filter_settings.get("include_behavior_logs", True): sheets_data["Behavior Log"] = []
+            if filter_settings.get("include_quiz_logs", True): sheets_data["Quiz Log"] = []
+            if filter_settings.get("include_homework_logs", True): sheets_data["Homework Log"] = [] # New
+            if filter_settings.get("include_master_log", True): sheets_data["Master Log"] = [] # Newer
+            for entry in filtered_log:
+                log_type = entry.get("type")
+                if log_type == "behavior" and "Behavior Log" in sheets_data: sheets_data["Behavior Log"].append(entry)
+                elif log_type == "quiz" and "Quiz Log" in sheets_data: sheets_data["Quiz Log"].append(entry)
+                elif (log_type == "homework" or log_type == "homework_session_y" or log_type == "homework_session_s") and "Homework Log" in sheets_data: sheets_data["Homework Log"].append(entry)
+            sheets_data["Master Log"] = filtered_log
         else:
             sheets_data["Combined Log"] = filtered_log
 
@@ -3066,24 +3078,24 @@ class SeatingChartApp:
         right_alignment = OpenpyxlAlignment(horizontal='right', vertical='center', wrap_text=False)
 
         for sheet_name, entries_for_sheet in sheets_data.items():
-            if not entries_for_sheet and (sheet_name != "Combined Log" or not filtered_log) : continue # Skip empty specific sheets
+            if not entries_for_sheet and ((sheet_name != "Combined Log" or sheet_name != "Master Log") or not filtered_log) : continue # Skip empty specific sheets
 
             ws = wb.create_sheet(title=sheet_name)
             headers = ["Timestamp", "Date", "Time", "Day", "Student ID", "First Name", "Last Name"]
-            if sheet_name == "Behavior Log" or not separate_sheets: headers.append("Behavior")
-            if sheet_name == "Quiz Log" or not separate_sheets:
+            if sheet_name == "Behavior Log" or not separate_sheets or sheet_name == "Master Log": headers.append("Behavior")
+            if sheet_name == "Quiz Log" or not separate_sheets or sheet_name == "Master Log":
                 headers.extend(["Quiz Name", "Num Questions"])
                 # Add headers for each mark type (e.g., Correct, Incorrect, Bonus)
                 for mt in self.settings.get("quiz_mark_types", []): headers.append(mt["name"])
                 headers.append("Quiz Score (%)")
-            if sheet_name == "Homework Log" or not separate_sheets: # New headers for Homework
+            if sheet_name == "Homework Log" or not separate_sheets or sheet_name == "Master Log": # New headers for Homework
                 headers.extend(["Homework Type/Session Name", "Num Items"])
                 # Add headers for each homework mark type
                 for hmt in self.settings.get("homework_mark_types", []): headers.append(hmt["name"])
                 headers.extend(["Homework Score (Total Pts)", "Homework Effort"]) # Example summary fields
                 headers.extend(homework_session_types_headers)
             headers.append("Comment")
-            if not separate_sheets: headers.append("Log Type")
+            if not separate_sheets or sheet_name == "Master Log": headers.append("Log Type")
 
 
             for col_num, header_title in enumerate(headers, 1):
@@ -3107,9 +3119,9 @@ class SeatingChartApp:
 
                 entry_type = entry.get("type", "behavior")
 
-                if sheet_name == "Behavior Log" or (not separate_sheets and entry_type == "behavior"):
+                if sheet_name == "Behavior Log" or ((not separate_sheets or sheet_name == "Master Log") and entry_type == "behavior"):
                     ws.cell(row=row_num, column=col_num, value=entry.get("behavior")); col_num+=1
-                elif sheet_name == "Quiz Log" or (not separate_sheets and entry_type == "quiz"):
+                elif sheet_name == "Quiz Log" or ((not separate_sheets or sheet_name == "Master Log") and entry_type == "quiz"):
                     ws.cell(row=row_num, column=col_num, value=entry.get("behavior")); col_num+=1 # Quiz Name
                     num_q = entry.get("num_questions", 0); ws.cell(row=row_num, column=col_num, value=num_q).alignment = right_alignment; col_num+=1
                     marks_data = entry.get("marks_data", {})
@@ -3135,7 +3147,7 @@ class SeatingChartApp:
                         elif total_earned_points_for_calc + extra_credit_earned > 0 : # Scored only on EC or non-standard
                             score_percent = 100 # Or some other representation
                     ws.cell(row=row_num, column=col_num, value=round(score_percent,2) if score_percent else "").alignment = right_alignment; col_num+=1
-                elif sheet_name == "Homework Log" or (not separate_sheets and (entry_type == "homework" or entry_type == "homework_session_y" or entry_type == "homework_session_s")): # New Homework
+                elif sheet_name == "Homework Log" or ((not separate_sheets or sheet_name == "Master Log") and (entry_type == "homework" or entry_type == "homework_session_y" or entry_type == "homework_session_s")): # New Homework
                     ws.cell(row=row_num, column=col_num, value=entry.get("homework_type", entry.get("behavior"))); col_num+=1 # Homework Type/Session Name
                     num_items = entry.get("num_items") # For manually logged with marks
                     if entry.get("type") == "homework_session_s": # For live sessions
@@ -3145,15 +3157,23 @@ class SeatingChartApp:
                             num_items = len(homework_details.get("selected_options",[])) if isinstance(homework_details, dict) else 0
                     elif entry.get("type") == "homework_session_y":
                         num_items = None
+                    
+                    if separate_sheets and (sheet_name == "Combined Log") or sheet_name == "Master Log":
+                        col_num += len(headers)-(len(homework_session_types_headers))-(col_num)-10
                     ws.cell(row=row_num, column=col_num, value=num_items if num_items is not None else "").alignment = right_alignment; col_num+=1
                     total_hw_points = 0; effort_score_val = "" # For summary columns
                     if entry_type == "homework" and "marks_data" in entry: # Graded manual log
+                        
+                        #if separate_sheets and (sheet_name == "Combined Log") or sheet_name == "Master Log":
+                        #    col_num += len(headers)-(len(homework_session_types_headers))-(col_num)-9
+                        
                         hw_marks_data = entry.get("marks_data", {})
                         for hmt in self.settings.get("homework_mark_types", []):
                             val = hw_marks_data.get(hmt["id"], "")
                             ws.cell(row=row_num, column=col_num, value=val).alignment = right_alignment; col_num+=1
                             if isinstance(val, (int,float)): total_hw_points += val # Sum points if numeric
                             if hmt["id"] == "hmark_effort": effort_score_val = val # Capture effort score
+                            
                     elif entry_type == "homework_session_s" or entry_type == "homework_session_y": # Live session log
                         # For live sessions, fill placeholders for mark type columns or try to map
                         session_details = entry.get("homework_details", {})
@@ -3209,7 +3229,7 @@ class SeatingChartApp:
 
                 comment_col = headers.index("Comment") + 1
                 ws.cell(row=row_num, column=comment_col, value=entry.get("comment", "")).alignment = left_alignment
-                if not separate_sheets:
+                if not separate_sheets or sheet_name == "Master Log":
                     log_type_col = headers.index("Log Type") + 1
                     ws.cell(row=row_num, column=log_type_col, value=entry.get("type", "behavior").capitalize())
                 row_num += 1
@@ -3262,7 +3282,7 @@ class SeatingChartApp:
                     #print(s_homework_marks_data)
                     
                     # Add headers for each homework mark type
-                    for hmt in self.settings.get("homework_mark_types", []): student_headers.append(hmt["name"])
+                    #for hmt in self.settings.get("homework_mark_types", []): student_headers.append(hmt["name"])
                     
                     
                 if student_id not in student_worksheets:

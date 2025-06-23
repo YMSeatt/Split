@@ -234,7 +234,7 @@ class ExportFilterDialog(simpledialog.Dialog):
         bh_scroll.pack(side=tk.RIGHT, fill=tk.Y, pady=(0,3)); self.behavior_listbox.config(yscrollcommand=bh_scroll.set)
 
         # Homework Types (New)
-        homework_frame = ttk.LabelFrame(frame, text="Homework Types"); homework_frame.grid(pady=5,padx=5,column=0,row=2,rowspan=2, sticky="ew")
+        homework_frame = ttk.LabelFrame(frame, text="Homework Types"); homework_frame.grid(pady=5,padx=5,column=0,row=2,rowspan=2, sticky="new")
         self.homework_filter_var = tk.StringVar(value="all")
         ttk.Radiobutton(homework_frame, text="All Homework Types", variable=self.homework_filter_var, value="all", command=self.toggle_homework_list_state).pack(anchor=tk.W)
         ttk.Radiobutton(homework_frame, text="Selected Homework Types:", variable=self.homework_filter_var, value="specific", command=self.toggle_homework_list_state).pack(anchor=tk.W)
@@ -258,10 +258,14 @@ class ExportFilterDialog(simpledialog.Dialog):
 
         # Output Options
         output_options_frame = ttk.LabelFrame(frame, text="Excel Output Options"); output_options_frame.grid(pady=5, column=1,row=3, sticky="nsew")
-        self.separate_sheets_var = tk.BooleanVar(value=self.default_settings.get("excel_export_separate_sheets_by_default", True))
-        ttk.Checkbutton(output_options_frame, text="Separate sheets for Behavior, Quiz, Homework", variable=self.separate_sheets_var).pack(anchor=tk.W, padx=5)
         self.include_summaries_var = tk.BooleanVar(value=self.default_settings.get("excel_export_include_summaries_by_default", True))
+        self.separate_sheets_var = tk.BooleanVar(value=self.default_settings.get("excel_export_separate_sheets_by_default", True))
         ttk.Checkbutton(output_options_frame, text="Include summary sheet", variable=self.include_summaries_var).pack(anchor=tk.W, padx=5)
+        ttk.Checkbutton(output_options_frame, text="Separate sheets for Behavior, Quiz, Homework", variable=self.separate_sheets_var, command= self.toggle_master_log_btn).pack(anchor=tk.W, padx=5)
+        self.master_log_var = tk.BooleanVar(value=self.default_settings.get("excel_export_master_log_by_default", True))
+        self.master_log_btn = ttk.Checkbutton(output_options_frame, text="Include Master Log", variable=self.master_log_var)
+        self.master_log_btn.pack(anchor=tk.W, padx=5)
+        
 
         self.toggle_student_list_state(); self.toggle_behavior_list_state(); self.toggle_homework_list_state()
         return frame
@@ -270,7 +274,11 @@ class ExportFilterDialog(simpledialog.Dialog):
     def toggle_student_list_state(self): self.student_listbox.config(state=tk.NORMAL if self.student_filter_var.get() == "specific" else tk.DISABLED)
     def toggle_behavior_list_state(self): self.behavior_listbox.config(state=tk.NORMAL if self.behavior_filter_var.get() == "specific" else tk.DISABLED)
     def toggle_homework_list_state(self): self.homework_listbox.config(state=tk.NORMAL if self.homework_filter_var.get() == "specific" else tk.DISABLED)
-    
+    #def toggle_master_log_btn(self): self.master_log_btn.pack(anchor=tk.W, padx=5) if self.separate_sheets_var.get() == True else self.master_log_btn.pack_forget()
+    def toggle_master_log_btn(self): self.master_log_btn.configure(state='enabled') if self.separate_sheets_var.get() == True else self.master_log_btn.configure(state='disabled'); self.master_log_var.set(True)
+
+
+
     def apply(self):
         start_dt, end_dt = None, None
         try:
@@ -296,7 +304,8 @@ class ExportFilterDialog(simpledialog.Dialog):
             "include_quiz_logs": self.include_quiz_var.get(),
             "include_homework_logs": self.include_homework_var.get(), # New
             "separate_sheets_by_log_type": self.separate_sheets_var.get(),
-            "include_summaries": self.include_summaries_var.get()
+            "include_summaries": self.include_summaries_var.get(),
+            "include_master_log": self.master_log_var.get()
         }
 
 
