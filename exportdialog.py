@@ -8,14 +8,9 @@ import sys
 
 from datetime import datetime
 
-try:
-    from tkcalendar import DateEntry
-    from tkcalendar import DateEntryCustom
-except ImportError:
-    DateEntry = None
-    #DateEntryCustom = None
-    print("Warning: tkcalendar library not found. Date pickers in export filter will be simple text entries.")
-    print("Consider installing it: pip install tkcalendar")
+
+from tkcalendar import DateEntry
+from tkcalendar import DateEntryCustom
 
 
 
