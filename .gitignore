@@ -22,3 +22,5 @@ layout_templates/LayoutExport.png
 BehaviorLogger.lock
 layout_templates
 __pycache__
+__pycache__/commands.cpython-313.pyc
+__main__.py

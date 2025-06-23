@@ -5,6 +5,9 @@ import os
 import sys
 import subprocess
 from datetime import datetime, timedelta, date as datetime_date
+from typing import IO
+import PIL.EpsImagePlugin
+import PIL.ImageFile
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
 from openpyxl.utils import get_column_letter
@@ -14,8 +17,7 @@ import zipfile
 import csv
 import PIL
 from PIL import Image
-import PIL.ImageFile
-from PIL import EpsImagePlugin
+from pyscreeze import PILLOW_VERSION
 from settingsdialog import SettingsDialog
 from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
@@ -32,6 +34,7 @@ import darkdetect # For dark mode detection
 import threading
 import io
 import tempfile
+from io import BytesIO
 try:
     if sys.platform == "win32":
         import win32gui
@@ -3497,10 +3500,11 @@ class SeatingChartApp:
             # This requires Ghostscript to be installed and in PATH for PIL to use it
             vtest = PIL.ImageFile._Tile('png', s_region.split(), 0 )
             vtester = ps_io
-            print(EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester))
+            #print(EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester))
             try:
-                img = EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
+                img = Image.open("C:\\Users\\Yaakov M\\Jaffe Project\\Split\\_io.BytesIO object at 0x000001A358002CF0") #EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
                 print("imp", img)
+                PIL.EpsImagePlugin._save(img, ps_io, file_path)#(file_path, "png")
                 img.save(file_path, "png")
                 self.update_status(f"Layout exported as image: {os.path.basename(file_path)}")
                 if messagebox.askyesno("Export Successful", f"Layout image saved to:\n{file_path}\n\nDo you want to open the file location?", parent=self.root):
@@ -3511,7 +3515,7 @@ class SeatingChartApp:
                      messagebox.showerror("Image Export Error", "Failed to convert PostScript to image. Ghostscript might not be installed or found in your system's PATH. Please install Ghostscript to enable image export.", parent=self.root)
                 else:
                      messagebox.showerror("Image Export Error", f"Failed to save image: {e_pil}.\nEnsure you have image processing libraries like Pillow and its dependencies (e.g., Ghostscript for EPS/PS) installed.", parent=self.root)
-            #except Exception as e: print("e2", e)
+            except Exception as e: print("e2", e)
             finally:
                 ps_io.close()
 
