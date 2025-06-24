@@ -46,20 +46,7 @@
                 "\u05de\u05e8\u05d3\u05db\u05d9 \u05e2\u05d5\u05d6\u05e8 \u05d4\u05dc\u05d5\u05d9",
                 "Sofer"
             ],
-            "incident_display_lines": [
-                {
-                    "text": "Off Task",
-                    "type": "incident"
-                },
-                {
-                    "text": "--- Homework ---",
-                    "type": "separator"
-                },
-                {
-                    "text": "Homework Check",
-                    "type": "homework_log"
-                }
-            ],
+            "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -84,12 +71,7 @@
                 "\u05d0\u05dc\u05d9\u05e2\u05d6\u05e8 \u05d4\u05dc\u05d5",
                 "Levin"
             ],
-            "incident_display_lines": [
-                {
-                    "text": "Uneasy",
-                    "type": "incident"
-                }
-            ],
+            "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -114,12 +96,7 @@
                 "\u05d9\u05d5\u05d0\u05dc",
                 "Fass"
             ],
-            "incident_display_lines": [
-                {
-                    "text": "Off Task",
-                    "type": "incident"
-                }
-            ],
+            "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -169,12 +146,7 @@
                 "\u05d3\u05e0\u05d9\u05d0\u05dc",
                 "Frost"
             ],
-            "incident_display_lines": [
-                {
-                    "text": "Off Task",
-                    "type": "incident"
-                }
-            ],
+            "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -324,20 +296,7 @@
                 "\u05d0\u05d1\u05e8\u05d4\u05dd \u05d0\u05d4\u05e8\u05df \u05d3\u05d5\u05d1",
                 "Fogel"
             ],
-            "incident_display_lines": [
-                {
-                    "text": "Project Work",
-                    "type": "homework_log"
-                },
-                {
-                    "text": "Homework Check",
-                    "type": "homework_log"
-                },
-                {
-                    "text": "Worksheet",
-                    "type": "homework_log"
-                }
-            ],
+            "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -562,12 +521,7 @@
                 "\u05d1\u05e8\u05d5\u05da",
                 "Teller"
             ],
-            "incident_display_lines": [
-                {
-                    "text": "Homework Check",
-                    "type": "homework_log"
-                }
-            ],
+            "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -692,16 +646,7 @@
                 "\u05de\u05e9\u05d4 \u05d1\u05d5\u05e0\u05d9\u05dd",
                 "Rotkin"
             ],
-            "incident_display_lines": [
-                {
-                    "text": "Homework Check",
-                    "type": "homework_log"
-                },
-                {
-                    "text": "Project Work",
-                    "type": "homework_log"
-                }
-            ],
+            "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -729,6 +674,50 @@
             "incident_display_lines": [],
             "_current_world_height": 145,
             "_current_world_width": 200
+        },
+        "student_28": {
+            "first_name": "Yaakov",
+            "last_name": "Maimon",
+            "nickname": "",
+            "full_name": "Yaakov Maimon",
+            "gender": "Boy",
+            "x": 860,
+            "y": 580,
+            "id": "student_28",
+            "width": 200,
+            "height": 145,
+            "original_next_id_num_after_add": 29,
+            "group_id": null,
+            "style_overrides": {},
+            "display_lines": [
+                "Yaakov",
+                "Maimon"
+            ],
+            "incident_display_lines": [],
+            "_current_world_height": 145,
+            "_current_world_width": 200
+        },
+        "student_29": {
+            "first_name": "Yaakov",
+            "last_name": "Haleva",
+            "nickname": "",
+            "full_name": "Yaakov Haleva",
+            "gender": "Boy",
+            "x": 1080,
+            "y": 580,
+            "id": "student_29",
+            "width": 200,
+            "height": 145,
+            "original_next_id_num_after_add": 30,
+            "group_id": null,
+            "style_overrides": {},
+            "display_lines": [
+                "Yaakov",
+                "Haleva"
+            ],
+            "incident_display_lines": [],
+            "_current_world_height": 145,
+            "_current_world_width": 200
         }
     },
     "furniture": {
@@ -736,7 +725,7 @@
             "name": "Desk",
             "type": "Rebbi's Desk",
             "x": 860,
-            "y": 580,
+            "y": 620,
             "id": "furniture_1",
             "width": 420,
             "height": 250,
@@ -1497,8 +1486,8 @@
         "reverse_homework_order": true,
         "selected_recent_homeworks_filter": null,
         "autosave_interval_ms": 150000,
-        "default_student_box_width": 130,
-        "default_student_box_height": 80,
+        "default_student_box_width": 200,
+        "default_student_box_height": 145,
         "student_box_fill_color": "skyblue",
         "student_box_outline_color": "blue",
         "student_font_family": "TkDefaultFont",
@@ -1978,11 +1967,11 @@
         "live_homework_score_font_color": "purple",
         "live_homework_score_font_style_bold": true,
         "app_password_hash": null,
-        "password_on_open": false,
-        "password_on_edit_action": false,
-        "password_auto_lock_enabled": false,
+        "password_on_open": true,
+        "password_on_edit_action": true,
+        "password_auto_lock_enabled": true,
         "password_auto_lock_timeout_minutes": 15,
-        "next_student_id_num": 28,
+        "next_student_id_num": 30,
         "next_furniture_id_num": 2,
         "next_group_id_num": 1,
         "next_quiz_template_id_num": 1,
@@ -1994,13 +1983,14 @@
         "_last_used_homework_name_for_session": "",
         "_last_used_homework_name_timestamp_for_session": null,
         "_last_used_hw_items_for_session": 5,
-        "theme": "Light",
+        "theme": "System",
         "homework_log": [],
         "canvas_color": "Default",
         "excel_export_separate_sheets_by_default": true,
         "excel_export_include_summaries_by_default": true,
         "enable_excel_autosave": true,
-        "always_show_box_management": false
+        "always_show_box_management": false,
+        "check_for_collisions": false
     },
     "last_excel_export_path": "C:/Users/Yaakov M/Jaffe Project/behavior_log_export_20250614_235426.xlsx",
     "_per_student_last_cleared": {},
@@ -22193,40 +22183,375 @@
                 },
                 "student_id": "student_4"
             }
-        }
-    ],
-    "redo_stack": [
+        },
         {
             "type": "MoveItemsCommand",
-            "timestamp": "2025-06-23T09:04:51.918209",
+            "timestamp": "2025-06-24T13:04:49.001492",
             "data": {
                 "items_moves": [
                     {
-                        "id": "student_2",
+                        "id": "student_21",
                         "type": "student",
-                        "old_x": 860,
-                        "old_y": 100,
+                        "old_x": 1080,
+                        "old_y": 408.0,
+                        "new_x": 1080,
+                        "new_y": 260
+                    }
+                ]
+            }
+        },
+        {
+            "type": "AddItemCommand",
+            "timestamp": "2025-06-24T13:05:05.996133",
+            "data": {
+                "item_id": "student_28",
+                "item_type": "student",
+                "item_data": {
+                    "first_name": "Yaakov",
+                    "last_name": "Maimon",
+                    "nickname": "",
+                    "full_name": "Yaakov Maimon",
+                    "gender": "Boy",
+                    "x": 190.0,
+                    "y": 90.0,
+                    "id": "student_28",
+                    "width": 200,
+                    "height": 145,
+                    "original_next_id_num_after_add": 29,
+                    "group_id": null,
+                    "style_overrides": {}
+                },
+                "old_next_id_num": 28
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:09.105292",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_28",
+                        "type": "student",
+                        "old_x": 190.0,
+                        "old_y": 90.0,
                         "new_x": 580,
-                        "new_y": 100
+                        "new_y": 260
                     }
                 ]
             }
         },
         {
             "type": "MoveItemsCommand",
-            "timestamp": "2025-06-23T09:04:51.922418",
+            "timestamp": "2025-06-24T13:05:21.937932",
             "data": {
                 "items_moves": [
                     {
-                        "id": "student_7",
+                        "id": "student_29",
+                        "type": "student",
+                        "old_x": 210.0,
+                        "old_y": 730.0,
+                        "new_x": 210.0,
+                        "new_y": 890.0
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:21.930612",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_29",
+                        "type": "student",
+                        "old_x": 210.0,
+                        "old_y": 570.0,
+                        "new_x": 210.0,
+                        "new_y": 730.0
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:21.919997",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_29",
+                        "type": "student",
+                        "old_x": 210.0,
+                        "old_y": 410.0,
+                        "new_x": 210.0,
+                        "new_y": 570.0
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:21.913399",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_29",
+                        "type": "student",
+                        "old_x": 210.0,
+                        "old_y": 250.0,
+                        "new_x": 210.0,
+                        "new_y": 410.0
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:21.910471",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_29",
+                        "type": "student",
+                        "old_x": 210.0,
+                        "old_y": 90.0,
+                        "new_x": 210.0,
+                        "new_y": 250.0
+                    }
+                ]
+            }
+        },
+        {
+            "type": "AddItemCommand",
+            "timestamp": "2025-06-24T13:05:21.896266",
+            "data": {
+                "item_id": "student_29",
+                "item_type": "student",
+                "item_data": {
+                    "first_name": "Yaakov",
+                    "last_name": "Haleva",
+                    "nickname": "",
+                    "full_name": "Yaakov Haleva",
+                    "gender": "Boy",
+                    "x": 210.0,
+                    "y": 90.0,
+                    "id": "student_29",
+                    "width": 200,
+                    "height": 145,
+                    "original_next_id_num_after_add": 30,
+                    "group_id": null,
+                    "style_overrides": {}
+                },
+                "old_next_id_num": 29
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:26.969234",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_29",
+                        "type": "student",
+                        "old_x": 210.0,
+                        "old_y": 890.0,
+                        "new_x": 580,
+                        "new_y": 420
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:42.249264",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_29",
                         "type": "student",
                         "old_x": 580,
-                        "old_y": 100,
-                        "new_x": 580,
-                        "new_y": 250
+                        "old_y": 420,
+                        "new_x": 1060,
+                        "new_y": 600
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:43.857585",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 860,
+                        "old_y": 580,
+                        "new_x": 820,
+                        "new_y": 600
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:45.450094",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 820,
+                        "old_y": 600,
+                        "new_x": 860,
+                        "new_y": 740
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:46.625525",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 860,
+                        "old_y": 740,
+                        "new_x": 860,
+                        "new_y": 560
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:48.233283",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 860,
+                        "old_y": 560,
+                        "new_x": 520,
+                        "new_y": 200
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:50.521511",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 520,
+                        "old_y": 200,
+                        "new_x": 880,
+                        "new_y": 600
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:52.169241",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 880,
+                        "old_y": 600,
+                        "new_x": 860,
+                        "new_y": 800
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:53.985301",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 860,
+                        "old_y": 800,
+                        "new_x": 860,
+                        "new_y": 660
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:56.001289",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_28",
+                        "type": "student",
+                        "old_x": 580,
+                        "old_y": 260,
+                        "new_x": 860,
+                        "new_y": 600
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:58.257521",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_29",
+                        "type": "student",
+                        "old_x": 1060,
+                        "old_y": 600,
+                        "new_x": 1080,
+                        "new_y": 580
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:05:59.849533",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_28",
+                        "type": "student",
+                        "old_x": 860,
+                        "old_y": 600,
+                        "new_x": 860,
+                        "new_y": 580
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-24T13:06:01.857269",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "furniture_1",
+                        "type": "furniture",
+                        "old_x": 860,
+                        "old_y": 660,
+                        "new_x": 860,
+                        "new_y": 620
                     }
                 ]
             }
         }
-    ]
+    ],
+    "redo_stack": []
 }

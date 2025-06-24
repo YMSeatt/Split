@@ -572,7 +572,7 @@ class SeatingChartApp:
 
     def undo_last_action(self):
         if self.password_manager.is_locked:
-            if not self.prompt_for_password("Unlock Required", "Enter password to undo action:"): return
+            if not self.prompt_for_password("Unlock Required", "Enter password to undo action:"): return # type: ignore
         if self.undo_stack:
             command = self.undo_stack.pop()
             try:
@@ -1271,7 +1271,7 @@ class SeatingChartApp:
                     
             
             if self.settings.get("conditonal_formatting_rules") != []:
-                #pass
+
                 for rule in self.settings.get("conditional_formatting_rules", []):
                     if self.applies_to_conditional(student_id, rule):
                         
@@ -1279,9 +1279,6 @@ class SeatingChartApp:
                         if "outline" in rule and rule["outline"]: outline_color_orig = rule["outline"]
                         break
             
-                    
-                    
-
             name_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight="bold")
             incident_font_obj = tkfont.Font(family=font_family, size=max(5, font_size_canvas -1))
             quiz_score_font_color_setting = self.settings.get("live_quiz_score_font_color")
@@ -1295,8 +1292,7 @@ class SeatingChartApp:
             hw_score_font_weight = "bold" if hw_score_font_bold_setting else "normal"
             hw_score_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight=hw_score_font_weight)
             hw_score_item_font_obj = tkfont.Font(family=font_family, size=max(5, font_size_canvas -1), weight=hw_score_font_weight) # Slightly smaller for items
-
-
+            
             self.canvas.delete(student_id)
             rect_tag = ("student_item", student_id, "rect")
 
@@ -1390,7 +1386,7 @@ class SeatingChartApp:
                 self.canvas.create_rectangle(br_x - handle_size_canvas/2, br_y - handle_size_canvas/2,
                                              br_x + handle_size_canvas/2, br_y + handle_size_canvas/2,
                                              fill="gray", outline="black", tags=("student_item", student_id, "resize_handle", "br_handle"))
-            if check_collisions: self.handle_layout_collision(student_id)
+            if check_collisions and self.settings.get("check_for_collisions", True): self.handle_layout_collision(student_id)
         except AttributeError: pass # Canvas might not be fully initialized during early calls
 
     def draw_single_furniture(self, furniture_id):
@@ -1703,7 +1699,6 @@ class SeatingChartApp:
         self.drag_data["y"] = world_event_y
         self.password_manager.record_activity()
 
-
     def on_canvas_release(self, event):
         # ... (largely same as v51, but uses start_x_world/start_y_world for move calculations)
         if self.password_manager.is_locked: return
@@ -1903,6 +1898,7 @@ class SeatingChartApp:
     def select_all_students(self): self._select_items_by_type("students")
     def select_all_furniture(self): self._select_items_by_type("furniture")
     def select_all_items(self): self._select_items_by_type("all")
+    
     def deselect_all_items(self):
         # ... (same as v51)
         if self.password_manager.is_locked: pass

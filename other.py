@@ -410,6 +410,7 @@ Remember to save your settings after making changes!
 - The 'Export Layout as Image' function currently only takes a screenshot of the entire window. Hopefully soon I will be able to make it functional.
 - I am still working on the homework logging and exporting - so expect to see more features, and don't be surprised if something doesn't work as expected.
 - The Conditional Formatting feature currently doesn't work for quizzes. If you have two rules that apply to the same student box, the first one will take precedent.
+- If you are trying to undo or redo a move of a box and the program keeps saying "Adjusted layout for _ items due to overlap with _______." you may need to turn off checking for collisions on box move in settings (General Tab).
     -Yaakov Maimon
 """        
         remarks_text = tk.Text(remarks_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))

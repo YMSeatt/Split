@@ -240,24 +240,31 @@ class SettingsDialog(simpledialog.Dialog):
         self.show_management_var = tk.BooleanVar(value=self.settings.get("always_show_box_management", False))
         ttk.Checkbutton(lf, text="Always show box management tools", variable=self.show_management_var).grid(row=5, column=0, columnspan=2, sticky='W', padx=5, pady=3)
 
+
+        # Check for collisions on redraw
+        self.check_for_collisions_var = tk.BooleanVar(value=self.settings.get("check_for_collisions", True))
+        ttk.Checkbutton(lf, text="Check for collisions on box move", variable=self.check_for_collisions_var).grid(row=6, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+
+
+
         # Max Undo History Days
-        ttk.Label(lf, text="Max Undo History (days):").grid(row=7, column=0, sticky=tk.W, padx=5, pady=3)
+        ttk.Label(lf, text="Max Undo History (days):").grid(row=10, column=0, sticky=tk.W, padx=5, pady=3)
         self.max_undo_days_var = tk.IntVar(value=self.settings.get("max_undo_history_days", MAX_UNDO_HISTORY_DAYS))
-        ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5).grid(row=7, column=1, sticky=tk.W, padx=5, pady=3)
+        ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5).grid(row=10, column=1, sticky=tk.W, padx=5, pady=3)
         
         # Theme
-        ttk.Label(lf, text = "Theme: ").grid(row=8,column=0,sticky='W', padx=5, pady=3)
+        ttk.Label(lf, text = "Theme: ").grid(row=12,column=0,sticky='W', padx=5, pady=3)
         
         theme_combo = ttk.Combobox(lf, values = THEME_LIST, textvariable= self.theme, state='readonly')
-        theme_combo.grid(row=8, column=1, sticky="W", padx=5, pady=3)
+        theme_combo.grid(row=12, column=1, sticky="W", padx=5, pady=3)
         theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
         theme_combo.set(self.theme.get())
         
         # Canvas Color
-        ttk.Label(lf, text = "Canvas color (background): ").grid(row=9,column=0,sticky='W', padx=5, pady=3)
+        ttk.Label(lf, text = "Canvas color (background): ").grid(row=13,column=0,sticky='W', padx=5, pady=3)
         
         canvas_color_entry = ttk.Entry(lf, textvariable= self.custom_canvas_color)
-        canvas_color_entry.grid(row=9, column=1, sticky="W", padx=5, pady=3)
+        canvas_color_entry.grid(row=13, column=1, sticky="W", padx=5, pady=3)
         
         
         #ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
@@ -273,11 +280,15 @@ class SettingsDialog(simpledialog.Dialog):
             #print("Hi2", self.custom_canvas_color.get())
             #print(self.custom_canvas_color)
             self.custom2 = tk.StringVar(value=self.custom_canvas_color.get())
-        ttk.Button(lf, text="Choose...", command=lambda v=self.custom_canvas_color: self.choose_color_for_canvas(v)).grid(row=7,column=2,sticky=tk.W,padx=2,pady=3)
-        ttk.Button(lf, text="Default", command=lambda v=self.custom_canvas_color: self.reset_canvas_color(v)).grid(row=7,column=3, sticky='W', padx=5, pady=3)
+        ttk.Button(lf, text="Choose...", command=lambda v=self.custom_canvas_color: self.choose_color_for_canvas(v)).grid(row=13,column=2,sticky=tk.W,padx=2,pady=3)
+        ttk.Button(lf, text="Default", command=lambda v=self.custom_canvas_color: self.reset_canvas_color(v)).grid(row=13,column=3, sticky='W', padx=5, pady=3)
         #theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
         #theme_combo.set(self.theme.get())
         #print(self.theme.get(), "initlial")
+        
+        
+        
+        
 
     def create_student_display_tab(self, tab_frame):
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
@@ -925,6 +936,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.app.theme_style_using = self.theme2
         self.app.custom_canvas_color = self.custom_canvas_color.get()
         self.settings["always_show_box_management"] = self.show_management_var.get()
+        self.settings["check_for_collisions"] = self.check_for_collisions_var.get()
         #print("Theme2", self.theme2)
         #print(self.theme.get(), "Get")
         # Student Display Tab
