@@ -1,3 +1,4 @@
+#from selectors import EpollSelector
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog, font as tkfont
 import json
@@ -33,6 +34,7 @@ import darkdetect # For dark mode detection
 # Conditional import for platform-specific screenshot capability
 import threading
 import io
+import _io
 import tempfile
 from io import BytesIO
 try:
@@ -138,6 +140,7 @@ STUDENT_GROUPS_FILE = get_app_data_path(STUDENT_GROUPS_FILE_PATTERN)
 QUIZ_TEMPLATES_FILE = get_app_data_path(QUIZ_TEMPLATES_FILE_PATTERN)
 HOMEWORK_TEMPLATES_FILE = get_app_data_path(HOMEWORK_TEMPLATES_FILE_PATTERN) # New
 LOCK_FILE_PATH = get_app_data_path(f"{APP_NAME}.lock") # Lock file
+IMAGENAMEW = "export_layout_as_image_helper"
 
 if not os.path.exists(LAYOUT_TEMPLATES_DIR):
     os.makedirs(LAYOUT_TEMPLATES_DIR, exist_ok=True)
@@ -1494,8 +1497,16 @@ class SeatingChartApp:
 
     def world_to_canvas_coords(self, world_x, world_y):
         return world_x * self.current_zoom_level, world_y * self.current_zoom_level
+    
+    
     def canvas_to_world_coords(self, canvas_x_on_screen, canvas_y_on_screen):
+        
+        
         if self.current_zoom_level == 0: return canvas_x_on_screen, canvas_y_on_screen
+        
+        #if not self.canvas.isscrolled(): return canvas_x_on_screen, canvas_y_on_screen
+        
+        
         true_canvas_x = self.canvas.canvasx(canvas_x_on_screen)
         true_canvas_y = self.canvas.canvasy(canvas_y_on_screen)
         return true_canvas_x / self.current_zoom_level, true_canvas_y / self.current_zoom_level
@@ -1562,7 +1573,7 @@ class SeatingChartApp:
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Select", "Enter password to select items:"): return
         world_click_x, world_click_y = self.canvas_to_world_coords(event.x, event.y)
-        item_canvas_ids = self.canvas.find_overlapping(event.x -1, event.y -1, event.x +1, event.y+1) # Use screen coords
+        item_canvas_ids = self.canvas.find_overlapping(world_click_x -1, world_click_y -1, world_click_x +1, world_click_y+1) # Use screen coords
         topmost_item_id, topmost_item_type = None, None
         for item_c_id in reversed(item_canvas_ids):
             tags = self.canvas.gettags(item_c_id); current_item_id, current_item_type = None, None
@@ -3486,25 +3497,29 @@ class SeatingChartApp:
             print(postscript_y_offset)
             # Create PostScript of the entire scrollable region
             ps_io = io.BytesIO()
+            timestamp = str(IMAGENAMEW)
             self.canvas.postscript(
                 x=x1 + postscript_x_offset,
                 y=y1 + postscript_y_offset,
                 width=x2 - x1, # Width of the scrollable area
                 height=y2 - y1, # Height of the scrollable area
                 colormode='color',
-                file=ps_io # Write to BytesIO object
+                file=(timestamp) # Write to BytesIO object
             )
             ps_io.seek(0)
-
+            print(ps_io)
+            print(os.path.abspath(timestamp))
             # Use PIL/Pillow to open the PostScript data and save as PNG
             # This requires Ghostscript to be installed and in PATH for PIL to use it
-            vtest = PIL.ImageFile._Tile('png', s_region.split(), 0 )
-            vtester = ps_io
+            #vtest = PIL.ImageFile._Tile('png', s_region.split(), 0 )
+            #vtester = ps_io
             #print(EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester))
             try:
-                img = Image.open("C:\\Users\\Yaakov M\\Jaffe Project\\Split\\_io.BytesIO object at 0x000001A358002CF0") #EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
+                img = Image.open(os.path.abspath(timestamp)) #EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
                 print("imp", img)
-                PIL.EpsImagePlugin._save(img, ps_io, file_path)#(file_path, "png")
+                img2 = PIL #(file_path, "png")
+                #cmd = f"magick {os.path.abspath(timestamp)} {file_path}.png"
+                #subprocess.Popen(cmd)
                 img.save(file_path, "png")
                 self.update_status(f"Layout exported as image: {os.path.basename(file_path)}")
                 if messagebox.askyesno("Export Successful", f"Layout image saved to:\n{file_path}\n\nDo you want to open the file location?", parent=self.root):
@@ -3518,6 +3533,8 @@ class SeatingChartApp:
             except Exception as e: print("e2", e)
             finally:
                 ps_io.close()
+                #import os
+                
 
         except tk.TclError as e_tk:
             messagebox.showerror("Image Export Error", f"Tkinter error during PostScript generation: {e_tk}", parent=self.root)
@@ -4472,18 +4489,26 @@ class SeatingChartApp:
                 if dialog.result == "save_quit":
                     self.save_data_wrapper(source="exit_protocol")
                     self.root.destroy()
+                    try:os.remove(os.path.abspath(IMAGENAMEW))
+                    except FileNotFoundError: pass
                     sys.exit(0) # Ensure clean exit
                 elif dialog.result == "no_save_quit":
                     #if self.file_lock_manager: self.file_lock_manager.release_lock()
                     self.update_status("Exited without saving.")
                     self.root.destroy()
+                    try:os.remove(os.path.abspath(IMAGENAMEW))
+                    except FileNotFoundError: pass
                     sys.exit(0) # Ensure clean exit
             else: # Force quit (e.g. after save_and_quit or if lock fails)
                 self.root.destroy()
+                try:os.remove(os.path.abspath(IMAGENAMEW))
+                except FileNotFoundError: pass
                 sys.exit(0) # Ensure clean exit # Data should have been saved by save_and_quit if called from there
         except Exception as e:
             print(f"Error during exit procedure: {e}") # Log error but proceed with exit
             self.root.destroy()
+            try:os.remove(os.path.abspath(IMAGENAMEW))
+            except FileNotFoundError: pass
             sys.exit(0) # Ensure clean exit
         #finally:
         #    
