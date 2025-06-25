@@ -289,6 +289,12 @@ class SeatingChartApp:
         self.canvas_orig_width = 2000
         self.canvas_orig_height = 1500
         self.custom_canvas_color = None
+        
+        self.zoom_level = 1.0
+        self.pan_x = 0.0
+        self.pan_y = 0.0
+        
+        
         self.theme_auto(init=True)
         self.load_custom_behaviors()
         self.load_custom_homework_types() # NEW
@@ -1754,8 +1760,16 @@ class SeatingChartApp:
             self.execute_command(MoveItemsCommand(self, items_to_shift_data))
             self.update_status(f"Adjusted layout for {len(items_to_shift_data)} items due to overlap with {moved_item_data['full_name']}.")
 
+    """def world_to_canvas_coords(self, world_x, world_y):
+        return world_x * self.current_zoom_level, world_y * self.current_zoom_level"""
     def world_to_canvas_coords(self, world_x, world_y):
-        return world_x * self.current_zoom_level, world_y * self.current_zoom_level
+        """
+        Converts world coordinates to the "infinite" virtual canvas coordinates
+        for drawing. This is the forward transformation.
+        """
+        canvas_x = (world_x * self.current_zoom_level) + self.pan_x
+        canvas_y = (world_y * self.current_zoom_level) + self.pan_y
+        return canvas_x, canvas_y
     
     """
     def canvas_to_world_coords(self, canvas_x_on_screen, canvas_y_on_screen):
@@ -1782,25 +1796,18 @@ class SeatingChartApp:
     
     def canvas_to_world_coords(self, screen_x, screen_y):
         """
-        Converts screen coordinates (e.g., from a mouse event on the canvas)
-        to the logical world coordinates.
-    
-        This function correctly handles both scrolling and zooming.
+        Converts screen coordinates to world coordinates, accounting for
+        pan, zoom, and canvas scrolling.
         """
-        # Step 1: Convert screen coordinates to "true" canvas coordinates.
-        # The canvas.canvasx() and canvas.canvasy() methods automatically
-        # account for the current scroll position. If you haven't scrolled,
-        # they still work correctly and return the original coordinates.
-        # This is the "true_canvas_x" you were thinking of.
+        # Step 1: Account for canvas scrolling (if any)
+        # This gives the coordinate on the "infinite" virtual canvas
         true_canvas_x = self.canvas.canvasx(screen_x)
         true_canvas_y = self.canvas.canvasy(screen_y)
-    
-        # Step 2: Convert "true" canvas coordinates to world coordinates.
-        # This accounts for the zoom level. If items in the world were
-        # scaled up by self.zoom_level to be drawn on the canvas, we must
-        # scale down by dividing to get back to the original world coordinates.
-        world_x = true_canvas_x / self.current_zoom_level
-        world_y = true_canvas_y / self.current_zoom_level
+
+        # Step 2: Account for panning and zooming (the inverse of drawing)
+        # This is the crucial step you were missing.
+        world_x = (true_canvas_x - self.pan_x) / self.zoom_level
+        world_y = (true_canvas_y - self.pan_y) / self.zoom_level
 
         return world_x, world_y
     
