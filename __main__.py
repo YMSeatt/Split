@@ -458,6 +458,7 @@ class SeatingChartApp:
             "_last_used_homework_name_timestamp_for_session": None, # New
             "_last_used_hw_items_for_session": 5, # 
             "theme": "System", # Newer
+            "enable_text_background_panel": True, # Default for the new setting
         }
 
    
@@ -1458,11 +1459,76 @@ class SeatingChartApp:
                                                  width=max(1, int(1 * self.current_zoom_level)), # Thinner outline for stripes
                                                  tags=rect_tag + (f"stripe_{i}",))
 
-            # --- Text Drawing (Background Panel Removed) ---
+            # --- Text Drawing ---
             current_y_text_draw_canvas = canvas_y + canvas_padding
             available_text_width_canvas = canvas_width - 2 * canvas_padding
 
-            # Draw Name Lines
+            if self.settings.get("enable_text_background_panel", True):
+                text_panel_fill = "#F0F0F0" # Light gray for text background
+                text_panel_internal_padding = 2 * self.current_zoom_level # Small padding around text within its panel
+
+                # Panel for Name Lines
+                name_lines_content_for_panel = student_data.get("display_lines", [])
+                if name_lines_content_for_panel:
+                    name_block_height_canvas = 0
+                    max_name_width_pixels = 0
+                    for name_line_text_calc in name_lines_content_for_panel:
+                        name_block_height_canvas += name_font_obj.metrics('linespace')
+                        max_name_width_pixels = max(max_name_width_pixels, name_font_obj.measure(name_line_text_calc))
+
+                    name_panel_width = min(max_name_width_pixels + 2 * text_panel_internal_padding, available_text_width_canvas - 2 * text_panel_internal_padding)
+                    name_panel_height = name_block_height_canvas
+
+                    name_panel_x0 = canvas_x + (canvas_width - name_panel_width) / 2
+                    name_panel_y0 = (canvas_y + canvas_padding) - text_panel_internal_padding
+                    name_panel_x1 = name_panel_x0 + name_panel_width
+                    name_panel_y1 = name_panel_y0 + name_panel_height + 2 * text_panel_internal_padding
+
+                    if name_panel_y1 < (canvas_y + canvas_dynamic_height - canvas_padding * 0.5):
+                        self.canvas.create_rectangle(name_panel_x0, name_panel_y0, name_panel_x1, name_panel_y1,
+                                                     fill=text_panel_fill, outline="",
+                                                     tags=("student_item", student_id, "text_background_name"))
+
+                # Panel for Incident/Score Lines
+                incident_lines_content_for_panel = student_data.get("incident_display_lines", [])
+                if incident_lines_content_for_panel:
+                    incident_block_start_y_for_panel = (canvas_y + canvas_padding) + \
+                                                       sum(name_font_obj.metrics('linespace') for _ in name_lines_content_for_panel) + \
+                                                       (canvas_padding / 2 if name_lines_content_for_panel else 0)
+                    incident_block_height_canvas = 0
+                    max_incident_width_pixels = 0
+
+                    for line_info_calc in incident_lines_content_for_panel:
+                        line_text_calc, line_type_calc = line_info_calc["text"], line_info_calc["type"]
+                        current_font_for_calc = incident_font_obj
+                        if line_type_calc == "quiz_score": current_font_for_calc = quiz_score_font_obj
+                        elif line_type_calc == "homework_score_header": current_font_for_calc = hw_score_font_obj
+                        elif line_type_calc == "homework_score_item": current_font_for_calc = hw_score_item_font_obj
+                        elif line_type_calc == "separator": current_font_for_calc = tkfont.Font(family=font_family, size=max(4, int((font_size_world-2)*self.current_zoom_level)))
+
+                        text_width_pixels_canvas_calc = current_font_for_calc.measure(line_text_calc)
+                        available_incident_text_width_calc = available_text_width_canvas - (text_panel_internal_padding if line_type_calc == "homework_score_item" else 0)
+                        visual_lines_calc = 1
+                        if available_incident_text_width_calc > 0 and text_width_pixels_canvas_calc > available_incident_text_width_calc:
+                            visual_lines_calc = -(-text_width_pixels_canvas_calc // available_incident_text_width_calc)
+                        incident_block_height_canvas += visual_lines_calc * current_font_for_calc.metrics('linespace')
+                        max_incident_width_pixels = max(max_incident_width_pixels, min(text_width_pixels_canvas_calc, available_incident_text_width_calc))
+
+                    if incident_block_height_canvas > 0:
+                        incident_panel_width = min(max_incident_width_pixels + 2 * text_panel_internal_padding, available_text_width_canvas - 2 * text_panel_internal_padding)
+                        incident_panel_height = incident_block_height_canvas
+
+                        inc_panel_x0 = canvas_x + (canvas_width - incident_panel_width) / 2
+                        inc_panel_y0 = incident_block_start_y_for_panel - text_panel_internal_padding
+                        inc_panel_x1 = inc_panel_x0 + incident_panel_width
+                        inc_panel_y1 = inc_panel_y0 + incident_panel_height + 2 * text_panel_internal_padding
+
+                        if inc_panel_y1 < (canvas_y + canvas_dynamic_height - canvas_padding * 0.5):
+                             self.canvas.create_rectangle(inc_panel_x0, inc_panel_y0, inc_panel_x1, inc_panel_y1,
+                                                         fill=text_panel_fill, outline="",
+                                                         tags=("student_item", student_id, "text_background_incidents"))
+
+            # Draw Name Lines (always drawn, panel is conditional)
             name_lines_content = student_data.get("display_lines", [])
             for name_line_text in name_lines_content:
                 self.canvas.create_text(canvas_x + canvas_width / 2, current_y_text_draw_canvas, text=name_line_text,
@@ -1470,7 +1536,7 @@ class SeatingChartApp:
                                         anchor=tk.N, width=max(1, available_text_width_canvas), justify=tk.CENTER)
                 current_y_text_draw_canvas += name_font_obj.metrics('linespace')
 
-            # Draw Incident/Score Lines
+            # Draw Incident/Score Lines (always drawn, panel is conditional)
             incident_lines_content = student_data.get("incident_display_lines", [])
             if incident_lines_content:
                 current_y_text_draw_canvas += canvas_padding / 2 # Space before incidents

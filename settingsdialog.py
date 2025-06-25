@@ -303,6 +303,12 @@ class SettingsDialog(simpledialog.Dialog):
         # Default colors and font
         self.create_color_font_settings_ui(lf_defaults, 2, "student_box_fill_color", "student_box_outline_color", "student_font_family", "student_font_size", "student_font_color")
 
+        # Setting for text background panel
+        self.enable_text_panel_var = tk.BooleanVar(value=self.settings.get("enable_text_background_panel", True))
+        ttk.Checkbutton(lf_defaults, text="Enable text background panel on student boxes\n(improves legibility on colored stripes)",
+                        variable=self.enable_text_panel_var).grid(row=7, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
+
+
         lf_cond_format = ttk.LabelFrame(tab_frame, text="Conditional Formatting Rules", padding=10, width=1000)
         lf_cond_format.grid(sticky="nse", pady=5, padx=5, column=1, columnspan=3, row=0)
         lf_cond_format.grid_anchor("e")
@@ -947,6 +953,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["student_font_family"]=self.student_font_family_var.get()
         self.settings["student_font_size"]=self.student_font_size_var.get()
         self.settings["student_font_color"]=self.student_font_color_var.get()
+        self.settings["enable_text_background_panel"] = self.enable_text_panel_var.get() # New setting
         # Behavior/Quiz Log Tab
         self.settings["show_recent_incidents_on_boxes"] = self.show_recent_var.get()
         self.settings["num_recent_incidents_to_show"] = self.num_recent_var.get()
