@@ -1735,7 +1735,7 @@ class SeatingChartApp:
     def world_to_canvas_coords(self, world_x, world_y):
         return world_x * self.current_zoom_level, world_y * self.current_zoom_level
     
-    
+    """
     def canvas_to_world_coords(self, canvas_x_on_screen, canvas_y_on_screen):
         
         
@@ -1747,6 +1747,41 @@ class SeatingChartApp:
         true_canvas_x = self.canvas.canvasx(canvas_x_on_screen)
         true_canvas_y = self.canvas.canvasy(canvas_y_on_screen)
         return true_canvas_x / self.current_zoom_level, true_canvas_y / self.current_zoom_level
+        
+        
+        true_canvas_x = self.canvas.canvasx(canvas_x_on_screen)
+        true_canvas_y = self.canvas.canvasy(canvas_y_on_screen)
+        
+        # Divide by the current zoom level to convert canvas coordinates to world coordinates.
+        # This single logic path should handle scrolled, unscrolled, zoomed, and unzoomed cases.
+        return true_canvas_x / self.current_zoom_level, true_canvas_y / self.current_zoom_level
+    
+    """
+    
+    def canvas_to_world_coords(self, screen_x, screen_y):
+        """
+        Converts screen coordinates (e.g., from a mouse event on the canvas)
+        to the logical world coordinates.
+    
+        This function correctly handles both scrolling and zooming.
+        """
+        # Step 1: Convert screen coordinates to "true" canvas coordinates.
+        # The canvas.canvasx() and canvas.canvasy() methods automatically
+        # account for the current scroll position. If you haven't scrolled,
+        # they still work correctly and return the original coordinates.
+        # This is the "true_canvas_x" you were thinking of.
+        true_canvas_x = self.canvas.canvasx(screen_x)
+        true_canvas_y = self.canvas.canvasy(screen_y)
+    
+        # Step 2: Convert "true" canvas coordinates to world coordinates.
+        # This accounts for the zoom level. If items in the world were
+        # scaled up by self.zoom_level to be drawn on the canvas, we must
+        # scale down by dividing to get back to the original world coordinates.
+        world_x = true_canvas_x / self.current_zoom_level
+        world_y = true_canvas_y / self.current_zoom_level
+
+        return world_x, world_y
+    
 
     def update_zoom_display(self):
         if hasattr(self, 'zoom_display_label') and self.zoom_display_label:

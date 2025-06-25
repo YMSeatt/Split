@@ -96,7 +96,24 @@
                 "\u05d9\u05d5\u05d0\u05dc",
                 "Fass"
             ],
-            "incident_display_lines": [],
+            "incident_display_lines": [
+                {
+                    "text": "Off Task",
+                    "type": "incident"
+                },
+                {
+                    "text": "Uneasy",
+                    "type": "incident"
+                },
+                {
+                    "text": "Off Task",
+                    "type": "incident"
+                },
+                {
+                    "text": "Talking",
+                    "type": "incident"
+                }
+            ],
             "_current_world_height": 145,
             "_current_world_width": 200
         },
@@ -1010,6 +1027,46 @@
             "comment": "",
             "type": "behavior",
             "day": "Monday"
+        },
+        {
+            "timestamp": "2025-06-25T11:44:07.096711",
+            "student_id": "student_4",
+            "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+            "student_last_name": "Fass",
+            "behavior": "Off Task",
+            "comment": "",
+            "type": "behavior",
+            "day": "Wednesday"
+        },
+        {
+            "timestamp": "2025-06-25T11:44:09.400994",
+            "student_id": "student_4",
+            "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+            "student_last_name": "Fass",
+            "behavior": "Uneasy",
+            "comment": "",
+            "type": "behavior",
+            "day": "Wednesday"
+        },
+        {
+            "timestamp": "2025-06-25T11:44:12.064206",
+            "student_id": "student_4",
+            "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+            "student_last_name": "Fass",
+            "behavior": "Off Task",
+            "comment": "",
+            "type": "behavior",
+            "day": "Wednesday"
+        },
+        {
+            "timestamp": "2025-06-25T11:44:43.600509",
+            "student_id": "student_4",
+            "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+            "student_last_name": "Fass",
+            "behavior": "Talking",
+            "comment": "",
+            "type": "behavior",
+            "day": "Wednesday"
         }
     ],
     "homework_log": [
@@ -1499,7 +1556,30 @@
         "homework_initial_overrides": {},
         "current_mode": "behavior",
         "max_undo_history_days": 90,
-        "conditional_formatting_rules": [],
+        "conditional_formatting_rules": [
+            {
+                "type": "behavior_count",
+                "color": "#00ff80",
+                "behavior_name": "Off Task",
+                "count_threshold": 1,
+                "time_window_hours": 24
+            },
+            {
+                "type": "quiz_score_threshold",
+                "color": "#fa0505",
+                "quiz_name_contains": "Pop",
+                "operator": "<=",
+                "score_threshold_percent": 50.0
+            },
+            {
+                "type": "quiz_mark_count",
+                "color": "#1003fc",
+                "quiz_name_contains": "Pop",
+                "mark_type_id": "mark_correct",
+                "mark_operator": ">=",
+                "mark_count_threshold": 1
+            }
+        ],
         "student_groups_enabled": true,
         "show_zoom_level_display": true,
         "available_fonts": [
@@ -22548,6 +22628,154 @@
                         "old_y": 660,
                         "new_x": 860,
                         "new_y": 620
+                    }
+                ]
+            }
+        },
+        {
+            "type": "LogEntryCommand",
+            "timestamp": "2025-06-25T11:44:07.096744",
+            "data": {
+                "log_entry": {
+                    "timestamp": "2025-06-25T11:44:07.096711",
+                    "student_id": "student_4",
+                    "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+                    "student_last_name": "Fass",
+                    "behavior": "Off Task",
+                    "comment": "",
+                    "type": "behavior",
+                    "day": "Wednesday"
+                },
+                "student_id": "student_4"
+            }
+        },
+        {
+            "type": "LogEntryCommand",
+            "timestamp": "2025-06-25T11:44:09.401051",
+            "data": {
+                "log_entry": {
+                    "timestamp": "2025-06-25T11:44:09.400994",
+                    "student_id": "student_4",
+                    "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+                    "student_last_name": "Fass",
+                    "behavior": "Uneasy",
+                    "comment": "",
+                    "type": "behavior",
+                    "day": "Wednesday"
+                },
+                "student_id": "student_4"
+            }
+        },
+        {
+            "type": "LogEntryCommand",
+            "timestamp": "2025-06-25T11:44:12.064239",
+            "data": {
+                "log_entry": {
+                    "timestamp": "2025-06-25T11:44:12.064206",
+                    "student_id": "student_4",
+                    "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+                    "student_last_name": "Fass",
+                    "behavior": "Off Task",
+                    "comment": "",
+                    "type": "behavior",
+                    "day": "Wednesday"
+                },
+                "student_id": "student_4"
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-25T11:44:39.472830",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_17",
+                        "type": "student",
+                        "old_x": 340,
+                        "old_y": 100,
+                        "new_x": 340,
+                        "new_y": 160
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-25T11:44:40.280985",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_17",
+                        "type": "student",
+                        "old_x": 340,
+                        "old_y": 160,
+                        "new_x": 340,
+                        "new_y": 80
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-25T11:44:41.408969",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_17",
+                        "type": "student",
+                        "old_x": 340,
+                        "old_y": 80,
+                        "new_x": 340,
+                        "new_y": 100
+                    }
+                ]
+            }
+        },
+        {
+            "type": "LogEntryCommand",
+            "timestamp": "2025-06-25T11:44:43.600543",
+            "data": {
+                "log_entry": {
+                    "timestamp": "2025-06-25T11:44:43.600509",
+                    "student_id": "student_4",
+                    "student_first_name": "\u05d9\u05d5\u05d0\u05dc",
+                    "student_last_name": "Fass",
+                    "behavior": "Talking",
+                    "comment": "",
+                    "type": "behavior",
+                    "day": "Wednesday"
+                },
+                "student_id": "student_4"
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-25T11:57:01.153689",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_19",
+                        "type": "student",
+                        "old_x": 1660,
+                        "old_y": 740,
+                        "new_x": 1540,
+                        "new_y": 740
+                    }
+                ]
+            }
+        },
+        {
+            "type": "MoveItemsCommand",
+            "timestamp": "2025-06-25T11:57:03.024920",
+            "data": {
+                "items_moves": [
+                    {
+                        "id": "student_19",
+                        "type": "student",
+                        "old_x": 1540,
+                        "old_y": 740,
+                        "new_x": 1660,
+                        "new_y": 740
                     }
                 ]
             }
