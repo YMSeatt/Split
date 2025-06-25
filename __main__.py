@@ -1335,22 +1335,49 @@ class SeatingChartApp:
             if self.settings.get("student_groups_enabled", True) and group_id and group_id in self.student_groups:
                 group_data = self.student_groups[group_id]
                 group_indicator_color = group_data.get("color")
+                # Apply the first matching group rule to the base fill_color and outline_color_orig
                 for rule in self.settings.get("conditional_formatting_rules", []):
                     if rule.get("type") == "group" and rule.get("group_id") == group_id:
-                        if "color" in rule and rule["color"]: fill_color = rule["color"]
-                        if "outline" in rule and rule["outline"]: outline_color_orig = rule["outline"]
-                        break
-                    
-            
-            if self.settings.get("conditional_formatting_rules", []) != []:
+                        if rule.get("color"): # Check if color is not empty or None
+                            fill_color = rule["color"]
+                        if rule.get("outline"): # Check if outline is not empty or None
+                            outline_color_orig = rule["outline"]
+                        break # First matching group rule takes precedence for base colors
 
-                for rule in self.settings.get("conditional_formatting_rules", []):
-                    if self.applies_to_conditional(student_id, rule):
-                        
-                        if "color" in rule and rule["color"]: fill_color = rule["color"]
-                        if "outline" in rule and rule["outline"]: outline_color_orig = rule["outline"]
-                        break
+            # Now, collect all other (non-group) applicable conditional formatting rules
+            active_rules_colors = []
+            # Base colors that will be used if no other rules apply or for the first stripe.
+            # These might have been set by a group rule already.
+            # If active_rules_colors remains empty, these base colors will be used for the whole box.
             
+            # Store the base colors derived from defaults, overrides, or group rules.
+            # These will be used if no other active_rules_colors are found, or as the first "layer" if we decide to.
+            # For now, if active_rules_colors gets populated, those will define the stripes.
+            # If active_rules_colors is empty, the single fill_color/outline_color_orig will be used.
+
+            if self.settings.get("conditional_formatting_rules", []):
+                for rule in self.settings.get("conditional_formatting_rules", []):
+                    if rule.get("type") == "group":
+                        continue  # Group rules already processed for base color
+
+                    if self.applies_to_conditional(student_id, rule):
+                        rule_fill = rule.get("color")
+                        rule_outline = rule.get("outline")
+                        if rule_fill or rule_outline: # Only add if the rule specifies a color
+                            active_rules_colors.append({
+                                "fill": rule_fill if rule_fill else None,
+                                "outline": rule_outline if rule_outline else None
+                            })
+                            # No break here, collect all matching non-group rules.
+            
+            # If active_rules_colors is empty, the drawing logic (to be modified in next step)
+            # will use the existing fill_color and outline_color_orig for the single rectangle.
+            # If populated, it will draw stripes based on these collected colors.
+            # The original fill_color and outline_color_orig (potentially set by a group rule)
+            # can be considered the "base" if no other rules apply, or if the striping logic
+            # decides to use it as the first stripe when active_rules_colors is also present.
+            # For now, we'll assume active_rules_colors take full precedence for striping if not empty.
+
             name_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight="bold")
             incident_font_obj = tkfont.Font(family=font_family, size=max(5, font_size_canvas -1))
             quiz_score_font_color_setting = self.settings.get("live_quiz_score_font_color")
@@ -1397,11 +1424,90 @@ class SeatingChartApp:
             student_data['_current_world_height'] = world_dynamic_height
             student_data['_current_world_width'] = world_width
 
-            self.canvas.create_rectangle(canvas_x, canvas_y, canvas_x + canvas_width, canvas_y + canvas_dynamic_height,
-                                         fill=fill_color, outline=outline_color_orig, width=max(1, int(2 * self.current_zoom_level)), tags=rect_tag)
+            # Box drawing logic:
+            if not active_rules_colors:
+                # No specific non-group rules apply, draw a single box with base/group colors
+                self.canvas.create_rectangle(canvas_x, canvas_y, canvas_x + canvas_width, canvas_y + canvas_dynamic_height,
+                                             fill=fill_color, outline=outline_color_orig, width=max(1, int(2 * self.current_zoom_level)), tags=rect_tag)
+            else:
+                num_effective_rules = min(len(active_rules_colors), 3) # Max 3 stripes
+                stripe_height_canvas = canvas_dynamic_height / num_effective_rules
 
-            current_y_text_draw_canvas = canvas_y + canvas_padding
+                base_default_fill = self.settings.get("student_box_fill_color")
+                base_default_outline = self.settings.get("student_box_outline_color")
+
+                for i in range(num_effective_rules):
+                    rule_colors = active_rules_colors[i]
+                    stripe_fill = rule_colors.get("fill") if rule_colors.get("fill") else fill_color # Fallback to base fill_color (from group/default)
+                    stripe_outline = rule_colors.get("outline") if rule_colors.get("outline") else outline_color_orig # Fallback to base outline_color_orig
+
+                    # If even the fallback is None (e.g. student default is empty string), provide a very basic default.
+                    if not stripe_fill: stripe_fill = base_default_fill
+                    if not stripe_outline: stripe_outline = base_default_outline
+
+                    stripe_y_start = canvas_y + (i * stripe_height_canvas)
+                    stripe_y_end = canvas_y + ((i + 1) * stripe_height_canvas)
+
+                    # For the last stripe, ensure it goes exactly to the bottom edge to avoid floating point issues
+                    if i == num_effective_rules - 1:
+                        stripe_y_end = canvas_y + canvas_dynamic_height
+
+                    self.canvas.create_rectangle(canvas_x, stripe_y_start, canvas_x + canvas_width, stripe_y_end,
+                                                 fill=stripe_fill,
+                                                 outline=stripe_outline,
+                                                 width=max(1, int(1 * self.current_zoom_level)), # Thinner outline for stripes
+                                                 tags=rect_tag + (f"stripe_{i}",))
+
+            # --- Text Drawing with Background Panel ---
+            text_panel_fill = "#FFFFFF" # White, slightly opaque if possible, otherwise solid
+            text_panel_padding_canvas = canvas_padding * 0.5 # Smaller padding inside the text panel
+
+            # Calculate total height needed for the text block first
+            total_text_block_height_canvas = 0
+            temp_y_offset = 0
+            # Name lines
+            for name_line_text in student_data.get("display_lines", []):
+                temp_y_offset += name_font_obj.metrics('linespace')
+
+            # Incident/Score lines (if any)
+            if student_data.get("incident_display_lines"):
+                temp_y_offset += canvas_padding / 2 # Space before incidents
+                for line_info in student_data.get("incident_display_lines", []):
+                    line_text, line_type = line_info["text"], line_info["type"]
+                    current_font_for_calc = incident_font_obj
+                    if line_type == "quiz_score": current_font_for_calc = quiz_score_font_obj
+                    elif line_type == "homework_score_header": current_font_for_calc = hw_score_font_obj
+                    elif line_type == "homework_score_item": current_font_for_calc = hw_score_item_font_obj
+                    elif line_type == "separator": current_font_for_calc = tkfont.Font(family=font_family, size=max(4, int((font_size_world-2)*self.current_zoom_level)))
+
+                    # Approximate wrapped lines
+                    text_width_pixels_canvas_calc = current_font_for_calc.measure(line_text)
+                    available_text_width_for_panel_calc = canvas_width - 2 * (canvas_padding + text_panel_padding_canvas)
+                    visual_lines_canvas_calc = 1
+                    if available_text_width_for_panel_calc > 0 and text_width_pixels_canvas_calc > available_text_width_for_panel_calc:
+                        visual_lines_canvas_calc = -(-text_width_pixels_canvas_calc // available_text_width_for_panel_calc)
+                    temp_y_offset += visual_lines_canvas_calc * current_font_for_calc.metrics('linespace')
+
+            total_text_block_height_canvas = temp_y_offset + text_panel_padding_canvas # Add padding for bottom of panel
+
+            # Draw the text background panel if there's any text content
+            if student_data.get("display_lines") or student_data.get("incident_display_lines"):
+                panel_x0 = canvas_x + canvas_padding * 0.5
+                panel_y0 = canvas_y + canvas_padding * 0.5
+                panel_x1 = canvas_x + canvas_width - canvas_padding * 0.5
+                panel_y1 = panel_y0 + total_text_block_height_canvas + text_panel_padding_canvas
+
+                # Ensure panel does not exceed box height (though dynamic height should mostly cover this)
+                panel_y1 = min(panel_y1, canvas_y + canvas_dynamic_height - canvas_padding * 0.5)
+
+                self.canvas.create_rectangle(panel_x0, panel_y0, panel_x1, panel_y1,
+                                             fill=text_panel_fill, outline="", # No outline for the panel itself
+                                             tags=("student_item", student_id, "text_background"))
+
+            # Now draw the actual text on top of the panel
+            current_y_text_draw_canvas = canvas_y + canvas_padding # Start text drawing with main box padding
             available_text_width_canvas = canvas_width - 2 * canvas_padding
+
             for name_line_text in student_data.get("display_lines", []):
                 self.canvas.create_text(canvas_x + canvas_width / 2, current_y_text_draw_canvas, text=name_line_text,
                                         fill=font_color, font=name_font_obj, tags=("student_item", student_id, "text", "student_name"),
@@ -1409,7 +1515,7 @@ class SeatingChartApp:
                 current_y_text_draw_canvas += name_font_obj.metrics('linespace')
 
             if student_data.get("incident_display_lines"):
-                current_y_text_draw_canvas += canvas_padding / 2
+                current_y_text_draw_canvas += canvas_padding / 2 # Space before incidents
                 for line_info in student_data.get("incident_display_lines", []):
                     line_text, line_type = line_info["text"], line_info["type"]
                     current_font_canvas_draw, current_color_canvas_draw = incident_font_obj, font_color
@@ -1420,24 +1526,22 @@ class SeatingChartApp:
                     elif line_type == "homework_score_header": current_font_canvas_draw, current_color_canvas_draw = hw_score_font_obj, hw_score_font_color_setting
                     elif line_type == "homework_score_item":
                         current_font_canvas_draw, current_color_canvas_draw = hw_score_item_font_obj, hw_score_font_color_setting
-                        text_anchor_canvas, text_justify_canvas = tk.NW, tk.LEFT # Align items to left
-                        text_x_pos_canvas = canvas_x + canvas_padding # Start from left padding
+                        text_anchor_canvas, text_justify_canvas = tk.NW, tk.LEFT
+                        text_x_pos_canvas = canvas_x + canvas_padding
                     elif line_type == "separator":
                         current_font_canvas_draw = tkfont.Font(family=font_family, size=max(4, int((font_size_world-2)*self.current_zoom_level)))
                         current_color_canvas_draw = "gray"
 
-
                     self.canvas.create_text(text_x_pos_canvas, current_y_text_draw_canvas, text=line_text,
                                             fill=current_color_canvas_draw, font=current_font_canvas_draw,
                                             tags=("student_item", student_id, "text", f"student_{line_type}"),
-                                            anchor=text_anchor_canvas, width=max(1, available_text_width_canvas if text_anchor_canvas == tk.N else available_text_width_canvas - canvas_padding), # Adjust width for NW anchor
+                                            anchor=text_anchor_canvas, width=max(1, available_text_width_canvas if text_anchor_canvas == tk.N else available_text_width_canvas - canvas_padding),
                                             justify=text_justify_canvas)
                     text_width_pixels_canvas = current_font_canvas_draw.measure(line_text)
                     visual_lines_canvas = 1
                     if available_text_width_canvas > 0 and text_width_pixels_canvas > available_text_width_canvas:
                         visual_lines_canvas = -(-text_width_pixels_canvas // available_text_width_canvas)
                     current_y_text_draw_canvas += visual_lines_canvas * current_font_canvas_draw.metrics('linespace')
-
 
             if self.settings.get("student_groups_enabled", True) and group_indicator_color:
                 indicator_size_canvas = GROUP_COLOR_INDICATOR_SIZE * self.current_zoom_level
