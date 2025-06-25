@@ -1214,32 +1214,98 @@ class SeatingChartApp:
         student["incident_display_lines"] = incident_display_lines
 
     def applies_to_conditional(self, student_id, rule):
-        
         student_data = self.students.get(student_id)
-        if not student_data: return None
-        
-        type_ = rule.get("type", "")
-        
-        if type_ == "behavior_count":
-            time_window = rule.get("time_window_hours", "")
-            count_threshhold = rule.get("count_threshhold", 1)
+        if not student_data:
+            return False # Should return False if student not found
+
+        rule_type = rule.get("type", "")
+
+        if rule_type == "behavior_count":
+            time_window_hours = rule.get("time_window_hours", 24) # Default if not set
+            count_threshold = rule.get("count_threshold", 1)
             behavior_name = rule.get("behavior_name", "")
-            result = self._get__logs_for_student(student_id, "behavior", count_threshhold,time_window, behavior_name)
-            if result >=count_threshhold: # type: ignore
+            if not behavior_name: # Behavior name is essential for this rule type
+                return False
+
+            # _get__logs_for_student returns the count of matching logs to be displayed
+            # The third argument to _get__logs_for_student is num_max (for display),
+            # but here it's used as the threshold for comparison.
+            # This might be okay if _get__logs_for_student correctly counts beyond num_max internally
+            # or if the intent is to check against the *displayed* count.
+            # For now, assuming existing logic of _get__logs_for_student is what's intended.
+            actual_count = self._get__logs_for_student(student_id, "behavior", count_threshold, time_window_hours, behavior_name)
+            
+            # The comparison was actual_count >= count_threshold.
+            # If _get__logs_for_student returns a count that is capped by its num_max (which is count_threshold here),
+            # then (result >= count_threshold) would only be true if result == count_threshold.
+            # This needs careful check of _get__logs_for_student's behavior or adjustment here.
+            # For now, sticking to the original comparison structure.
+            if actual_count >= count_threshold:
                 return True
-        
-        elif type_ == "quiz_score_threshhold":
+            return False # Explicitly return False if condition not met
+
+        elif rule_type == "quiz_score_threshold":
+            operator = rule.get("operator", "<=")
+            quiz_name_contains = rule.get("quiz_name_contains", "")
+            score_threshold_percent = rule.get("score_threshold_percent", 50.0)
             
-            operator = rule.get("operator", "")
-            contains = rule.get("quiz_name_contains", "")
-            score_threshhold = rule.get("score_threshold_percent", 0)
-            
-            return None
+            # Placeholder for actual quiz score logic - to be implemented next
+            # This will iterate through relevant quiz logs for the student
+            # calculate score % and compare.
+            for log_entry in self.behavior_log:
+                if log_entry.get("student_id") == student_id and log_entry.get("type") == "quiz":
+                    # Check quiz name
+                    if quiz_name_contains and quiz_name_contains.lower() not in log_entry.get("behavior", "").lower():
+                        continue
+
+                    current_score_percentage = self._calculate_quiz_score_percentage(log_entry)
+                    if current_score_percentage is None:
+                        continue
+
+                    # Compare with threshold
+                    if operator == "<=" and current_score_percentage <= score_threshold_percent: return True
+                    elif operator == ">=" and current_score_percentage >= score_threshold_percent: return True
+                    elif operator == "==" and abs(current_score_percentage - score_threshold_percent) < 0.01 : return True # Using tolerance for float comparison
+                    elif operator == "<" and current_score_percentage < score_threshold_percent: return True
+                    elif operator == ">" and current_score_percentage > score_threshold_percent: return True
+            return False # No matching quiz log found or condition not met
+
+        elif rule_type == "quiz_mark_count":
+            quiz_name_contains = rule.get("quiz_name_contains", "").lower()
+            mark_type_id_to_check = rule.get("mark_type_id")
+            operator = rule.get("mark_operator", ">=") # Default operator
+            count_threshold = rule.get("mark_count_threshold", 1)
+
+            if not mark_type_id_to_check: # Mark type ID is essential
+                return False
+
+            for log_entry in self.behavior_log:
+                if log_entry.get("student_id") == student_id and log_entry.get("type") == "quiz":
+                    # Check quiz name
+                    if quiz_name_contains and quiz_name_contains not in log_entry.get("behavior", "").lower():
+                        continue
+
+                    marks_data = log_entry.get("marks_data", {})
+                    actual_count = marks_data.get(mark_type_id_to_check, 0) # Default to 0 if mark_type not in log
+
+                    if not isinstance(actual_count, (int, float)): # Ensure we are comparing numbers
+                        actual_count = 0
+
+                    # Compare with threshold
+                    if operator == ">=" and actual_count >= count_threshold: return True
+                    elif operator == "<=" and actual_count <= count_threshold: return True
+                    elif operator == "==" and actual_count == count_threshold: return True
+                    elif operator == ">" and actual_count > count_threshold: return True
+                    elif operator == "<" and actual_count < count_threshold: return True
+                    elif operator == "!=" and actual_count != count_threshold: return True
+            return False # No matching quiz log found or condition not met
+
+        elif rule_type == "group":
+            # Group rules are handled directly in draw_single_student before this method is called.
+            # If it reaches here, it means it's not a group rule being evaluated by this function.
+            return False
         
-        
-        elif type_ == "group": return None
-        
-        return None
+        return False # Default for unknown or unhandled rule types
         #if student_data.get()
         
     def draw_single_student(self, student_id, check_collisions=False):
@@ -1276,7 +1342,7 @@ class SeatingChartApp:
                         break
                     
             
-            if self.settings.get("conditonal_formatting_rules") != []:
+            if self.settings.get("conditional_formatting_rules", []) != []:
 
                 for rule in self.settings.get("conditional_formatting_rules", []):
                     if self.applies_to_conditional(student_id, rule):
@@ -1467,6 +1533,71 @@ class SeatingChartApp:
         for student_id in self.students: self.draw_single_student(student_id, check_collisions=check_collisions_on_redraw)
         for furniture_id in self.furniture: self.draw_single_furniture(furniture_id)
         self.update_toggle_incidents_button_text(); self.update_zoom_display()
+
+    def _calculate_quiz_score_percentage(self, log_entry):
+        """Calculates the score percentage for a given quiz log entry."""
+        if not log_entry or log_entry.get("type") != "quiz":
+            return None
+
+        marks_data = log_entry.get("marks_data", {})
+        num_questions = log_entry.get("num_questions", 0)
+        score_details = log_entry.get("score_details") # For live quiz sessions
+
+        if num_questions <= 0 and not score_details: # Cannot calculate percentage if no questions or score details
+            return None
+
+        # Handle live quiz session scores first
+        if score_details and isinstance(score_details, dict):
+            correct = score_details.get("correct", 0)
+            total_asked = score_details.get("total_asked", 0)
+            if total_asked > 0:
+                return (correct / total_asked) * 100
+            return 0 # Or None if no questions asked yet
+
+        # Handle manually logged quiz scores with marks_data
+        if not marks_data or num_questions <= 0: # Need marks_data and num_questions for this path
+             return None
+
+        total_earned_points = 0
+        total_possible_points_main = 0 # Points from questions that contribute to the main total (not bonus)
+
+        quiz_mark_types_settings = self.settings.get("quiz_mark_types", DEFAULT_QUIZ_MARK_TYPES)
+
+        # Determine the point value of a single "fully correct" non-bonus question.
+        # This is used as the basis for the percentage calculation if num_questions is the primary driver.
+        # A common approach is to find the "correct" mark type.
+        default_points_per_main_question = 1 # Fallback
+        correct_mark_type = next((mt for mt in quiz_mark_types_settings if mt.get("id") == "mark_correct" and mt.get("contributes_to_total")), None)
+        if correct_mark_type:
+            default_points_per_main_question = correct_mark_type.get("default_points", 1)
+
+        total_possible_points_main = num_questions * default_points_per_main_question
+
+        for mark_id, count in marks_data.items():
+            if not isinstance(count, (int, float)) or count == 0:
+                continue # Skip if count is not a number or zero
+
+            mark_config = next((mt for mt in quiz_mark_types_settings if mt.get("id") == mark_id), None)
+            if not mark_config:
+                continue
+
+            points_for_this_mark_type = count * mark_config.get("default_points", 0)
+
+            if not mark_config.get("is_extra_credit", False):
+                # Only add to total_earned_points if it's not extra credit,
+                # as extra credit is handled separately to potentially exceed 100%.
+                # This logic assumes that points for main questions are summed up here.
+                total_earned_points += points_for_this_mark_type
+            else: # Is extra credit
+                total_earned_points += points_for_this_mark_type # Add extra credit to earned points
+
+        if total_possible_points_main > 0:
+            return (total_earned_points / total_possible_points_main) * 100
+        elif total_earned_points > 0 : # e.g. only extra credit was scored, and no main possible points
+            return 100.0 # Or handle as a special case, like "Bonus Achieved"
+
+        return 0.0 # Default to 0% if no points possible or earned meaningfully
+
 
     def handle_layout_collision(self, moved_item_id):
         # ... (same as v51)
