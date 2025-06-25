@@ -2621,7 +2621,7 @@ class SeatingChartApp:
             with open(CUSTOM_BEHAVIORS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.custom_behaviors, f, indent=4)
         except IOError as e: print(f"Error saving custom behaviors: {e}")
-
+    """
     def load_custom_homework_log_behaviors(self): # New
         if os.path.exists(CUSTOM_HOMEWORKS_FILE): # Deprecated, now CUSTOM_HOMEWORK_LOG_BEHAVIORS_FILE
             try:
@@ -2638,14 +2638,14 @@ class SeatingChartApp:
                 self.custom_homework_log_behaviors = []
         else:
             self.custom_homework_log_behaviors = [] # e.g., [{"name": "Project A Submitted"}, {"name": "Reading Log Signed"}]
-
+    
     def save_custom_homework_log_behaviors(self): # New
         try:
             with open(CUSTOM_HOMEWORKS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.custom_homework_log_behaviors, f, indent=4)
         except IOError as e:
             print(f"Error saving custom homework log behaviors: {e}")
-
+    """
     def load_custom_homework_types(self): # NEW
         """Loads customizable homework types (e.g., "Reading Assignment", "Worksheet")."""
         if os.path.exists(CUSTOM_HOMEWORK_TYPES_FILE):
@@ -4238,7 +4238,7 @@ class SeatingChartApp:
             # Clear current data in memory
             self.students.clear(); self.furniture.clear(); self.behavior_log.clear(); self.homework_log.clear()
             self.student_groups.clear(); self.quiz_templates.clear(); self.homework_templates.clear()
-            self.custom_behaviors.clear(); self.custom_homework_log_behaviors.clear(); #self.custom_homework_session_types.clear()
+            self.custom_behaviors.clear(); self.custom_homework_statuses.clear(); #self.custom_homework_session_types.clear()
             self.undo_stack.clear(); self.redo_stack.clear()
             self._per_student_last_cleared.clear()
             self.last_excel_export_path = None
@@ -4283,7 +4283,7 @@ class SeatingChartApp:
 
             # Save fresh default data (which will create new empty files)
             self.save_data_wrapper(source="reset")
-            self.update_all_behaviors(); self.update_all_homework_log_behaviors(); self.update_all_homework_session_types()
+            self.update_all_behaviors(); self.update_all_homework_statuses(); self.update_all_homework_session_types()
             self.draw_all_items(check_collisions_on_redraw=True)
             self.update_undo_redo_buttons_state()
             self.update_lock_button_state()
@@ -4410,7 +4410,7 @@ class SeatingChartApp:
             path_to_load_after_restore = os.path.join(app_data_dir, main_data_filename_in_zip) if main_data_filename_in_zip else DATA_FILE
 
             self.load_data(file_path=path_to_load_after_restore, is_restore=True) # Reload all data from extracted files
-            self.load_custom_behaviors(); self.load_custom_homework_log_behaviors(); #self.load_custom_homework_session_types()
+            self.load_custom_behaviors(); self.load_custom_homework_statuses(); #self.load_custom_homework_session_types()
             self.load_student_groups(); self.load_quiz_templates(); self.load_homework_templates()
             self._ensure_next_ids() # Crucial after loading potentially old data
             self.update_all_behaviors(); self.update_all_homework_log_behaviors(); self.update_all_homework_session_types()
