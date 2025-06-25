@@ -1554,7 +1554,7 @@
         "grid_size": 20,
         "behavior_initial_overrides": {},
         "homework_initial_overrides": {},
-        "current_mode": "behavior",
+        "current_mode": "quiz",
         "max_undo_history_days": 90,
         "conditional_formatting_rules": [
             {
