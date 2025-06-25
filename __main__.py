@@ -2583,7 +2583,7 @@ class SeatingChartApp:
     def autosave_excel_log(self):
         if self.settings.get("enable_excel_autosave", False):
             if not self.behavior_log and not self.homework_log: # Don't save if empty
-                # print("Autosave Excel: Log is empty, skipping.")
+                print("Autosave Excel: Log is empty, skipping.")
                 return
 
             filename = AUTOSAVE_EXCEL_FILE
@@ -2861,11 +2861,8 @@ class SeatingChartApp:
         quiz_mark_type_headers = [mt["name"] for mt in mark_type_configs]
         homework_mark_type_headers = [mt["name"] for mt in mark_type_configs_h]
         homework_session_types_headers = [mt["name"] for mt in self.all_homework_session_types]
-        
-        print(filter_settings)
 
         student_data_for_export = {sid: {"first_name": s["first_name"], "last_name": s["last_name"], "full_name": s["full_name"]} for sid, s in self.students.items()}
-        
         
         logs_to_process = []
         if filter_settings.get("include_behavior_logs", True):
@@ -2874,8 +2871,7 @@ class SeatingChartApp:
             logs_to_process.extend([log for log in self.behavior_log if log.get("type") == "quiz"])
         if filter_settings.get("include_homework_logs", True): # New
             logs_to_process.extend([log for log in self.homework_log if log.get("type") == "homework" or log.get("type") == "homework_session_y" or log.get("type") == "homework_session_s"])
-        #print(logs_to_process)
-        #print(self.homework_log)
+
         # Apply filters
         filtered_stud_ids = set()
         filtered_log = []
@@ -2887,8 +2883,6 @@ class SeatingChartApp:
         behaviors_list_filter = filter_settings.get("behaviors_list", [])
         selected_homework_types_option = filter_settings.get("selected_homework_types", "all") # New
         homework_types_list_filter = filter_settings.get("homework_types_list", []) # New
-        if start_date == None: print(start_date, "Start")
-        #print("hi",selected_homework_types_option)
         for entry in logs_to_process:
             try:
                 entry_date = datetime.fromisoformat(entry["timestamp"]).date()
@@ -2912,7 +2906,6 @@ class SeatingChartApp:
                 if selected_homework_types_option == "specific" and entry_name_field not in homework_types_list_filter: continue
                 elif selected_homework_types_option == "specific" and entry_name_field in homework_types_list_filter: continue
             elif log_type == "homework_session_y":
-                print("Log Type: ",log_type, entry)
                 if selected_homework_types_option == "specific" and entry_name_field not in homework_types_list_filter: continue#continue
                 elif selected_homework_types_option == "specific" and entry_name_field in homework_types_list_filter: pass
             filtered_log.append(entry)
@@ -2971,6 +2964,10 @@ class SeatingChartApp:
                 headers.extend(["Homework Score (Total Pts)", "Homework Effort"]) # Example summary fields
                 headers.extend(homework_session_types_headers)
             headers.append("Comment")
+            i=0
+            for header in headers: 
+                if header == "Complete": headers[i] = "Complete/Did"
+                i += 1
             if not separate_sheets or sheet_name == "Master Log": headers.append("Log Type")
 
 
@@ -3079,7 +3076,7 @@ class SeatingChartApp:
                             i = 0
                             #print(self.all_homework_session_types)
                             found_status_for_mark_type2 = ""
-                            col_num += (((len(headers)-col_num)-len(homework_session_types_headers))-1) if not is_autosave else (((len(headers)-col_num)-len(homework_session_types_headers)))
+                            col_num += ((((len(headers)-col_num)-len(homework_session_types_headers))) if not is_autosave else (((len(headers)-col_num)-len(homework_session_types_headers)))) if "Master Log" not in sheet_name or "Combined Log" not in sheet_name else ((((len(headers)-col_num)-len(homework_session_types_headers))-1) if not is_autosave else (((len(headers)-col_num)-len(homework_session_types_headers))))
                             for typeh in entry.get("homework_details"):
                                 #print(typeh)
                                 for hwtype in self.all_homework_session_types:
@@ -3091,12 +3088,20 @@ class SeatingChartApp:
                                 ws.cell(row=row_num, column=col_num, value=found_status_for_mark_type2).alignment = right_alignment; col_num+=1
                         elif live_session_mode == "homework_session_s":
                             selected_options = session_details.get("selected_options", [])
-                            for hmt in self.settings.get("homework_mark_types", []): # Fill placeholders based on selected options
+                            
+                            
+                            s_correct = str(selected_options).removeprefix("[").removesuffix("]")
+                            #s_total = len(selected_options)
+                            #ws.cell(row=row_num, column=col_num, value=s_total).alignment = right_alignment; col_num+=1
+                            ws.cell(row=row_num, column=col_num, value=s_correct).alignment = right_alignment; col_num+=1
+                            """for hmt in self.settings.get("homework_mark_types", []): # Fill placeholders based on selected options
                                 val_to_put = ""
                                 if hmt["name"] in selected_options: # If a mark type name matches a selected option
                                     val_to_put = "Selected" # or hmt["default_points"]
                                     if "default_points" in hmt: total_hw_points += hmt["default_points"]
-                                ws.cell(row=row_num, column=col_num, value=val_to_put).alignment = right_alignment; col_num+=1
+                                ws.cell(row=row_num, column=col_num, value=val_to_put).alignment = right_alignment; col_num+=1"""
+                                
+                                
                         else: # Unknown live mode or no details
                             for _ in self.settings.get("homework_mark_types", []): ws.cell(row=row_num, column=col_num, value="").alignment = right_alignment; col_num+=1
 
