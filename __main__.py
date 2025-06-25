@@ -203,8 +203,14 @@ class SeatingChartApp:
         # ... (initial part of __init__ is the same) ...
         self.root = root_window
         self.root.title(f"Classroom Behavior Tracker - {APP_NAME} - {APP_VERSION}")
-        self.root.geometry("1380x980")
-
+        v = self.root.wm_maxsize()
+        print(v)
+        v1 = v[0]
+        v2 = v[1]-78
+        print(v1)
+        self.root.geometry("1400x980")
+        #self.root.geometry(f"{v1}x{v2}")
+        #self.root.po
         self.file_lock_manager = FileLockManager(LOCK_FILE_PATH)
         if not self.file_lock_manager.acquire_lock():
             self.root.destroy()
@@ -2781,18 +2787,20 @@ class SeatingChartApp:
         all_recent_logs = sorted([log for log in log_source],
                                   key=lambda x: x["timestamp"], reverse=False)
 
-        
-        v = all_recent_logs[0].get("timestamp")
-        b = v[:v.find("T")]
-        c = int(b.replace("-", ""))
-        
+        if all_recent_logs:
+            v = all_recent_logs[0].get("timestamp")
+            b = v[:v.find("T")]
+            c = int(b.replace("-", ""))
+            
+        else:
+            c = str(datetime.now())
+            c = str(c.replace("-", ""))
         if type == "y":
             c = str(c)[:4]
         elif type == "m":
             c = str(c)[4:6]
         elif type == "d":
-            c = str(c)[6:]
-        
+            c = str(c)[6:9]
         print(c)
         return c
     

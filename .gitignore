@@ -38,3 +38,5 @@ classroom_data_v9.json
 __pycache__/other.cpython-313.pyc
 __pycache__/settingsdialog.cpython-313.pyc
 BehaviorLogger.lock
+BehaviorLogger.lock
+__pycache__/dialogs.cpython-313.pyc

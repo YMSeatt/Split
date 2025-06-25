@@ -469,11 +469,11 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         self.marks_widgets_frame = ttk.LabelFrame(main_frame, text="Marks Details") # Packed later
         if self.log_marks_enabled and self.homework_mark_types:
             
-            self.homework_type_combobox = ttk.Combobox(type_frame, textvariable=self.homework_type_var, values=combined_options, width=30, state="readonly")
+            #self.homework_type_combobox = ttk.Combobox(type_frame, textvariable=self.homework_type_var, values=combined_options, width=30, state="readonly")
             
             
-            if combined_options: self.homework_type_combobox.set(combined_options[0])
-            self.homework_type_combobox.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+            #if combined_options: self.homework_type_combobox.set(combined_options[0])
+            #self.homework_type_combobox.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
             
             self.homework_type_combobox.bind("<<ComboboxSelected>>", self.on_template_select)
             self.num_items_frame.pack(pady=5, fill=tk.X)
