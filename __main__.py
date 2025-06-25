@@ -729,7 +729,7 @@ class SeatingChartApp:
         self.canvas_frame = ttk.Frame(self.main_frame); self.canvas_frame.pack(fill=tk.BOTH, after=self.top_controls_frame_row2, expand=True)
         self.h_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas_xview_custom)
         self.v_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.VERTICAL, command=self.canvas_yview_custom) #else "#1F1F1F"
-        self.canvas = tk.Canvas(self.canvas_frame, bg=self.canvas_color, relief=tk.SUNKEN, borderwidth=1, xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
+        self.canvas = tk.Canvas(self.canvas_frame, bg=self.canvas_color, relief=tk.SUNKEN, borderwidth=1, xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set) # type: ignore
         self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X); self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y); self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.canvas.config(scrollregion=(0, 0, self.canvas_orig_width * self.current_zoom_level, self.canvas_orig_height * self.current_zoom_level))
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_left_press); self.canvas.bind("<ButtonPress-3>", self.on_canvas_right_press)
