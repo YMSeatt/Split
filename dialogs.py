@@ -1243,7 +1243,7 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         # Rule Type
         ttk.Label(frame, text="Rule applies to:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.rule_type_var = tk.StringVar(value=self.rule.get("type", "group"))
-        type_options = ["group", "behavior_count", "quiz_score_threshold"] # Add more types later
+        type_options = ["group", "behavior_count", "quiz_score_threshold", "quiz_mark_count"] # Added new type
         self.type_combo = ttk.Combobox(frame, textvariable=self.rule_type_var, values=type_options, state="readonly", width=25)
         self.type_combo.grid(row=0, column=1, columnspan=2, padx=5, pady=3, sticky=tk.EW)
         self.type_combo.bind("<<ComboboxSelected>>", self.on_rule_type_change)
@@ -1321,6 +1321,43 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
             self.quiz_score_thresh_var = tk.DoubleVar(value=self.rule.get("score_threshold_percent", 50.0))
             ttk.Spinbox(self.condition_frame, from_=0, to=100, increment=1, textvariable=self.quiz_score_thresh_var, width=5).pack(side=tk.LEFT, padx=2)
 
+        elif rule_type == "quiz_mark_count":
+            qmc_frame = ttk.Frame(self.condition_frame); qmc_frame.pack(fill=tk.X, pady=2)
+            ttk.Label(qmc_frame, text="Quiz Name (contains):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+            self.qmc_quiz_name_var = tk.StringVar(value=self.rule.get("quiz_name_contains", ""))
+            ttk.Entry(qmc_frame, textvariable=self.qmc_quiz_name_var, width=20).grid(row=0, column=1, padx=5, pady=2, sticky=tk.EW)
+
+            ttk.Label(qmc_frame, text="Mark Type:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+            self.qmc_mark_type_var = tk.StringVar(value=self.rule.get("mark_type_id", "")) # Stores ID
+
+            # Prepare mark type options for combobox
+            self.qmc_mark_type_options_map = {} # Maps display name to ID
+            mark_type_display_names = [""] # Start with a blank option
+            for mt in self.app.settings.get("quiz_mark_types", []):
+                self.qmc_mark_type_options_map[mt["name"]] = mt["id"]
+                mark_type_display_names.append(mt["name"])
+
+            self.qmc_mark_type_combo = ttk.Combobox(qmc_frame, textvariable=self.qmc_mark_type_var,
+                                                    values=mark_type_display_names, state="readonly", width=18)
+            # Set initial value for combobox (find name by ID)
+            initial_mark_id = self.rule.get("mark_type_id", "")
+            initial_mark_name = ""
+            for name, mid in self.qmc_mark_type_options_map.items():
+                if mid == initial_mark_id:
+                    initial_mark_name = name; break
+            self.qmc_mark_type_var.set(initial_mark_name) # Set display name
+            self.qmc_mark_type_combo.grid(row=1, column=1, padx=5, pady=2, sticky=tk.EW)
+
+
+            ttk.Label(qmc_frame, text="Operator:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
+            self.qmc_operator_var = tk.StringVar(value=self.rule.get("mark_operator", ">="))
+            ttk.Combobox(qmc_frame, textvariable=self.qmc_operator_var, values=[">=", "<=", "==", ">", "<", "!="], width=3, state="readonly").grid(row=2, column=1, sticky=tk.W, padx=5, pady=2)
+
+            ttk.Label(qmc_frame, text="Count:").grid(row=2, column=2, sticky=tk.W, padx=(10,2), pady=2)
+            self.qmc_count_var = tk.IntVar(value=self.rule.get("mark_count_threshold", 1))
+            ttk.Spinbox(qmc_frame, from_=0, to=100, textvariable=self.qmc_count_var, width=4).grid(row=2, column=3, sticky=tk.W, padx=2, pady=2)
+            qmc_frame.grid_columnconfigure(1, weight=1)
+
 
     def apply(self):
         final_rule = {"type": self.rule_type_var.get()}
@@ -1351,6 +1388,27 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
             final_rule["quiz_name_contains"] = self.quiz_name_contains_var.get().strip() # Can be empty for any quiz
             final_rule["operator"] = self.quiz_op_var.get()
             final_rule["score_threshold_percent"] = self.quiz_score_thresh_var.get()
+
+        elif rule_type == "quiz_mark_count":
+            final_rule["quiz_name_contains"] = self.qmc_quiz_name_var.get().strip() # Can be empty
+
+            selected_mark_name = self.qmc_mark_type_var.get()
+            if not selected_mark_name:
+                messagebox.showerror("Missing Info", "Please select a Mark Type.", parent=self)
+                return
+            final_rule["mark_type_id"] = self.qmc_mark_type_options_map.get(selected_mark_name)
+            if not final_rule["mark_type_id"]: # Should not happen if combobox is populated correctly
+                messagebox.showerror("Error", "Selected mark type is invalid.", parent=self)
+                return
+
+            final_rule["mark_operator"] = self.qmc_operator_var.get()
+            try:
+                count_val = self.qmc_count_var.get()
+                if count_val < 0:
+                    messagebox.showerror("Invalid Input", "Count cannot be negative.", parent=self); return
+                final_rule["mark_count_threshold"] = count_val
+            except tk.TclError: # Handles if spinbox has non-integer input somehow
+                messagebox.showerror("Invalid Input", "Count must be a valid integer.", parent=self); return
         
         self.result = final_rule
 
