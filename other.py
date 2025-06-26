@@ -16,7 +16,7 @@ import portalocker
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v52.0" # Version incremented
+APP_VERSION = "v54.0" # Version incremented
 CURRENT_DATA_VERSION_TAG = "v9" # Incremented for new homework/marks features
 
 # --- Default Configuration ---
@@ -297,23 +297,31 @@ This application helps you track student behaviors, quiz scores, and homework co
 Key Features:
 - Visual seating chart: Drag and drop students and furniture.
 - Behavior Logging: Quickly log predefined or custom behaviors for students.
-- Quiz Logging: Record quiz scores, including detailed marks.
-- Homework Logging: Track homework status via manual logs or live sessions.
+- Quiz Logging: Record quiz scores, including detailed marks. Supports live quiz sessions and quiz templates.
+- Homework Logging: Track homework completion status and scores. Supports:
+    - Manual logging (simplified type/status or detailed with marks).
+    - Live homework sessions ("Yes/No" for multiple assignments or "Select" for predefined statuses).
+    - Customizable homework types, statuses, and mark types.
+    - Homework templates.
 - Live Sessions: Conduct real-time quiz or homework checks directly on the seating chart.
-- Customization: Define your own behaviors, homework types, mark types, and layout templates.
-- Data Export: Export logs to Excel or CSV for reporting and analysis.
+- Customization: Define your own behaviors, quiz/homework mark types, homework types/statuses, and layout/quiz/homework templates.
+- Conditional Formatting: Change student box appearance based on group or behavior/quiz data.
+- Data Export: Export logs to Excel or CSV for reporting and analysis. Includes attendance reports.
+- Data Import: Import student rosters from Excel.
 - Undo/Redo: Most actions can be undone and redone.
-- Password Protection: Secure your application data.
-- Data Backup & Restore: Keep your classroom data safe.
+- Password Protection: Secure your application data with optional auto-lock.
+- Data Backup & Restore: Keep your classroom data safe with ZIP backups.
+- Themes: Light and Dark mode support with customizable canvas color.
 
 Navigation & Interaction Tips:
-- Canvas Panning: Middle-click and drag to pan the seating chart.
-- Canvas Zoom: Ctrl + Mouse Wheel to zoom in/out. Shift + Mouse Wheel for horizontal scroll.
+- Canvas Panning: Middle-click and drag, or Shift + Mouse Wheel for horizontal scroll.
+- Canvas Zoom: Ctrl + Mouse Wheel.
 - Multi-Select: Ctrl + Left-click to select multiple items.
 - Context Menus: Right-click on items or the canvas for quick actions.
-- Edit Mode: Toggle "Edit Mode (Resize)" to resize items by dragging their bottom-right corner.
-- Combobox Scrolling: You can often use the mouse wheel to scroll through options in dropdown (combobox) lists, even if a scrollbar isn't visible.
-- Data Files: Your classroom data is stored locally. Use 'File > Open Data Folder' to access these files. Regularly backup using 'File > Backup All Application Data'.
+- Edit Mode: Toggle "Edit Mode (Resize)" to resize items by dragging their bottom-right corner (when selected).
+- Combobox Scrolling: Use the mouse wheel to scroll through options in dropdown (combobox) lists.
+- Data Files: Your classroom data is stored locally (JSON files). Use 'File > Open Data Folder' to access them. Regularly backup using 'File > Backup All Application Data (.zip)...'.
+- Exported Layout Images: The 'Export Layout as Image' feature uses PostScript. For it to work correctly, Ghostscript needs to be installed and accessible in your system's PATH.
 """
         info_text = tk.Text(info_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
         info_text.insert("1.0", info_text_content)
@@ -341,22 +349,26 @@ The application operates in three main modes, selectable from the top toolbar:
      - Session data is logged upon ending the session.
    - Quiz Templates: Define reusable quiz structures (name, number of questions, default marks) in Settings.
 
-3. Homework Mode (New!):
-   - Dedicated to tracking homework.
-   - Clicking a student allows:
-     - Manual Logging: Log detailed homework status (e.g., "Done", "Not Done", "Signed") and optionally record marks/scores if enabled in settings.
+3. Homework Mode:
+   - Dedicated to tracking all aspects of homework.
+   - Clicking a student in this mode allows for:
+     - Manual Homework Logging:
+       - Simplified View: If "Enable Detailed Marks" is OFF in Homework Settings, you'll select a Homework Type (e.g., "Reading") and then a Status (e.g., "Done").
+       - Detailed View: If "Enable Detailed Marks" is ON, a full dialog appears to log the homework type, comment, number of items, and specific marks (e.g., points for "Completeness," "Effort Score").
      - Live Homework Session:
-       - Start a "Homework Session" (e.g., "Daily Homework Check").
-       - Session Mode (configurable in Settings > Homework):
-         - "Yes/No" Mode: Quickly mark predefined homework types (e.g., "Reading Assignment: Yes/No", "Math Worksheet: Yes/No"). Define these types in Settings > Homework.
-         - "Select" Mode: Choose from a list of predefined statuses (e.g., "Done", "Signed", "Missing"). Define these options in Settings > Homework.
-       - Statuses are displayed live on student boxes.
-       - Session data is logged upon ending.
-   - Homework Templates: Define reusable homework assignments (name, number of items, default marks/statuses) in Settings.
-   - Recent homework logs can be displayed on student boxes.
+       - Click "Start Session" under "Homework Session" in the top toolbar.
+       - Name the session (e.g., "Nightly Reading Check").
+       - Student boxes will update to show homework status for this live session.
+       - Clicking a student opens a marking dialog based on the "Live Homework Session Mode" (set in Settings > Homework):
+         - "Yes/No" Mode: Mark multiple predefined homework types (e.g., "Reading Assignment," "Math Problems") as "Yes" (done) or "No" (not done) for each student. These types are managed in Settings > Homework > "Custom Types for 'Yes/No' Mode".
+         - "Select" Mode: Choose one or more predefined statuses (e.g., "Complete," "Handed In Late," "Signed") for the current session. These options are managed in Settings > Homework > "Options for 'Select' Mode".
+       - Live statuses are displayed on student boxes.
+       - End the session to log all collected data.
+   - Homework Templates: Create and use templates for common homework assignments (name, number of items, default marks/statuses) via Settings > Homework. These can be quickly applied during manual detailed logging.
+   - Recent Homework Logs: Similar to behavior incidents, recent homework entries can be displayed directly on student boxes if enabled in Settings.
 
 Switching Modes:
-- If a Live Quiz or Live Homework session is active, you will be prompted to end or discard the session before switching modes or closing the application.
+- If a Live Quiz or Live Homework session is active, you will be prompted to end (and log) or discard the session before switching modes or closing the application. This ensures no live data is accidentally lost.
 """
         modes_text = tk.Text(modes_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
         modes_text.insert("1.0", modes_text_content)
@@ -374,27 +386,28 @@ The "Settings" dialog allows extensive customization:
 - Student Boxes: Default appearance (size, colors, font), and Conditional Formatting rules (e.g., change box color if a student is in a specific group or has many recent incidents).
 - Behavior & Quiz:
     - Recent Incidents Display: Control how behavior/quiz logs appear on student boxes.
-    - Custom Behaviors: Add your own behavior types.
-    - Behavior/Quiz Initials: Customize the initials displayed for behaviors/quizzes.
-    - Quiz Mark Types: Define the categories for quiz marks (e.g., Correct, Incorrect, Bonus) and their properties.
-    - Quiz Session Defaults: Default quiz name, number of questions for manual log.
-    - Quiz Templates: Manage reusable quiz structures.
-- Homework (New!):
-    - Recent Homework Display: Control how homework logs appear on student boxes.
-    - Custom Homework Log Options: Define statuses for manual homework logging (e.g., "Done", "Not Done", "Late").
-    - Homework Log Initials: Customize initials for homework log entries.
-    - Homework Mark Types: Define categories for homework marks (e.g., Complete, Incomplete, Effort Score) and their properties.
+    - Custom Behaviors: Add your own behavior types (Settings > Behavior/Quiz > "Manage Custom Behaviors").
+    - Behavior/Quiz Initials: Customize the initials displayed for behaviors/quizzes on student boxes (Settings > Behavior/Quiz > "Manage Initials...").
+    - Quiz Mark Types: Define categories for quiz marks (e.g., Correct, Incorrect, Bonus), their points, and if they contribute to the total or are bonus (Settings > Behavior/Quiz > "Manage Quiz Mark Types").
+    - Quiz Session Defaults: Set the default quiz name for live sessions and the default number of questions for manual quiz logging.
+    - Quiz Templates: Create and manage reusable quiz structures (name, number of questions, default marks for each mark type) (Settings > Behavior/Quiz > "Manage Quiz Templates").
+- Homework:
+    - Recent Homework Display: Control if and how recent homework logs appear on student boxes (Settings > Homework > "Show Recent Homework Logs on Boxes", etc.).
+    - Custom Homework Types (for Yes/No Live Mode & Manual Logging): Define the types of homework you assign (e.g., "Reading Assignment," "Worksheet") (Settings > Homework > "Manage Custom Homework Types"). These are used for the "Yes/No" live session mode and as types in manual logging.
+    - Custom Homework Statuses (for Simplified Manual Logging): Define general statuses for the simplified manual homework log (e.g., "Done," "Not Done," "Late") (Settings > Homework > "Manage Custom Homework Statuses").
+    - Homework Log Initials: Customize initials for homework log entries displayed on student boxes (Settings > Homework > "Manage Initials for Homework Logs...").
+    - Homework Mark Types: Define categories for detailed homework marks (e.g., "Complete," "Incomplete," "Effort Score (1-5)") and their default points (Settings > Homework > "Manage Homework Mark Types").
     - Live Homework Session:
-        - Default session name.
-        - Session Mode: Choose between "Yes/No" or "Select".
-        - Custom Types for "Yes/No" Mode: Define the list of homeworks to check (e.g., "Reading", "Math").
-        - Options for "Select" Mode: Define the buttons available (e.g., "Done", "Signed").
-    - Enable Detailed Marks: Toggle whether to log detailed scores/marks for manual homework entries.
-    - Homework Templates: Manage reusable homework assignment structures.
-- Data & Export: Default options for Excel export (separate sheets, include summary). Enable experimental Excel autosave.
-- Security: Set an application password, configure password prompts (on open, for sensitive actions), and auto-lock settings.
+        - Default session name for live homework checks.
+        - Session Mode: Choose between "Yes/No" (quick marking of predefined types) or "Select" (choosing from a list of statuses).
+        - Options for "Select" Mode: Define the buttons/statuses available in "Select" live mode (e.g., "Done," "Signed," "Missing") (Settings > Homework > "Manage 'Select' Mode Options...").
+    - Enable Detailed Marks: Toggle whether the manual homework logging dialog should include detailed mark entry fields or use the simplified type/status selection (Settings > Homework > "Enable Detailed Marks for Manual Log").
+    - Homework Templates: Create and manage reusable homework assignment structures (name, number of items, pre-filled marks/statuses) (Settings > Homework > "Manage Homework Templates").
+- Data & Export: Configure default options for Excel exports (e.g., whether to create separate sheets per log type, include a summary sheet). Enable/disable Excel autosave.
+- Security: Set an application password, configure when password prompts occur (on application open, before sensitive edit actions), and set up an auto-lock timer for inactivity.
+- Theme & Appearance: Choose between Light, Dark, or System themes. Set a custom background color for the main seating chart canvas. Enable/disable text background panels on student boxes.
 
-Remember to save your settings after making changes!
+Remember to click "Apply" or "OK" in the Settings dialog to save your changes!
 """
         settings_text = tk.Text(settings_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
         settings_text.insert("1.0", settings_text_content)
@@ -404,6 +417,20 @@ Remember to save your settings after making changes!
         
          # --- Settings & Customization Tab ---
         remarks_tab = ttk.Frame(notebook, padding=10)
+<<<<<<< docs/readme-help-update
+        remarks_text_content = f"""Remarks & Notices:
+
+- Image Export ('Export Layout as Image'): This feature captures the current view of your seating chart. It uses your system's PostScript capabilities. For this to work reliably, especially on Windows, you may need to have Ghostscript installed and accessible in your system's PATH. If you encounter errors, please ensure Ghostscript is set up correctly.
+- Conditional Formatting:
+    - Currently, conditional formatting rules based on quiz scores or specific quiz mark counts are being refined.
+    - If multiple conditional formatting rules apply to a student, the application will attempt to show this by striping the box. However, for rules that set a base color (like group-based rules), the first matching rule encountered will determine the base.
+- Automatic Layout Adjustment: If "Check for Collisions on Box Move" is enabled in General Settings, moving a student box might cause other items to shift to avoid overlap. If this behavior is disruptive, you can disable it.
+- Data Integrity: While the application includes backup and restore features, always ensure you have manual backups of your critical data, especially before major updates or system changes. The data is stored in JSON files in the application's data folder (accessible via File > Open Data Folder).
+- Feature Development: This application is actively developed. Some newer features, particularly around detailed homework analysis and advanced conditional formatting, are still evolving. Your feedback is valuable!
+
+    - Yaakov Maimon
+"""
+=======
         remarks_text_content = f"""
         Please note the following:
         
@@ -414,6 +441,7 @@ Remember to save your settings after making changes!
 - The Help section is not updated often enough, so it may not contain up-to-date information.
     -Yaakov Maimon
 """        
+>>>>>>> main
         remarks_text = tk.Text(remarks_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
         remarks_text.insert("1.0", remarks_text_content)
         remarks_text.config(state="disabled")
