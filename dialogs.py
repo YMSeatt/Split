@@ -1257,8 +1257,9 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         # Rule Type
         ttk.Label(frame, text="Rule applies to:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.rule_type_var = tk.StringVar(value=self.rule.get("type", "group"))
-        type_options = ["group", "behavior_count", "quiz_score_threshold", "quiz_mark_count"] # Added new type
-        self.type_combo = ttk.Combobox(frame, textvariable=self.rule_type_var, values=type_options, state="readonly", width=25)
+        type_options = ["group", "behavior_count", "quiz_score_threshold", "quiz_mark_count",
+                        "live_quiz_response", "live_homework_yes_no", "live_homework_select"]
+        self.type_combo = ttk.Combobox(frame, textvariable=self.rule_type_var, values=type_options, state="readonly", width=30) # Increased width
         self.type_combo.grid(row=0, column=1, columnspan=2, padx=5, pady=3, sticky=tk.EW)
         self.type_combo.bind("<<ComboboxSelected>>", self.on_rule_type_change)
 
@@ -1284,6 +1285,12 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         self.outline_color_entry.grid(row=1, column=1, padx=2, pady=3)
         ttk.Button(format_frame, text="Choose...", command=lambda: self.choose_color_for_var(self.outline_color_var)).grid(row=1, column=2, padx=2, pady=3)
         ttk.Button(format_frame, text="Clear", command=lambda: self.outline_color_var.set("")).grid(row=1, column=3, padx=2, pady=3)
+
+        ttk.Label(format_frame, text="Application Style:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
+        self.application_style_var = tk.StringVar(value=self.rule.get("application_style", "stripe"))
+        style_combo = ttk.Combobox(format_frame, textvariable=self.application_style_var, values=["stripe", "override"], state="readonly", width=10)
+        style_combo.grid(row=2, column=1, padx=2, pady=3, sticky=tk.W)
+
 
         # Initialize condition frame based on current/default rule type
         self.on_rule_type_change(None)
@@ -1372,9 +1379,49 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
             ttk.Spinbox(qmc_frame, from_=0, to=100, textvariable=self.qmc_count_var, width=4).grid(row=2, column=3, sticky=tk.W, padx=2, pady=2)
             qmc_frame.grid_columnconfigure(1, weight=1)
 
+        elif rule_type == "live_quiz_response":
+            lqr_frame = ttk.Frame(self.condition_frame); lqr_frame.pack(fill=tk.X, pady=2)
+            ttk.Label(lqr_frame, text="Quiz Response:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+            self.lqr_response_var = tk.StringVar(value=self.rule.get("quiz_response", "Correct"))
+            ttk.Combobox(lqr_frame, textvariable=self.lqr_response_var, values=["Correct", "Incorrect"], state="readonly", width=15).grid(row=0, column=1, padx=5, pady=2, sticky=tk.W)
+
+        elif rule_type == "live_homework_yes_no":
+            lhy_frame = ttk.Frame(self.condition_frame); lhy_frame.pack(fill=tk.X, pady=2)
+            ttk.Label(lhy_frame, text="Homework Type:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+
+            self.lhy_hw_type_id_var = tk.StringVar(value=self.rule.get("homework_type_id", "")) # Stores ID
+            self.lhy_hw_type_options_map = {item['name']: item['id'] for item in self.app.all_homework_session_types}
+            lhy_hw_type_display_names = [""] + sorted(self.lhy_hw_type_options_map.keys())
+
+            self.lhy_hw_type_combo = ttk.Combobox(lhy_frame, textvariable=self.lhy_hw_type_id_var, values=lhy_hw_type_display_names, state="readonly", width=25)
+            # Set initial display name
+            initial_hw_type_id = self.rule.get("homework_type_id", "")
+            initial_hw_type_name = ""
+            for name, hid in self.lhy_hw_type_options_map.items():
+                if hid == initial_hw_type_id:
+                    initial_hw_type_name = name; break
+            self.lhy_hw_type_id_var.set(initial_hw_type_name) # Set display name
+            self.lhy_hw_type_combo.grid(row=0, column=1, padx=5, pady=2, sticky=tk.EW)
+
+            ttk.Label(lhy_frame, text="Response:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+            self.lhy_response_var = tk.StringVar(value=self.rule.get("homework_response", "yes"))
+            ttk.Combobox(lhy_frame, textvariable=self.lhy_response_var, values=["yes", "no"], state="readonly", width=10).grid(row=1, column=1, padx=5, pady=2, sticky=tk.W)
+            lhy_frame.grid_columnconfigure(1, weight=1)
+
+        elif rule_type == "live_homework_select":
+            lhs_frame = ttk.Frame(self.condition_frame); lhs_frame.pack(fill=tk.X, pady=2)
+            ttk.Label(lhs_frame, text="Homework Option:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+            self.lhs_option_name_var = tk.StringVar(value=self.rule.get("homework_option_name", ""))
+
+            select_mode_options = [opt['name'] for opt in self.app.settings.get("live_homework_select_mode_options", [])]
+            self.lhs_option_combo = ttk.Combobox(lhs_frame, textvariable=self.lhs_option_name_var, values=[""] + sorted(select_mode_options), state="readonly", width=25)
+            self.lhs_option_combo.grid(row=0, column=1, padx=5, pady=2, sticky=tk.EW)
+            lhs_frame.grid_columnconfigure(1, weight=1)
+
 
     def apply(self):
         final_rule = {"type": self.rule_type_var.get()}
+        final_rule["application_style"] = self.application_style_var.get() # Common to all
         rule_type = final_rule["type"]
 
         fill = self.fill_color_var.get().strip()
@@ -1405,24 +1452,36 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
 
         elif rule_type == "quiz_mark_count":
             final_rule["quiz_name_contains"] = self.qmc_quiz_name_var.get().strip() # Can be empty
-
             selected_mark_name = self.qmc_mark_type_var.get()
-            if not selected_mark_name:
-                messagebox.showerror("Missing Info", "Please select a Mark Type.", parent=self)
-                return
+            if not selected_mark_name: messagebox.showerror("Missing Info", "Please select a Mark Type.", parent=self); return
             final_rule["mark_type_id"] = self.qmc_mark_type_options_map.get(selected_mark_name)
-            if not final_rule["mark_type_id"]: # Should not happen if combobox is populated correctly
-                messagebox.showerror("Error", "Selected mark type is invalid.", parent=self)
-                return
-
+            if not final_rule["mark_type_id"]: messagebox.showerror("Error", "Selected mark type is invalid.", parent=self); return
             final_rule["mark_operator"] = self.qmc_operator_var.get()
             try:
                 count_val = self.qmc_count_var.get()
-                if count_val < 0:
-                    messagebox.showerror("Invalid Input", "Count cannot be negative.", parent=self); return
+                if count_val < 0: messagebox.showerror("Invalid Input", "Count cannot be negative.", parent=self); return
                 final_rule["mark_count_threshold"] = count_val
-            except tk.TclError: # Handles if spinbox has non-integer input somehow
-                messagebox.showerror("Invalid Input", "Count must be a valid integer.", parent=self); return
+            except tk.TclError: messagebox.showerror("Invalid Input", "Count must be a valid integer.", parent=self); return
+
+        elif rule_type == "live_quiz_response":
+            response = self.lqr_response_var.get()
+            if not response: messagebox.showerror("Missing Info", "Please select a quiz response.", parent=self); return
+            final_rule["quiz_response"] = response
+
+        elif rule_type == "live_homework_yes_no":
+            selected_hw_type_name = self.lhy_hw_type_id_var.get() # This var now holds the name
+            if not selected_hw_type_name: messagebox.showerror("Missing Info", "Please select a homework type.", parent=self); return
+            final_rule["homework_type_id"] = self.lhy_hw_type_options_map.get(selected_hw_type_name) # Get ID from name
+            if not final_rule["homework_type_id"]: messagebox.showerror("Error", "Selected homework type is invalid.", parent=self); return
+
+            response = self.lhy_response_var.get()
+            if not response: messagebox.showerror("Missing Info", "Please select a homework response (Yes/No).", parent=self); return
+            final_rule["homework_response"] = response
+
+        elif rule_type == "live_homework_select":
+            option_name = self.lhs_option_name_var.get()
+            if not option_name: messagebox.showerror("Missing Info", "Please select a homework option.", parent=self); return
+            final_rule["homework_option_name"] = option_name
         
         self.result = final_rule
 

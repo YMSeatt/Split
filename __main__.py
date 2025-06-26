@@ -440,6 +440,9 @@ class SeatingChartApp:
             # Homework specific (New)
             "default_homework_name": "Homework Check", # Default name for manual log & live session
             "last_used_homework_name_timeout_minutes": 60, # Timeout for remembering homework name (manual log)
+            "behavior_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for behavior log text
+            "quiz_log_font_size": DEFAULT_FONT_SIZE,       # Specific font size for quiz log text
+            "homework_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for homework log text
             "live_homework_session_mode": "Yes/No", # "Yes/No" or "Select"
             "log_homework_marks_enabled": True, # Enable/disable detailed marks for manual log
             "homework_mark_types": DEFAULT_HOMEWORK_MARK_TYPES.copy(),
@@ -1230,11 +1233,66 @@ class SeatingChartApp:
 
     def applies_to_conditional(self, student_id, rule):
         student_data = self.students.get(student_id)
-        if not student_data:
-            return False # Should return False if student not found
+        if not student_data: return False # Student data is essential
 
-        rule_type = rule.get("type", "")
+        rule_type = rule.get("type")
 
+        # --- Live Session Conditional Formatting Rules ---
+        if rule_type == "live_quiz_response":
+            if not self.is_live_quiz_active or student_id not in self.live_quiz_scores:
+                return False
+            student_live_score = self.live_quiz_scores[student_id]
+            # MarkLiveQuizQuestionCommand stores the mark_id in 'last_response_details'
+            last_response_mark_id = student_live_score.get("last_response_details")
+            if not last_response_mark_id: return False
+
+            # Map mark_id to "Correct" or "Incorrect" based on quiz_mark_types settings
+            # This assumes 'Correct'/'Incorrect' are the values stored in the rule by the dialog.
+            effective_response_type = ""
+            for mt in self.settings.get("quiz_mark_types", []):
+                if mt["id"] == last_response_mark_id:
+                    # Heuristic: if "correct" or "bonus" in ID or name, it's "Correct"
+                    # if "incorrect" in ID or name, it's "Incorrect"
+                    # This might need refinement if mark types are very custom.
+                    if "correct" in mt["name"].lower() or "bonus" in mt["name"].lower() or \
+                       (mt.get("default_points", 0) > 0 and not mt.get("is_extra_credit", False)) or \
+                       (mt.get("default_points", 0) > 0 and mt.get("is_extra_credit", True)): # Treat bonus as correct for coloring
+                        effective_response_type = "Correct"
+                    elif "incorrect" in mt["name"].lower() or mt.get("default_points", 0) == 0 : # Treat 0 points as incorrect
+                         effective_response_type = "Incorrect"
+                    break
+
+            rule_quiz_response = rule.get("quiz_response") # "Correct" or "Incorrect"
+            if effective_response_type and rule_quiz_response and effective_response_type == rule_quiz_response:
+                return True
+            return False
+
+        elif rule_type == "live_homework_yes_no":
+            if not self.is_live_homework_active or self.settings.get("live_homework_session_mode") != "Yes/No" or \
+               student_id not in self.live_homework_scores:
+                return False
+
+            student_hw_data = self.live_homework_scores.get(student_id, {}) # e.g., {hw_type_id: "yes"}
+            rule_hw_type_id = rule.get("homework_type_id")
+            rule_hw_response = rule.get("homework_response") # "yes" or "no"
+
+            if rule_hw_type_id in student_hw_data and student_hw_data[rule_hw_type_id] == rule_hw_response:
+                return True
+            return False
+
+        elif rule_type == "live_homework_select":
+            if not self.is_live_homework_active or self.settings.get("live_homework_session_mode") != "Select" or \
+               student_id not in self.live_homework_scores:
+                return False
+
+            student_hw_data = self.live_homework_scores.get(student_id, {}) # e.g., {"selected_options": ["Done", "Signed"]}
+            rule_option_name = rule.get("homework_option_name")
+
+            if "selected_options" in student_hw_data and rule_option_name in student_hw_data["selected_options"]:
+                return True
+            return False
+
+        # --- Standard Conditional Formatting Rules (Non-Live Session) ---
         if rule_type == "behavior_count":
             time_window_hours = rule.get("time_window_hours", 24) # Default if not set
             count_threshold = rule.get("count_threshold", 1)
@@ -1385,27 +1443,73 @@ class SeatingChartApp:
                             })
                             # No break here, collect all matching non-group rules.
             
-            # If active_rules_colors is empty, the drawing logic (to be modified in next step)
+            # If active_rules_colors is empty, the drawing logic
             # will use the existing fill_color and outline_color_orig for the single rectangle.
             # If populated, it will draw stripes based on these collected colors.
             # The original fill_color and outline_color_orig (potentially set by a group rule)
-            # can be considered the "base" if no other rules apply, or if the striping logic
-            # decides to use it as the first stripe when active_rules_colors is also present.
-            # For now, we'll assume active_rules_colors take full precedence for striping if not empty.
+            # can be considered the "base" if no other rules apply.
 
+            live_override_applied = False
+            # Process override rules first for live sessions
+            if self.is_live_quiz_active or self.is_live_homework_active:
+                for rule in self.settings.get("conditional_formatting_rules", []):
+                    if rule.get("type") in ["live_quiz_response", "live_homework_yes_no", "live_homework_select"] and \
+                       rule.get("application_style") == "override":
+                        if self.applies_to_conditional(student_id, rule):
+                            if rule.get("color"): fill_color = rule["color"]
+                            if rule.get("outline"): outline_color_orig = rule["outline"]
+                            active_rules_colors = []  # Clear any standard stripes if overridden
+                            live_override_applied = True
+                            break
+
+            # Collect stripe rules (standard and live, if no live override took place)
+            if not live_override_applied:
+                active_rules_colors = [] # Ensure it's clean before collecting stripes
+                for rule in self.settings.get("conditional_formatting_rules", []):
+                    rule_type = rule.get("type")
+                    is_live_rule = rule_type in ["live_quiz_response", "live_homework_yes_no", "live_homework_select"]
+
+                    if rule_type == "group":
+                        continue
+
+                    applies_now = False
+                    if is_live_rule:
+                        if rule.get("application_style") == "stripe":
+                            if (self.is_live_quiz_active and rule_type == "live_quiz_response") or \
+                               (self.is_live_homework_active and rule_type in ["live_homework_yes_no", "live_homework_select"]):
+                                applies_now = self.applies_to_conditional(student_id, rule)
+                    else:
+                        applies_now = self.applies_to_conditional(student_id, rule)
+
+                    if applies_now:
+                        rule_fill = rule.get("color")
+                        rule_outline = rule.get("outline")
+                        if rule_fill or rule_outline:
+                            active_rules_colors.append({
+                                "fill": rule_fill if rule_fill else None,
+                                "outline": rule_outline if rule_outline else None
+                            })
+
+            # Font setup using new specific settings
             name_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight="bold")
-            incident_font_obj = tkfont.Font(family=font_family, size=max(5, font_size_canvas -1))
+
+            behavior_log_font_size_canvas = int(max(5, self.settings.get("behavior_log_font_size", DEFAULT_FONT_SIZE -1) * self.current_zoom_level))
+            incident_font_obj = tkfont.Font(family=font_family, size=behavior_log_font_size_canvas)
+
+            quiz_log_font_size_canvas = int(max(5, self.settings.get("quiz_log_font_size", DEFAULT_FONT_SIZE) * self.current_zoom_level))
             quiz_score_font_color_setting = self.settings.get("live_quiz_score_font_color")
             quiz_score_font_bold_setting = self.settings.get("live_quiz_score_font_style_bold")
             quiz_score_font_weight = "bold" if quiz_score_font_bold_setting else "normal"
-            quiz_score_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight=quiz_score_font_weight)
+            quiz_score_font_obj = tkfont.Font(family=font_family, size=quiz_log_font_size_canvas, weight=quiz_score_font_weight)
 
-            # New: Homework Score Font
+            homework_log_font_size_canvas = int(max(5, self.settings.get("homework_log_font_size", DEFAULT_FONT_SIZE -1) * self.current_zoom_level))
             hw_score_font_color_setting = self.settings.get("live_homework_score_font_color", DEFAULT_HOMEWORK_SCORE_FONT_COLOR)
             hw_score_font_bold_setting = self.settings.get("live_homework_score_font_style_bold", DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD)
             hw_score_font_weight = "bold" if hw_score_font_bold_setting else "normal"
-            hw_score_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight=hw_score_font_weight)
-            hw_score_item_font_obj = tkfont.Font(family=font_family, size=max(5, font_size_canvas -1), weight=hw_score_font_weight) # Slightly smaller for items
+            # For homework_score_header, use the dedicated homework_log_font_size
+            hw_score_font_obj = tkfont.Font(family=font_family, size=homework_log_font_size_canvas, weight=hw_score_font_weight)
+            # For homework_score_item, also use homework_log_font_size (or could be a new setting if finer control is needed)
+            hw_score_item_font_obj = tkfont.Font(family=font_family, size=homework_log_font_size_canvas, weight=hw_score_font_weight)
             
             self.canvas.delete(student_id)
             rect_tag = ("student_item", student_id, "rect")

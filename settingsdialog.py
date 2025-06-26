@@ -303,6 +303,24 @@ class SettingsDialog(simpledialog.Dialog):
         # Default colors and font
         self.create_color_font_settings_ui(lf_defaults, 2, "student_box_fill_color", "student_box_outline_color", "student_font_family", "student_font_size", "student_font_color")
 
+        # Additional font size controls for specific log types
+        row_after_defaults = 2 + 5 # After 5 rows used by create_color_font_settings_ui starting at row 2
+
+        ttk.Label(lf_defaults, text="Behavior Log Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
+        self.behavior_log_font_size_var = tk.IntVar(value=self.settings.get("behavior_log_font_size", DEFAULT_FONT_SIZE - 1))
+        ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.behavior_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
+        row_after_defaults += 1
+
+        ttk.Label(lf_defaults, text="Quiz Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
+        self.quiz_log_font_size_var = tk.IntVar(value=self.settings.get("quiz_log_font_size", DEFAULT_FONT_SIZE))
+        ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.quiz_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
+        row_after_defaults += 1
+
+        ttk.Label(lf_defaults, text="Homework Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
+        self.homework_log_font_size_var = tk.IntVar(value=self.settings.get("homework_log_font_size", DEFAULT_FONT_SIZE - 1))
+        ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.homework_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
+        row_after_defaults += 1
+
         # Setting for text background panel
         self.enable_text_panel_var = tk.BooleanVar(value=self.settings.get("enable_text_background_panel", True))
         ttk.Checkbutton(lf_defaults, text="Enable text background panel on student boxes\n(improves legibility on colored stripes)",
@@ -765,14 +783,36 @@ class SettingsDialog(simpledialog.Dialog):
     def populate_conditional_rules_listbox(self):
         self.rules_listbox.delete(0, tk.END)
         for i, rule in enumerate(self.settings.get("conditional_formatting_rules", [])):
-            desc = f"Rule {i+1}: Type='{rule['type']}'"
-            if rule['type'] == 'group': desc += f", Group='{self.app.student_groups.get(rule.get('group_id'),{}).get('name','Unknown')}'"
-            elif rule['type'] == 'behavior_count': desc += f", Behavior='{rule.get('behavior_name')}', Count>={rule.get('count_threshold')}, Hours={rule.get('time_window_hours')}"
-            elif rule['type'] == 'quiz_score_threshold': desc += f", Quiz~'{rule.get('quiz_name_contains','')}', Score {rule.get('operator','<=')} {rule.get('score_threshold_percent','')}%"
-            desc += f" -> Fill='{rule.get('color','')}', Outline='{rule.get('outline','')}'"
+            desc = f"Rule {i+1}: Type='{rule.get('type', 'Unknown')}'"
+            if rule['type'] == 'group':
+                group_name = self.app.student_groups.get(rule.get('group_id'), {}).get('name', 'Unknown Group')
+                desc += f", Group='{group_name}'"
+            elif rule['type'] == 'behavior_count':
+                desc += f", Behavior='{rule.get('behavior_name', 'N/A')}', Count>={rule.get('count_threshold',0)}, Hours={rule.get('time_window_hours',0)}"
+            elif rule['type'] == 'quiz_score_threshold':
+                desc += f", Quiz~'{rule.get('quiz_name_contains','Any')}', Score {rule.get('operator','N/A')} {rule.get('score_threshold_percent','N/A')}%"
+            elif rule['type'] == 'quiz_mark_count':
+                mark_name = "N/A"
+                for mt in self.app.settings.get("quiz_mark_types", []):
+                    if mt.get("id") == rule.get("mark_type_id"):
+                        mark_name = mt.get("name"); break
+                desc += f", Quiz~'{rule.get('quiz_name_contains','Any')}', Mark='{mark_name}', {rule.get('mark_operator','N/A')} {rule.get('mark_count_threshold','N/A')}"
+            elif rule['type'] == 'live_quiz_response':
+                desc += f", Quiz Response='{rule.get('quiz_response', 'N/A')}'"
+            elif rule['type'] == 'live_homework_yes_no':
+                hw_type_name = "N/A"
+                for ht in self.app.all_homework_session_types: # These are dicts with 'id' and 'name'
+                    if ht.get('id') == rule.get('homework_type_id'):
+                        hw_type_name = ht.get('name'); break
+                desc += f", HW Type='{hw_type_name}', Response='{rule.get('homework_response', 'N/A')}'"
+            elif rule['type'] == 'live_homework_select':
+                desc += f", HW Option='{rule.get('homework_option_name', 'N/A')}'"
+
+            desc += f" -> Fill='{rule.get('color','None')}', Outline='{rule.get('outline','None')}', Style='{rule.get('application_style','stripe')}'"
             self.rules_listbox.insert(tk.END, desc)
+
     def add_conditional_rule(self):
-        dialog = ConditionalFormattingRuleDialog(self, self.app) # Pass app
+        dialog = ConditionalFormattingRuleDialog(self.master_frame, self.app) # Pass app and correct parent
         if dialog.result:
             if "conditional_formatting_rules" not in self.settings: self.settings["conditional_formatting_rules"] = []
             self.settings["conditional_formatting_rules"].append(dialog.result)
@@ -953,6 +993,9 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["student_font_family"]=self.student_font_family_var.get()
         self.settings["student_font_size"]=self.student_font_size_var.get()
         self.settings["student_font_color"]=self.student_font_color_var.get()
+        self.settings["behavior_log_font_size"] = self.behavior_log_font_size_var.get()
+        self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
+        self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()
         self.settings["enable_text_background_panel"] = self.enable_text_panel_var.get() # New setting
         # Behavior/Quiz Log Tab
         self.settings["show_recent_incidents_on_boxes"] = self.show_recent_var.get()
