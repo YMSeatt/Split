@@ -315,11 +315,16 @@ class AddFurnitureDialog(simpledialog.Dialog):
 
 class BehaviorDialog(simpledialog.Dialog):
     # ... (same as v51)
-    def __init__(self, parent, title, all_behaviors, custom_behaviors):
+    def __init__(self, parent, title, all_behaviors, custom_behaviors, initial_value=None): # Added initial_value
         self.all_behaviors = all_behaviors
-        self.custom_behaviors = custom_behaviors # For potential editing in future, not used now
+        self.custom_behaviors = custom_behaviors
         self.result = None
         self.selected_behavior_var = tk.StringVar()
+        if initial_value and initial_value in self.all_behaviors: # Pre-select if valid
+            self.selected_behavior_var.set(initial_value)
+        elif initial_value: # If provided but not in list, allow it to be typed (if combobox was used) or just store it for apply
+             self.selected_behavior_var.set(initial_value) # For button-based, it will be the one "pressed"
+
         super().__init__(parent, title)
     def body(self, master):
         
@@ -424,15 +429,17 @@ class BehaviorDialog(simpledialog.Dialog):
     #    else: messagebox.showwarning("Input Required", "Please select or enter a behavior.", parent=self); self.result = None
 
 class ManualHomeworkLogDialog(simpledialog.Dialog):
-    def __init__(self, parent, title, all_homework_types, custom_homework_types, log_marks_enabled, homework_mark_types, homework_templates, app):
+    def __init__(self, parent, title, all_homework_types, custom_homework_types, log_marks_enabled, homework_mark_types, homework_templates, app, initial_homework_name=None, initial_num_items=None):
         self.all_homework_types = all_homework_types # List of strings (for the combobox)
         self.custom_homework_types = custom_homework_types
         self.log_marks_enabled = log_marks_enabled
         self.homework_mark_types = homework_mark_types
         self.homework_templates = homework_templates
-        self.app = app # Pass app instance
+        self.app = app
         self.result = None
         self.mark_entry_vars = {}
+        self.initial_homework_name_passed = initial_homework_name # Store for use in body
+        self.initial_num_items_passed = initial_num_items # Store for use in body
         super().__init__(parent, title)
 
     def body(self, master):
@@ -447,20 +454,27 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         combined_options = sorted(list(set(self.all_homework_types + [tpl['name'] for tpl_id, tpl in self.homework_templates.items()])))
         
         self.homework_type_combobox = ttk.Combobox(type_frame, textvariable=self.homework_type_var, values=combined_options, width=40)
+
+        # Set initial value for combobox
+        if self.initial_homework_name_passed and self.initial_homework_name_passed in combined_options:
+            self.homework_type_combobox.set(self.initial_homework_name_passed)
+        elif self.initial_homework_name_passed: # If it's a custom name not in templates/defaults yet
+            self.homework_type_combobox.set(self.initial_homework_name_passed) # Allow typing it
+        elif combined_options: # Fallback to first option if initial not found or not provided
+            self.homework_type_combobox.set(combined_options[0])
+
         self.homework_type_combobox.pack(side=tk.LEFT, padx=5, pady=(0,5), fill=tk.X, expand=True)
-        if combined_options: self.homework_type_combobox.set(combined_options[0])
         self.homework_type_combobox.bind("<<ComboboxSelected>>", self.on_template_select)
         self.homework_type_combobox.bind("<MouseWheel>", lambda event: "break")
 
         # Number of Items
-        self.num_items_frame = ttk.Frame(main_frame)
-        self.num_items_frame.pack(pady=5, fill=tk.X)
+        self.num_items_frame = ttk.Frame(main_frame) # Will be packed by on_template_select if needed
         ttk.Label(self.num_items_frame, text="Number of Items/Questions:").pack(side=tk.LEFT, padx=5)
-        self.num_items_var = tk.StringVar(value="10")
+        self.num_items_var = tk.StringVar(value=str(self.initial_num_items_passed if self.initial_num_items_passed is not None else self.app.settings.get("default_homework_items_for_yes_no_mode", 5)))
         self.num_items_spinbox = ttk.Spinbox(self.num_items_frame, from_=1, to=200, textvariable=self.num_items_var, width=5)
         self.num_items_spinbox.pack(side=tk.LEFT, padx=5)
 
-        # Marks Frame
+        # Marks Frame (conditionally packed by on_template_select or if log_marks_enabled)
         self.marks_widgets_frame = ttk.LabelFrame(main_frame, text="Marks Details")
         self.marks_widgets_frame.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)
         

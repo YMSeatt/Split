@@ -277,9 +277,11 @@ class SeatingChartApp:
         self.last_used_quiz_name = ""
         self.initial_num_questions = "" # For quiz
         self.last_used_quiz_name_timestamp = None
-        self.last_used_homework_name = "" # New for homework
-        self.initial_num_homework_items = "" # New for homework
-        self.last_used_homework_name_timestamp = None # New
+
+        # Attributes for remembering the last used homework name and items for manual logging
+        self.last_used_homework_name = ""
+        self.initial_num_homework_items = "" # For manual log, if needed in future
+        self.last_used_homework_name_timestamp = None
 
         self.is_live_quiz_active = False
         self.current_live_quiz_name = ""
@@ -426,7 +428,7 @@ class SeatingChartApp:
 
             # Quiz specific
             "default_quiz_name": "Pop Quiz",
-            "last_used_quiz_name_timeout_minutes": 60,
+            "last_used_quiz_name_timeout_minutes": 60, # Timeout for remembering quiz name
             "show_recent_incidents_during_quiz": True,
             "live_quiz_score_font_color": DEFAULT_QUIZ_SCORE_FONT_COLOR,
             "live_quiz_score_font_style_bold": DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD,
@@ -436,7 +438,8 @@ class SeatingChartApp:
             "combine_marks_for_display": True,
 
             # Homework specific (New)
-            "default_homework_name": "Homework Check", # For live session name
+            "default_homework_name": "Homework Check", # Default name for manual log & live session
+            "last_used_homework_name_timeout_minutes": 60, # Timeout for remembering homework name (manual log)
             "live_homework_session_mode": "Yes/No", # "Yes/No" or "Select"
             "log_homework_marks_enabled": True, # Enable/disable detailed marks for manual log
             "homework_mark_types": DEFAULT_HOMEWORK_MARK_TYPES.copy(),
@@ -461,12 +464,13 @@ class SeatingChartApp:
             "next_custom_homework_type_id_num": 1, # For custom homework types in Yes/No mode
 
             # Internal state storage (prefixed with underscore)
-            "_last_used_quiz_name_for_session": "",
-            "_last_used_quiz_name_timestamp_for_session": None,
-            "_last_used_q_num_for_session": 10,
-            "_last_used_homework_name_for_session": "", # New
-            "_last_used_homework_name_timestamp_for_session": None, # New
-            "_last_used_hw_items_for_session": 5, # 
+            "_last_used_quiz_name_for_session": "", # Stores last used quiz name for manual log
+            "_last_used_quiz_name_timestamp_for_session": None, # Timestamp for quiz name timeout
+            "_last_used_q_num_for_session": 10, # Stores last used num questions for manual quiz log
+
+            "_last_used_homework_name_for_session": "", # Stores last used homework name for manual log
+            "_last_used_homework_name_timestamp_for_session": None, # Timestamp for homework name timeout
+            "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
             "theme": "System", # Newer
             "enable_text_background_panel": True, # Default for the new setting
         }
@@ -2404,12 +2408,28 @@ class SeatingChartApp:
         student = self.students.get(student_id)
         if not student: return
 
+        initial_homework_name_to_pass = self.settings.get("default_homework_name", "Homework")
+        initial_num_items_to_pass = self.settings.get("_last_used_hw_items_for_session", self.settings.get("default_homework_items_for_yes_no_mode", 5)) # Default to 5 if not set
+        timeout_hw_minutes = self.settings.get("last_used_homework_name_timeout_minutes", 60)
+
+        if self.last_used_homework_name and self.last_used_homework_name_timestamp:
+            try:
+                time_since_last_hw_use = (datetime.now() - datetime.fromisoformat(self.last_used_homework_name_timestamp)).total_seconds() / 60
+                if time_since_last_hw_use < timeout_hw_minutes:
+                    initial_homework_name_to_pass = self.last_used_homework_name
+                    initial_num_items_to_pass = self.initial_num_homework_items # Use the stored number of items
+            except ValueError:
+                print("Warning: Could not parse last_used_homework_name_timestamp.")
+
+
         # --- BRANCHING LOGIC FOR SIMPLIFIED/DETAILED VIEW ---
         if not self.settings.get("log_homework_marks_enabled", True):
             # --- Simplified View ---
-            
-            # 1. First Popup: Select Homework Type
-            type_dialog = BehaviorDialog(self.root, f"Select Homework Type for {student['full_name']}", self.all_homework_types, [])
+            # 1. First Popup: Select Homework Type (uses BehaviorDialog)
+            # Pass the potentially remembered name to the dialog
+            type_dialog = BehaviorDialog(self.root, f"Select Homework Type for {student['full_name']}",
+                                         self.all_homework_types, [],
+                                         initial_value=initial_homework_name_to_pass) # Pass initial value
             if not type_dialog.result:
                 self.update_status("Homework log cancelled.")
                 return
@@ -2422,50 +2442,68 @@ class SeatingChartApp:
                 return
             homework_status, comment_status = status_dialog.result
             
-            # Combine comments if both were entered
             final_comment = comment_type
             if comment_status:
                 final_comment += (f" - {comment_status}" if final_comment else comment_status)
 
-            # 3. Log the entry
             log_entry = {
                 "timestamp": datetime.now().isoformat(), "student_id": student_id,
                 "student_first_name": student["first_name"], "student_last_name": student["last_name"],
-                "behavior": f"{homework_type}: {homework_status}", # Combine for a descriptive name
-                "homework_type": homework_type, # Store original type
-                "homework_status": homework_status, # Store status
-                "comment": final_comment, 
-                "type": "homework",
-                "day": datetime.now().strftime('%A')
+                "behavior": f"{homework_type}: {homework_status}",
+                "homework_type": homework_type,
+                "homework_status": homework_status,
+                "comment": final_comment, "type": "homework", "day": datetime.now().strftime('%A')
             }
             self.execute_command(LogHomeworkEntryCommand(self, log_entry, student_id))
+
+            # Remember this homework type for next time
+            self.last_used_homework_name = homework_type
+            self.last_used_homework_name_timestamp = datetime.now().isoformat()
+            # For simplified view, num_items isn't directly relevant for "remembering" but store consistently
+            self.initial_num_homework_items = 1 # Or some other default for simplified
+            self.settings["_last_used_homework_name_for_session"] = self.last_used_homework_name
+            self.settings["_last_used_homework_name_timestamp_for_session"] = self.last_used_homework_name_timestamp
+            self.settings["_last_used_hw_items_for_session"] = self.initial_num_homework_items
+
             self.draw_all_items(check_collisions_on_redraw=True)
             self.password_manager.record_activity()
 
         else:
             # --- Detailed Marks View ---
-            dialog = ManualHomeworkLogDialog(self.root, f"Log Homework for {student['full_name']}",
-                                             self.all_homework_types, # Use homework TYPES for the combobox
-                                             self.custom_homework_types, # Pass custom types
-                                             log_marks_enabled=True,
-                                             homework_mark_types=self.settings.get("homework_mark_types", DEFAULT_HOMEWORK_MARK_TYPES.copy()),
-                                             homework_templates=self.homework_templates,
-                                             app=self) # Pass app instance
+            dialog = ManualHomeworkLogDialog(
+                self.root, f"Log Homework for {student['full_name']}",
+                self.all_homework_types,
+                self.custom_homework_types,
+                log_marks_enabled=True,
+                homework_mark_types=self.settings.get("homework_mark_types", DEFAULT_HOMEWORK_MARK_TYPES.copy()),
+                homework_templates=self.homework_templates,
+                app=self,
+                initial_homework_name=initial_homework_name_to_pass, # Pass remembered name
+                initial_num_items=initial_num_items_to_pass # Pass remembered items
+            )
             if dialog.result:
                 homework_type, comment, marks_data, num_items = dialog.result
                 log_entry = {
                     "timestamp": datetime.now().isoformat(), "student_id": student_id,
                     "student_first_name": student["first_name"], "student_last_name": student["last_name"],
-                    "behavior": homework_type,
-                    "homework_type": homework_type,
-                    "comment": comment, "type": "homework",
-                    "day": datetime.now().strftime('%A')
+                    "behavior": homework_type, "homework_type": homework_type,
+                    "comment": comment, "type": "homework", "day": datetime.now().strftime('%A')
                 }
                 if marks_data:
                     log_entry["marks_data"] = marks_data
                     log_entry["num_items"] = num_items
 
                 self.execute_command(LogHomeworkEntryCommand(self, log_entry, student_id))
+
+                # Remember this homework type and num_items for next time
+                self.last_used_homework_name = homework_type
+                self.last_used_homework_name_timestamp = datetime.now().isoformat()
+                self.initial_num_homework_items = num_items if num_items is not None else self.settings.get("default_homework_items_for_yes_no_mode", 5)
+
+                self.settings["_last_used_homework_name_for_session"] = self.last_used_homework_name
+                self.settings["_last_used_homework_name_timestamp_for_session"] = self.last_used_homework_name_timestamp
+                self.settings["_last_used_hw_items_for_session"] = self.initial_num_homework_items
+
                 self.draw_all_items(check_collisions_on_redraw=True)
                 self.password_manager.record_activity()
 
@@ -2570,9 +2608,11 @@ class SeatingChartApp:
                 self.last_used_quiz_name = self.settings.get("_last_used_quiz_name_for_session", "")
                 self.last_used_quiz_name_timestamp = self.settings.get("_last_used_quiz_name_timestamp_for_session", None)
                 self.initial_num_questions = self.settings.get("_last_used_q_num_for_session", 10)
-                self.last_used_homework_name = self.settings.get("_last_used_homework_name_for_session", "") # New
-                self.last_used_homework_name_timestamp = self.settings.get("_last_used_homework_name_timestamp_for_session", None) # New
-                self.initial_num_homework_items = self.settings.get("_last_used_hw_items_for_session", 5) # New
+
+                self.last_used_homework_name = self.settings.get("_last_used_homework_name_for_session", "")
+                self.last_used_homework_name_timestamp = self.settings.get("_last_used_homework_name_timestamp_for_session", None)
+                self.initial_num_homework_items = self.settings.get("_last_used_hw_items_for_session", self.settings.get("default_homework_items_for_yes_no_mode", 5))
+
                 self.theme_style_using = self.settings.get("theme", "System") # Newer
                 self.custom_canvas_color = self.settings.get("canvas_color", "Default")
 
@@ -4472,29 +4512,88 @@ class SeatingChartApp:
         if theme != "System": sv_ttk.set_theme(theme)
         else: sv_ttk.set_theme(darkdetect.theme())
         
-        self.theme_style_using = theme
-        if canvas_color == "Default" or canvas_color == "" or canvas_color == None:
-            canvas_color = None; self.custom_canvas_color = None
-        else:
-            self.custom_canvas_color = canvas_color
-            self.canvas_color = canvas_color
-        
-        if self.custom_canvas_color: self.canvas_color = self.custom_canvas_color
-        elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
-        elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-        else: self.canvas_color = "lightgrey"
-        self.canvas.configure(bg=self.canvas_color)
+        if theme != self.settings.get("theme", DEFAULT_THEME) or canvas_color != self.settings.get("canvas_color", "Default"):
+            if theme != "System":
+                if sv_ttk.get_theme() != theme:
+                    sv_ttk.set_theme(theme)
+            else:
+                current_system_theme = darkdetect.theme()
+                if sv_ttk.get_theme() != current_system_theme:
+                    sv_ttk.set_theme(current_system_theme)
 
-    def theme_auto(self, init=False):
-        if self.theme_style_using != "System": sv_ttk.set_theme(self.theme_style_using)
-        else: sv_ttk.set_theme(darkdetect.theme())
+            self.theme_style_using = theme # Store the user's selection ('System', 'Light', 'Dark')
+            self.settings["theme"] = theme # Save to settings
+
+            if canvas_color == "Default" or canvas_color == "" or canvas_color is None:
+                self.custom_canvas_color = None
+                self.settings["canvas_color"] = "Default"
+            else:
+                self.custom_canvas_color = canvas_color
+                self.settings["canvas_color"] = canvas_color
+
+            self._apply_canvas_color() # Apply the new canvas color
+            self.settings_changed_flag = True # Indicate settings changed for saving
+            self.draw_all_items() # Redraw items as theme/canvas color change might affect them
+            self.update_status(f"Theme set to {theme}. Canvas color updated.")
+
+
+    def _apply_canvas_color(self):
+        """Applies the current canvas color based on theme and custom settings."""
+        if self.custom_canvas_color and self.custom_canvas_color != "Default":
+            self.canvas_color = self.custom_canvas_color
+        elif self.theme_style_using == "Dark":
+            self.canvas_color = "#1F1F1F"
+        elif self.theme_style_using == "System":
+            self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
+        else: # Light theme
+            self.canvas_color = "lightgrey"
         
-        if self.custom_canvas_color != "Default": self.canvas_color = self.custom_canvas_color
-        elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
-        elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-        else: self.canvas_color = "lightgrey"
-        if not init:
-            self.canvas.configure(bg=self.canvas_color) # type: ignore
+        if hasattr(self, 'canvas') and self.canvas:
+            self.canvas.configure(bg=self.canvas_color)
+
+
+    def theme_auto(self, init=False, new_system_theme=None):
+        """
+        Automatically sets the theme based on system detection or stored preference.
+        Called by darkdetect.listener when system theme changes, or during init.
+        """
+        stored_theme_preference = self.settings.get("theme", DEFAULT_THEME)
+        
+        effective_theme_to_apply = ""
+        if stored_theme_preference == "System":
+            effective_theme_to_apply = new_system_theme or darkdetect.theme() # Use new if provided, else detect
+        else: # User has a fixed 'Light' or 'Dark' preference
+            effective_theme_to_apply = stored_theme_preference
+
+        # Only call sv_ttk.set_theme if the theme actually needs to change
+        try:
+            current_svttk_theme = sv_ttk.get_theme()
+            if current_svttk_theme.lower() != effective_theme_to_apply.lower():
+                sv_ttk.set_theme(effective_theme_to_apply)
+                if not init: # Avoid status update and redraw during initial setup if possible
+                    self.update_status(f"System theme changed to {effective_theme_to_apply}. Applied.")
+                    # Redraw might be needed if colors depend on the theme
+                    self.draw_all_items()
+            # Always update internal state and canvas color regardless of sv_ttk call
+            self.theme_style_using = stored_theme_preference # This should reflect the setting ('System', 'Light', 'Dark')
+            self._apply_canvas_color()
+            if not init and hasattr(self, 'canvas') and self.canvas: # Only redraw if not init and canvas exists
+                 self.draw_all_items()
+
+
+        except Exception as e:
+            print(f"Error in theme_auto: {e}")
+            if not init: # Fallback if sv_ttk fails during runtime update
+                try:
+                    sv_ttk.set_theme("light") # A known safe default
+                    self.theme_style_using = "Light" # Update internal state
+                    self._apply_canvas_color()
+                except: pass # Final fallback
+
+        # Canvas color update is handled by _apply_canvas_color now
+        # if not init and hasattr(self, 'canvas') and self.canvas:
+        #    self.canvas.configure(bg=self.canvas_color)
+
 
     def open_settings_dialog(self):
         if self.password_manager.is_locked:
