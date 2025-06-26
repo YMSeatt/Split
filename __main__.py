@@ -1,4 +1,3 @@
-#from selectors import EpollSelector
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog, font as tkfont
 import json
@@ -28,7 +27,7 @@ from exportdialog import ExportFilterDialog
 from data_locker import unlock_file, DATA_FILE
 # Replace with your actual path to gswinXXc.exe
 #EpsImagePlugin.gs_windows_binary = "C:\\Program Files\\gs\\gs10.05.1\bin\\gswin64c.exe" 
-
+# Only use this ^ if something really doesn't work. Otherwise, it works even with just installing Ghostscript regularly, without any additional steps.
 import sv_ttk # For themed widgets
 import darkdetect # For dark mode detection
 # Conditional import for platform-specific screenshot capability
@@ -3784,7 +3783,6 @@ class SeatingChartApp:
             # Determine current bounds of drawn items on canvas (in canvas coordinates)
             # This uses the scrollregion which should be set by draw_all_items
             s_region = self.canvas.cget("scrollregion")
-            #print(s_region.split())
             if not s_region: # Fallback if scrollregion is not set (e.g. empty canvas)
                  x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()
             else:
@@ -3794,16 +3792,15 @@ class SeatingChartApp:
                     y1 = float(v[1])
                     x2 = float(v[2])
                     y2 = float(v[3])
-                    #x1,y1,x2,y2 = map(int, s_region.split())
-                except Exception as e: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()#; #print("excedpt", e)
-
+                except Exception as e: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()
+            
             # Ensure x1, y1 are not negative for postscript (though typically they are 0 or positive)
             # If they are negative, it means content is scrolled left/up off screen.
             # We want to capture from the top-leftmost content.
-            #print(y1)
+            
             postscript_x_offset = -x1 if x1 < 0 else 0
             postscript_y_offset = -y1 if y1 < 0 else 0
-            #print(postscript_y_offset)
+            
             # Create PostScript of the entire scrollable region
             ps_io = io.BytesIO()
             timestamp = str(IMAGENAMEW)
@@ -3816,19 +3813,9 @@ class SeatingChartApp:
                 file=(timestamp) # Write to BytesIO object
             )
             ps_io.seek(0)
-            #print(ps_io)
-            #print(os.path.abspath(timestamp))
-            # Use PIL/Pillow to open the PostScript data and save as PNG
-            # This requires Ghostscript to be installed and in PATH for PIL to use it
-            #vtest = PIL.ImageFile._Tile('png', s_region.split(), 0 )
-            #vtester = ps_io
-            #print(EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester))
+            
             try:
-                img = Image.open(os.path.abspath(timestamp)) #EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
-                #print("imp", img)
-                #img2 = PIL #(file_path, "png")
-                #cmd = f"magick {os.path.abspath(timestamp)} {file_path}.png"
-                #subprocess.Popen(cmd)
+                img = Image.open(os.path.abspath(timestamp))
                 ps_file = ps_io
                 output_image_file = file_path
                 output_dpi = 600 
