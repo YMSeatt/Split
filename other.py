@@ -407,10 +407,11 @@ Remember to save your settings after making changes!
         remarks_text_content = f"""
         Please note the following:
         
-- The 'Export Layout as Image' function currently only takes a screenshot of the entire window. Hopefully soon I will be able to make it functional.
+- The 'Export Layout as Image' function now works!!! Just make sure to have Ghostscript installed.
 - I am still working on the homework logging and exporting - so expect to see more features, and don't be surprised if something doesn't work as expected.
-- The Conditional Formatting feature currently doesn't work for quizzes. If you have two rules that apply to the same student box, the first one will take precedent.
+- The Conditional Formatting feature now works for quizzes, and if you have more than one rule applying to the same box, it will split the box into different sections.
 - If you are trying to undo or redo a move of a box and the program keeps saying "Adjusted layout for _ items due to overlap with _______." you may need to turn off checking for collisions on box move in settings (General Tab).
+- The Help section is not updated often enough, so it may not contain up-to-date information.
     -Yaakov Maimon
 """        
         remarks_text = tk.Text(remarks_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
@@ -421,7 +422,8 @@ Remember to save your settings after making changes!
         
         # --- Feedback & Contact Tab ---
         feedback_tab = ttk.Frame(notebook, padding=10)
-        feedback_text_content = f"""                                                    Contact the developer:
+        feedback_text_content = f"""
+Contact Me:
         
 Yaakov Maimon
 Email: yaakovmaimon592@gmail.com
