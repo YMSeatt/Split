@@ -6,9 +6,6 @@ import os
 import sys
 import subprocess
 from datetime import datetime, timedelta, date as datetime_date
-from typing import IO
-import PIL.EpsImagePlugin
-import PIL.ImageFile
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
 from openpyxl.utils import get_column_letter
@@ -18,7 +15,6 @@ import zipfile
 import csv
 import PIL
 from PIL import Image
-from pyscreeze import PILLOW_VERSION
 from settingsdialog import SettingsDialog
 from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
@@ -29,18 +25,16 @@ from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDial
 from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialog
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
-from data_locker import lock_file, unlock_file, DATA_FILE
-from data_encryptor import encrypt_data, decrypt_data
-
+from data_locker import unlock_file, DATA_FILE
+# Replace with your actual path to gswinXXc.exe
+#EpsImagePlugin.gs_windows_binary = "C:\\Program Files\\gs\\gs10.05.1\bin\\gswin64c.exe" 
 
 import sv_ttk # For themed widgets
 import darkdetect # For dark mode detection
 # Conditional import for platform-specific screenshot capability
 import threading
 import io
-import _io
 import tempfile
-from io import BytesIO
 try:
     if sys.platform == "win32":
         import win32gui
@@ -208,10 +202,10 @@ class SeatingChartApp:
         self.root = root_window
         self.root.title(f"Classroom Behavior Tracker - {APP_NAME} - {APP_VERSION}")
         v = self.root.wm_maxsize()
-        print(v)
+        #print(v)
         v1 = v[0]
         v2 = v[1]-78
-        print(v1)
+        #print(v1)
         self.root.geometry("1400x980")
         #self.root.geometry(f"{v1}x{v2}")
         #self.root.po
@@ -1127,7 +1121,7 @@ class SeatingChartApp:
     def _get__logs_for_student(self, student_id, log_type_key, num_max, window, name_of_spec): # "behavior" or "homework"
         student = self.students.get(student_id)
         if not student: return []
-        print(num_max)
+        #print(num_max)
         summary_lines_list = []
         log_source = self.behavior_log if log_type_key == "behavior" else self.homework_log
         setting_prefix = "recent_incidents" if log_type_key == "behavior" else "recent_homeworks" # For settings keys
@@ -3790,7 +3784,7 @@ class SeatingChartApp:
             # Determine current bounds of drawn items on canvas (in canvas coordinates)
             # This uses the scrollregion which should be set by draw_all_items
             s_region = self.canvas.cget("scrollregion")
-            print(s_region.split())
+            #print(s_region.split())
             if not s_region: # Fallback if scrollregion is not set (e.g. empty canvas)
                  x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()
             else:
@@ -3801,15 +3795,15 @@ class SeatingChartApp:
                     x2 = float(v[2])
                     y2 = float(v[3])
                     #x1,y1,x2,y2 = map(int, s_region.split())
-                except Exception as e: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height(); print("excedpt", e)
+                except Exception as e: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()#; #print("excedpt", e)
 
             # Ensure x1, y1 are not negative for postscript (though typically they are 0 or positive)
             # If they are negative, it means content is scrolled left/up off screen.
             # We want to capture from the top-leftmost content.
-            print(y1)
+            #print(y1)
             postscript_x_offset = -x1 if x1 < 0 else 0
             postscript_y_offset = -y1 if y1 < 0 else 0
-            print(postscript_y_offset)
+            #print(postscript_y_offset)
             # Create PostScript of the entire scrollable region
             ps_io = io.BytesIO()
             timestamp = str(IMAGENAMEW)
@@ -3822,8 +3816,8 @@ class SeatingChartApp:
                 file=(timestamp) # Write to BytesIO object
             )
             ps_io.seek(0)
-            print(ps_io)
-            print(os.path.abspath(timestamp))
+            #print(ps_io)
+            #print(os.path.abspath(timestamp))
             # Use PIL/Pillow to open the PostScript data and save as PNG
             # This requires Ghostscript to be installed and in PATH for PIL to use it
             #vtest = PIL.ImageFile._Tile('png', s_region.split(), 0 )
@@ -3831,10 +3825,27 @@ class SeatingChartApp:
             #print(EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester))
             try:
                 img = Image.open(os.path.abspath(timestamp)) #EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
-                print("imp", img)
-                img2 = PIL #(file_path, "png")
+                #print("imp", img)
+                #img2 = PIL #(file_path, "png")
                 #cmd = f"magick {os.path.abspath(timestamp)} {file_path}.png"
                 #subprocess.Popen(cmd)
+                ps_file = ps_io
+                output_image_file = file_path
+                output_dpi = 600 
+                scale_factor = output_dpi / 72.0
+                try:
+                    img.load(scale=scale_factor) 
+                except AttributeError:
+                    print("Warning: img.load(scale=...) might not be directly supported for .ps files in your Pillow version in this way.")
+                    print("Pillow will use Ghostscript's default rasterization or a pre-set one.")
+                    # If direct scaling isn't working, you might need to use subprocess for full control (see advanced section).
+
+                # Now save the image. The 'dpi' parameter here is metadata for formats like PNG/TIFF.
+                # The actual pixel dimensions are determined by the rasterization step.
+                img.save(output_image_file, dpi=(output_dpi, output_dpi))
+                print(f"PostScript file '{ps_file}' converted to '{output_image_file}' at {output_dpi} DPI.")     
+                
+                
                 img.save(file_path, "png")
                 self.update_status(f"Layout exported as image: {os.path.basename(file_path)}")
                 if messagebox.askyesno("Export Successful", f"Layout image saved to:\n{file_path}\n\nDo you want to open the file location?", parent=self.root):
