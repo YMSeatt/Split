@@ -1,4 +1,3 @@
-#from selectors import EpollSelector
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog, font as tkfont
 import json
@@ -6,9 +5,6 @@ import os
 import sys
 import subprocess
 from datetime import datetime, timedelta, date as datetime_date
-from typing import IO
-import PIL.EpsImagePlugin
-import PIL.ImageFile
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
 from openpyxl.utils import get_column_letter
@@ -18,7 +14,6 @@ import zipfile
 import csv
 import PIL
 from PIL import Image
-from pyscreeze import PILLOW_VERSION
 from settingsdialog import SettingsDialog
 from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
@@ -29,18 +24,16 @@ from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDial
 from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialog
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
-from data_locker import lock_file, unlock_file, DATA_FILE
-from data_encryptor import encrypt_data, decrypt_data
-
-
+from data_locker import unlock_file, DATA_FILE
+# Replace with your actual path to gswinXXc.exe
+#EpsImagePlugin.gs_windows_binary = "C:\\Program Files\\gs\\gs10.05.1\bin\\gswin64c.exe" 
+# Only use this ^ if something really doesn't work. Otherwise, it works even with just installing Ghostscript regularly, without any additional steps.
 import sv_ttk # For themed widgets
 import darkdetect # For dark mode detection
 # Conditional import for platform-specific screenshot capability
 import threading
 import io
-import _io
 import tempfile
-from io import BytesIO
 try:
     if sys.platform == "win32":
         import win32gui
@@ -208,10 +201,10 @@ class SeatingChartApp:
         self.root = root_window
         self.root.title(f"Classroom Behavior Tracker - {APP_NAME} - {APP_VERSION}")
         v = self.root.wm_maxsize()
-        print(v)
+        #print(v)
         v1 = v[0]
         v2 = v[1]-78
-        print(v1)
+        #print(v1)
         self.root.geometry("1400x980")
         #self.root.geometry(f"{v1}x{v2}")
         #self.root.po
@@ -277,9 +270,11 @@ class SeatingChartApp:
         self.last_used_quiz_name = ""
         self.initial_num_questions = "" # For quiz
         self.last_used_quiz_name_timestamp = None
-        self.last_used_homework_name = "" # New for homework
-        self.initial_num_homework_items = "" # New for homework
-        self.last_used_homework_name_timestamp = None # New
+
+        # Attributes for remembering the last used homework name and items for manual logging
+        self.last_used_homework_name = ""
+        self.initial_num_homework_items = "" # For manual log, if needed in future
+        self.last_used_homework_name_timestamp = None
 
         self.is_live_quiz_active = False
         self.current_live_quiz_name = ""
@@ -426,7 +421,7 @@ class SeatingChartApp:
 
             # Quiz specific
             "default_quiz_name": "Pop Quiz",
-            "last_used_quiz_name_timeout_minutes": 60,
+            "last_used_quiz_name_timeout_minutes": 60, # Timeout for remembering quiz name
             "show_recent_incidents_during_quiz": True,
             "live_quiz_score_font_color": DEFAULT_QUIZ_SCORE_FONT_COLOR,
             "live_quiz_score_font_style_bold": DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD,
@@ -436,7 +431,11 @@ class SeatingChartApp:
             "combine_marks_for_display": True,
 
             # Homework specific (New)
-            "default_homework_name": "Homework Check", # For live session name
+            "default_homework_name": "Homework Check", # Default name for manual log & live session
+            "last_used_homework_name_timeout_minutes": 60, # Timeout for remembering homework name (manual log)
+            "behavior_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for behavior log text
+            "quiz_log_font_size": DEFAULT_FONT_SIZE,       # Specific font size for quiz log text
+            "homework_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for homework log text
             "live_homework_session_mode": "Yes/No", # "Yes/No" or "Select"
             "log_homework_marks_enabled": True, # Enable/disable detailed marks for manual log
             "homework_mark_types": DEFAULT_HOMEWORK_MARK_TYPES.copy(),
@@ -461,12 +460,13 @@ class SeatingChartApp:
             "next_custom_homework_type_id_num": 1, # For custom homework types in Yes/No mode
 
             # Internal state storage (prefixed with underscore)
-            "_last_used_quiz_name_for_session": "",
-            "_last_used_quiz_name_timestamp_for_session": None,
-            "_last_used_q_num_for_session": 10,
-            "_last_used_homework_name_for_session": "", # New
-            "_last_used_homework_name_timestamp_for_session": None, # New
-            "_last_used_hw_items_for_session": 5, # 
+            "_last_used_quiz_name_for_session": "", # Stores last used quiz name for manual log
+            "_last_used_quiz_name_timestamp_for_session": None, # Timestamp for quiz name timeout
+            "_last_used_q_num_for_session": 10, # Stores last used num questions for manual quiz log
+
+            "_last_used_homework_name_for_session": "", # Stores last used homework name for manual log
+            "_last_used_homework_name_timestamp_for_session": None, # Timestamp for homework name timeout
+            "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
             "theme": "System", # Newer
             "enable_text_background_panel": True, # Default for the new setting
         }
@@ -1127,7 +1127,7 @@ class SeatingChartApp:
     def _get__logs_for_student(self, student_id, log_type_key, num_max, window, name_of_spec): # "behavior" or "homework"
         student = self.students.get(student_id)
         if not student: return []
-        print(num_max)
+        #print(num_max)
         summary_lines_list = []
         log_source = self.behavior_log if log_type_key == "behavior" else self.homework_log
         setting_prefix = "recent_incidents" if log_type_key == "behavior" else "recent_homeworks" # For settings keys
@@ -1226,11 +1226,66 @@ class SeatingChartApp:
 
     def applies_to_conditional(self, student_id, rule):
         student_data = self.students.get(student_id)
-        if not student_data:
-            return False # Should return False if student not found
+        if not student_data: return False # Student data is essential
 
-        rule_type = rule.get("type", "")
+        rule_type = rule.get("type")
 
+        # --- Live Session Conditional Formatting Rules ---
+        if rule_type == "live_quiz_response":
+            if not self.is_live_quiz_active or student_id not in self.live_quiz_scores:
+                return False
+            student_live_score = self.live_quiz_scores[student_id]
+            # MarkLiveQuizQuestionCommand stores the mark_id in 'last_response_details'
+            last_response_mark_id = student_live_score.get("last_response_details")
+            if not last_response_mark_id: return False
+
+            # Map mark_id to "Correct" or "Incorrect" based on quiz_mark_types settings
+            # This assumes 'Correct'/'Incorrect' are the values stored in the rule by the dialog.
+            effective_response_type = ""
+            for mt in self.settings.get("quiz_mark_types", []):
+                if mt["id"] == last_response_mark_id:
+                    # Heuristic: if "correct" or "bonus" in ID or name, it's "Correct"
+                    # if "incorrect" in ID or name, it's "Incorrect"
+                    # This might need refinement if mark types are very custom.
+                    if "correct" in mt["name"].lower() or "bonus" in mt["name"].lower() or \
+                       (mt.get("default_points", 0) > 0 and not mt.get("is_extra_credit", False)) or \
+                       (mt.get("default_points", 0) > 0 and mt.get("is_extra_credit", True)): # Treat bonus as correct for coloring
+                        effective_response_type = "Correct"
+                    elif "incorrect" in mt["name"].lower() or mt.get("default_points", 0) == 0 : # Treat 0 points as incorrect
+                         effective_response_type = "Incorrect"
+                    break
+
+            rule_quiz_response = rule.get("quiz_response") # "Correct" or "Incorrect"
+            if effective_response_type and rule_quiz_response and effective_response_type == rule_quiz_response:
+                return True
+            return False
+
+        elif rule_type == "live_homework_yes_no":
+            if not self.is_live_homework_active or self.settings.get("live_homework_session_mode") != "Yes/No" or \
+               student_id not in self.live_homework_scores:
+                return False
+
+            student_hw_data = self.live_homework_scores.get(student_id, {}) # e.g., {hw_type_id: "yes"}
+            rule_hw_type_id = rule.get("homework_type_id")
+            rule_hw_response = rule.get("homework_response") # "yes" or "no"
+
+            if rule_hw_type_id in student_hw_data and student_hw_data[rule_hw_type_id] == rule_hw_response:
+                return True
+            return False
+
+        elif rule_type == "live_homework_select":
+            if not self.is_live_homework_active or self.settings.get("live_homework_session_mode") != "Select" or \
+               student_id not in self.live_homework_scores:
+                return False
+
+            student_hw_data = self.live_homework_scores.get(student_id, {}) # e.g., {"selected_options": ["Done", "Signed"]}
+            rule_option_name = rule.get("homework_option_name")
+
+            if "selected_options" in student_hw_data and rule_option_name in student_hw_data["selected_options"]:
+                return True
+            return False
+
+        # --- Standard Conditional Formatting Rules (Non-Live Session) ---
         if rule_type == "behavior_count":
             time_window_hours = rule.get("time_window_hours", 24) # Default if not set
             count_threshold = rule.get("count_threshold", 1)
@@ -1381,27 +1436,73 @@ class SeatingChartApp:
                             })
                             # No break here, collect all matching non-group rules.
             
-            # If active_rules_colors is empty, the drawing logic (to be modified in next step)
+            # If active_rules_colors is empty, the drawing logic
             # will use the existing fill_color and outline_color_orig for the single rectangle.
             # If populated, it will draw stripes based on these collected colors.
             # The original fill_color and outline_color_orig (potentially set by a group rule)
-            # can be considered the "base" if no other rules apply, or if the striping logic
-            # decides to use it as the first stripe when active_rules_colors is also present.
-            # For now, we'll assume active_rules_colors take full precedence for striping if not empty.
+            # can be considered the "base" if no other rules apply.
 
+            live_override_applied = False
+            # Process override rules first for live sessions
+            if self.is_live_quiz_active or self.is_live_homework_active:
+                for rule in self.settings.get("conditional_formatting_rules", []):
+                    if rule.get("type") in ["live_quiz_response", "live_homework_yes_no", "live_homework_select"] and \
+                       rule.get("application_style") == "override":
+                        if self.applies_to_conditional(student_id, rule):
+                            if rule.get("color"): fill_color = rule["color"]
+                            if rule.get("outline"): outline_color_orig = rule["outline"]
+                            active_rules_colors = []  # Clear any standard stripes if overridden
+                            live_override_applied = True
+                            break
+
+            # Collect stripe rules (standard and live, if no live override took place)
+            if not live_override_applied:
+                active_rules_colors = [] # Ensure it's clean before collecting stripes
+                for rule in self.settings.get("conditional_formatting_rules", []):
+                    rule_type = rule.get("type")
+                    is_live_rule = rule_type in ["live_quiz_response", "live_homework_yes_no", "live_homework_select"]
+
+                    if rule_type == "group":
+                        continue
+
+                    applies_now = False
+                    if is_live_rule:
+                        if rule.get("application_style") == "stripe":
+                            if (self.is_live_quiz_active and rule_type == "live_quiz_response") or \
+                               (self.is_live_homework_active and rule_type in ["live_homework_yes_no", "live_homework_select"]):
+                                applies_now = self.applies_to_conditional(student_id, rule)
+                    else:
+                        applies_now = self.applies_to_conditional(student_id, rule)
+
+                    if applies_now:
+                        rule_fill = rule.get("color")
+                        rule_outline = rule.get("outline")
+                        if rule_fill or rule_outline:
+                            active_rules_colors.append({
+                                "fill": rule_fill if rule_fill else None,
+                                "outline": rule_outline if rule_outline else None
+                            })
+
+            # Font setup using new specific settings
             name_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight="bold")
-            incident_font_obj = tkfont.Font(family=font_family, size=max(5, font_size_canvas -1))
+
+            behavior_log_font_size_canvas = int(max(5, self.settings.get("behavior_log_font_size", DEFAULT_FONT_SIZE -1) * self.current_zoom_level))
+            incident_font_obj = tkfont.Font(family=font_family, size=behavior_log_font_size_canvas)
+
+            quiz_log_font_size_canvas = int(max(5, self.settings.get("quiz_log_font_size", DEFAULT_FONT_SIZE) * self.current_zoom_level))
             quiz_score_font_color_setting = self.settings.get("live_quiz_score_font_color")
             quiz_score_font_bold_setting = self.settings.get("live_quiz_score_font_style_bold")
             quiz_score_font_weight = "bold" if quiz_score_font_bold_setting else "normal"
-            quiz_score_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight=quiz_score_font_weight)
+            quiz_score_font_obj = tkfont.Font(family=font_family, size=quiz_log_font_size_canvas, weight=quiz_score_font_weight)
 
-            # New: Homework Score Font
+            homework_log_font_size_canvas = int(max(5, self.settings.get("homework_log_font_size", DEFAULT_FONT_SIZE -1) * self.current_zoom_level))
             hw_score_font_color_setting = self.settings.get("live_homework_score_font_color", DEFAULT_HOMEWORK_SCORE_FONT_COLOR)
             hw_score_font_bold_setting = self.settings.get("live_homework_score_font_style_bold", DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD)
             hw_score_font_weight = "bold" if hw_score_font_bold_setting else "normal"
-            hw_score_font_obj = tkfont.Font(family=font_family, size=font_size_canvas, weight=hw_score_font_weight)
-            hw_score_item_font_obj = tkfont.Font(family=font_family, size=max(5, font_size_canvas -1), weight=hw_score_font_weight) # Slightly smaller for items
+            # For homework_score_header, use the dedicated homework_log_font_size
+            hw_score_font_obj = tkfont.Font(family=font_family, size=homework_log_font_size_canvas, weight=hw_score_font_weight)
+            # For homework_score_item, also use homework_log_font_size (or could be a new setting if finer control is needed)
+            hw_score_item_font_obj = tkfont.Font(family=font_family, size=homework_log_font_size_canvas, weight=hw_score_font_weight)
             
             self.canvas.delete(student_id)
             rect_tag = ("student_item", student_id, "rect")
@@ -2404,12 +2505,28 @@ class SeatingChartApp:
         student = self.students.get(student_id)
         if not student: return
 
+        initial_homework_name_to_pass = self.settings.get("default_homework_name", "Homework")
+        initial_num_items_to_pass = self.settings.get("_last_used_hw_items_for_session", self.settings.get("default_homework_items_for_yes_no_mode", 5)) # Default to 5 if not set
+        timeout_hw_minutes = self.settings.get("last_used_homework_name_timeout_minutes", 60)
+
+        if self.last_used_homework_name and self.last_used_homework_name_timestamp:
+            try:
+                time_since_last_hw_use = (datetime.now() - datetime.fromisoformat(self.last_used_homework_name_timestamp)).total_seconds() / 60
+                if time_since_last_hw_use < timeout_hw_minutes:
+                    initial_homework_name_to_pass = self.last_used_homework_name
+                    initial_num_items_to_pass = self.initial_num_homework_items # Use the stored number of items
+            except ValueError:
+                print("Warning: Could not parse last_used_homework_name_timestamp.")
+
+
         # --- BRANCHING LOGIC FOR SIMPLIFIED/DETAILED VIEW ---
         if not self.settings.get("log_homework_marks_enabled", True):
             # --- Simplified View ---
-            
-            # 1. First Popup: Select Homework Type
-            type_dialog = BehaviorDialog(self.root, f"Select Homework Type for {student['full_name']}", self.all_homework_types, [])
+            # 1. First Popup: Select Homework Type (uses BehaviorDialog)
+            # Pass the potentially remembered name to the dialog
+            type_dialog = BehaviorDialog(self.root, f"Select Homework Type for {student['full_name']}",
+                                         self.all_homework_types, [],
+                                         initial_value=initial_homework_name_to_pass) # Pass initial value
             if not type_dialog.result:
                 self.update_status("Homework log cancelled.")
                 return
@@ -2422,50 +2539,68 @@ class SeatingChartApp:
                 return
             homework_status, comment_status = status_dialog.result
             
-            # Combine comments if both were entered
             final_comment = comment_type
             if comment_status:
                 final_comment += (f" - {comment_status}" if final_comment else comment_status)
 
-            # 3. Log the entry
             log_entry = {
                 "timestamp": datetime.now().isoformat(), "student_id": student_id,
                 "student_first_name": student["first_name"], "student_last_name": student["last_name"],
-                "behavior": f"{homework_type}: {homework_status}", # Combine for a descriptive name
-                "homework_type": homework_type, # Store original type
-                "homework_status": homework_status, # Store status
-                "comment": final_comment, 
-                "type": "homework",
-                "day": datetime.now().strftime('%A')
+                "behavior": f"{homework_type}: {homework_status}",
+                "homework_type": homework_type,
+                "homework_status": homework_status,
+                "comment": final_comment, "type": "homework", "day": datetime.now().strftime('%A')
             }
             self.execute_command(LogHomeworkEntryCommand(self, log_entry, student_id))
+
+            # Remember this homework type for next time
+            self.last_used_homework_name = homework_type
+            self.last_used_homework_name_timestamp = datetime.now().isoformat()
+            # For simplified view, num_items isn't directly relevant for "remembering" but store consistently
+            self.initial_num_homework_items = 1 # Or some other default for simplified
+            self.settings["_last_used_homework_name_for_session"] = self.last_used_homework_name
+            self.settings["_last_used_homework_name_timestamp_for_session"] = self.last_used_homework_name_timestamp
+            self.settings["_last_used_hw_items_for_session"] = self.initial_num_homework_items
+
             self.draw_all_items(check_collisions_on_redraw=True)
             self.password_manager.record_activity()
 
         else:
             # --- Detailed Marks View ---
-            dialog = ManualHomeworkLogDialog(self.root, f"Log Homework for {student['full_name']}",
-                                             self.all_homework_types, # Use homework TYPES for the combobox
-                                             self.custom_homework_types, # Pass custom types
-                                             log_marks_enabled=True,
-                                             homework_mark_types=self.settings.get("homework_mark_types", DEFAULT_HOMEWORK_MARK_TYPES.copy()),
-                                             homework_templates=self.homework_templates,
-                                             app=self) # Pass app instance
+            dialog = ManualHomeworkLogDialog(
+                self.root, f"Log Homework for {student['full_name']}",
+                self.all_homework_types,
+                self.custom_homework_types,
+                log_marks_enabled=True,
+                homework_mark_types=self.settings.get("homework_mark_types", DEFAULT_HOMEWORK_MARK_TYPES.copy()),
+                homework_templates=self.homework_templates,
+                app=self,
+                initial_homework_name=initial_homework_name_to_pass, # Pass remembered name
+                initial_num_items=initial_num_items_to_pass # Pass remembered items
+            )
             if dialog.result:
                 homework_type, comment, marks_data, num_items = dialog.result
                 log_entry = {
                     "timestamp": datetime.now().isoformat(), "student_id": student_id,
                     "student_first_name": student["first_name"], "student_last_name": student["last_name"],
-                    "behavior": homework_type,
-                    "homework_type": homework_type,
-                    "comment": comment, "type": "homework",
-                    "day": datetime.now().strftime('%A')
+                    "behavior": homework_type, "homework_type": homework_type,
+                    "comment": comment, "type": "homework", "day": datetime.now().strftime('%A')
                 }
                 if marks_data:
                     log_entry["marks_data"] = marks_data
                     log_entry["num_items"] = num_items
 
                 self.execute_command(LogHomeworkEntryCommand(self, log_entry, student_id))
+
+                # Remember this homework type and num_items for next time
+                self.last_used_homework_name = homework_type
+                self.last_used_homework_name_timestamp = datetime.now().isoformat()
+                self.initial_num_homework_items = num_items if num_items is not None else self.settings.get("default_homework_items_for_yes_no_mode", 5)
+
+                self.settings["_last_used_homework_name_for_session"] = self.last_used_homework_name
+                self.settings["_last_used_homework_name_timestamp_for_session"] = self.last_used_homework_name_timestamp
+                self.settings["_last_used_hw_items_for_session"] = self.initial_num_homework_items
+
                 self.draw_all_items(check_collisions_on_redraw=True)
                 self.password_manager.record_activity()
 
@@ -2570,9 +2705,11 @@ class SeatingChartApp:
                 self.last_used_quiz_name = self.settings.get("_last_used_quiz_name_for_session", "")
                 self.last_used_quiz_name_timestamp = self.settings.get("_last_used_quiz_name_timestamp_for_session", None)
                 self.initial_num_questions = self.settings.get("_last_used_q_num_for_session", 10)
-                self.last_used_homework_name = self.settings.get("_last_used_homework_name_for_session", "") # New
-                self.last_used_homework_name_timestamp = self.settings.get("_last_used_homework_name_timestamp_for_session", None) # New
-                self.initial_num_homework_items = self.settings.get("_last_used_hw_items_for_session", 5) # New
+
+                self.last_used_homework_name = self.settings.get("_last_used_homework_name_for_session", "")
+                self.last_used_homework_name_timestamp = self.settings.get("_last_used_homework_name_timestamp_for_session", None)
+                self.initial_num_homework_items = self.settings.get("_last_used_hw_items_for_session", self.settings.get("default_homework_items_for_yes_no_mode", 5))
+
                 self.theme_style_using = self.settings.get("theme", "System") # Newer
                 self.custom_canvas_color = self.settings.get("canvas_color", "Default")
 
@@ -3790,7 +3927,6 @@ class SeatingChartApp:
             # Determine current bounds of drawn items on canvas (in canvas coordinates)
             # This uses the scrollregion which should be set by draw_all_items
             s_region = self.canvas.cget("scrollregion")
-            print(s_region.split())
             if not s_region: # Fallback if scrollregion is not set (e.g. empty canvas)
                  x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()
             else:
@@ -3800,16 +3936,15 @@ class SeatingChartApp:
                     y1 = float(v[1])
                     x2 = float(v[2])
                     y2 = float(v[3])
-                    #x1,y1,x2,y2 = map(int, s_region.split())
-                except Exception as e: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height(); print("excedpt", e)
-
+                except Exception as e: x1, y1, x2, y2 = 0,0, self.canvas.winfo_width(), self.canvas.winfo_height()
+            
             # Ensure x1, y1 are not negative for postscript (though typically they are 0 or positive)
             # If they are negative, it means content is scrolled left/up off screen.
             # We want to capture from the top-leftmost content.
-            print(y1)
+            
             postscript_x_offset = -x1 if x1 < 0 else 0
             postscript_y_offset = -y1 if y1 < 0 else 0
-            print(postscript_y_offset)
+            
             # Create PostScript of the entire scrollable region
             ps_io = io.BytesIO()
             timestamp = str(IMAGENAMEW)
@@ -3822,19 +3957,26 @@ class SeatingChartApp:
                 file=(timestamp) # Write to BytesIO object
             )
             ps_io.seek(0)
-            print(ps_io)
-            print(os.path.abspath(timestamp))
-            # Use PIL/Pillow to open the PostScript data and save as PNG
-            # This requires Ghostscript to be installed and in PATH for PIL to use it
-            #vtest = PIL.ImageFile._Tile('png', s_region.split(), 0 )
-            #vtester = ps_io
-            #print(EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester))
+            
             try:
-                img = Image.open(os.path.abspath(timestamp)) #EpsImagePlugin.Ghostscript([vtest], (1960,985), fp=vtester)
-                print("imp", img)
-                img2 = PIL #(file_path, "png")
-                #cmd = f"magick {os.path.abspath(timestamp)} {file_path}.png"
-                #subprocess.Popen(cmd)
+                img = Image.open(os.path.abspath(timestamp))
+                ps_file = ps_io
+                output_image_file = file_path
+                output_dpi = 600 
+                scale_factor = output_dpi / 72.0
+                try:
+                    img.load(scale=scale_factor) 
+                except AttributeError:
+                    print("Warning: img.load(scale=...) might not be directly supported for .ps files in your Pillow version in this way.")
+                    print("Pillow will use Ghostscript's default rasterization or a pre-set one.")
+                    # If direct scaling isn't working, you might need to use subprocess for full control (see advanced section).
+
+                # Now save the image. The 'dpi' parameter here is metadata for formats like PNG/TIFF.
+                # The actual pixel dimensions are determined by the rasterization step.
+                img.save(output_image_file, dpi=(output_dpi, output_dpi))
+                print(f"PostScript file '{ps_file}' converted to '{output_image_file}' at {output_dpi} DPI.")     
+                
+                
                 img.save(file_path, "png")
                 self.update_status(f"Layout exported as image: {os.path.basename(file_path)}")
                 if messagebox.askyesno("Export Successful", f"Layout image saved to:\n{file_path}\n\nDo you want to open the file location?", parent=self.root):
@@ -3848,6 +3990,9 @@ class SeatingChartApp:
             except Exception as e: print("e2", e)
             finally:
                 ps_io.close()
+                img.close()
+                try:os.remove(os.path.abspath(IMAGENAMEW))
+                except FileNotFoundError: pass
                 #import os
                 
 
@@ -3857,7 +4002,7 @@ class SeatingChartApp:
             messagebox.showerror("Image Export Error", f"An unexpected error occurred: {e}", parent=self.root); print("e", e)
         finally:
             self.password_manager.record_activity()
-
+        
     def _import_data_from_excel_logic(self, file_path, import_incidents_flag, student_sheet_name_to_import):
         # This function needs significant updates if we want to import detailed quiz scores.
         # For now, it will import students and basic incident info as before.
@@ -4472,29 +4617,88 @@ class SeatingChartApp:
         if theme != "System": sv_ttk.set_theme(theme)
         else: sv_ttk.set_theme(darkdetect.theme())
         
-        self.theme_style_using = theme
-        if canvas_color == "Default" or canvas_color == "" or canvas_color == None:
-            canvas_color = None; self.custom_canvas_color = None
-        else:
-            self.custom_canvas_color = canvas_color
-            self.canvas_color = canvas_color
-        
-        if self.custom_canvas_color: self.canvas_color = self.custom_canvas_color
-        elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
-        elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-        else: self.canvas_color = "lightgrey"
-        self.canvas.configure(bg=self.canvas_color)
+        if theme != self.settings.get("theme", DEFAULT_THEME) or canvas_color != self.settings.get("canvas_color", "Default"):
+            if theme != "System":
+                if sv_ttk.get_theme() != theme:
+                    sv_ttk.set_theme(theme)
+            else:
+                current_system_theme = darkdetect.theme()
+                if sv_ttk.get_theme() != current_system_theme:
+                    sv_ttk.set_theme(current_system_theme)
 
-    def theme_auto(self, init=False):
-        if self.theme_style_using != "System": sv_ttk.set_theme(self.theme_style_using)
-        else: sv_ttk.set_theme(darkdetect.theme())
+            self.theme_style_using = theme # Store the user's selection ('System', 'Light', 'Dark')
+            self.settings["theme"] = theme # Save to settings
+
+            if canvas_color == "Default" or canvas_color == "" or canvas_color is None:
+                self.custom_canvas_color = None
+                self.settings["canvas_color"] = "Default"
+            else:
+                self.custom_canvas_color = canvas_color
+                self.settings["canvas_color"] = canvas_color
+
+            self._apply_canvas_color() # Apply the new canvas color
+            self.settings_changed_flag = True # Indicate settings changed for saving
+            self.draw_all_items() # Redraw items as theme/canvas color change might affect them
+            self.update_status(f"Theme set to {theme}. Canvas color updated.")
+
+
+    def _apply_canvas_color(self):
+        """Applies the current canvas color based on theme and custom settings."""
+        if self.custom_canvas_color and self.custom_canvas_color != "Default":
+            self.canvas_color = self.custom_canvas_color
+        elif self.theme_style_using == "Dark":
+            self.canvas_color = "#1F1F1F"
+        elif self.theme_style_using == "System":
+            self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
+        else: # Light theme
+            self.canvas_color = "lightgrey"
         
-        if self.custom_canvas_color != "Default": self.canvas_color = self.custom_canvas_color
-        elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
-        elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-        else: self.canvas_color = "lightgrey"
-        if not init:
-            self.canvas.configure(bg=self.canvas_color) # type: ignore
+        if hasattr(self, 'canvas') and self.canvas:
+            self.canvas.configure(bg=self.canvas_color)
+
+
+    def theme_auto(self, init=False, new_system_theme=None):
+        """
+        Automatically sets the theme based on system detection or stored preference.
+        Called by darkdetect.listener when system theme changes, or during init.
+        """
+        stored_theme_preference = self.settings.get("theme", DEFAULT_THEME)
+        
+        effective_theme_to_apply = ""
+        if stored_theme_preference == "System":
+            effective_theme_to_apply = new_system_theme or darkdetect.theme() # Use new if provided, else detect
+        else: # User has a fixed 'Light' or 'Dark' preference
+            effective_theme_to_apply = stored_theme_preference
+
+        # Only call sv_ttk.set_theme if the theme actually needs to change
+        try:
+            current_svttk_theme = sv_ttk.get_theme()
+            if current_svttk_theme.lower() != effective_theme_to_apply.lower():
+                sv_ttk.set_theme(effective_theme_to_apply)
+                if not init: # Avoid status update and redraw during initial setup if possible
+                    self.update_status(f"System theme changed to {effective_theme_to_apply}. Applied.")
+                    # Redraw might be needed if colors depend on the theme
+                    self.draw_all_items()
+            # Always update internal state and canvas color regardless of sv_ttk call
+            self.theme_style_using = stored_theme_preference # This should reflect the setting ('System', 'Light', 'Dark')
+            self._apply_canvas_color()
+            if not init and hasattr(self, 'canvas') and self.canvas: # Only redraw if not init and canvas exists
+                 self.draw_all_items()
+
+
+        except Exception as e:
+            print(f"Error in theme_auto: {e}")
+            if not init: # Fallback if sv_ttk fails during runtime update
+                try:
+                    sv_ttk.set_theme("light") # A known safe default
+                    self.theme_style_using = "Light" # Update internal state
+                    self._apply_canvas_color()
+                except: pass # Final fallback
+
+        # Canvas color update is handled by _apply_canvas_color now
+        # if not init and hasattr(self, 'canvas') and self.canvas:
+        #    self.canvas.configure(bg=self.canvas_color)
+
 
     def open_settings_dialog(self):
         if self.password_manager.is_locked:

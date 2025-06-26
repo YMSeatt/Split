@@ -31,6 +31,9 @@ pyinstaller --onefile ^
     --exclude-module PySide6 ^
     --exclude-module tkcap ^
     --exclude-module matplotlib ^
+    --exclude-module pandas ^
+    --exclude-module selenium ^
+    --exclude-module pikepdf ^
     "%SCRIPT_PATH%"
 
 echo.
