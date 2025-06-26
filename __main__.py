@@ -3859,6 +3859,9 @@ class SeatingChartApp:
             except Exception as e: print("e2", e)
             finally:
                 ps_io.close()
+                img.close()
+                try:os.remove(os.path.abspath(IMAGENAMEW))
+                except FileNotFoundError: pass
                 #import os
                 
 
@@ -3868,7 +3871,7 @@ class SeatingChartApp:
             messagebox.showerror("Image Export Error", f"An unexpected error occurred: {e}", parent=self.root); print("e", e)
         finally:
             self.password_manager.record_activity()
-
+        
     def _import_data_from_excel_logic(self, file_path, import_incidents_flag, student_sheet_name_to_import):
         # This function needs significant updates if we want to import detailed quiz scores.
         # For now, it will import students and basic incident info as before.
