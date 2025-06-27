@@ -321,7 +321,7 @@ class SettingsDialog(simpledialog.Dialog):
         # Setting for text background panel
         self.enable_text_panel_var = tk.BooleanVar(value=self.settings.get("enable_text_background_panel", True))
         ttk.Checkbutton(lf_defaults, text="Enable text background panel on student boxes\n(improves legibility on colored stripes)",
-                        variable=self.enable_text_panel_var).grid(row=7, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
+                        variable=self.enable_text_panel_var).grid(row=15, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
 
 
         lf_cond_format = ttk.LabelFrame(tab_frame, text="Conditional Formatting Rules", padding=10, width=1000)

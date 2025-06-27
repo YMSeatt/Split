@@ -1574,7 +1574,7 @@ class SeatingChartApp:
             current_y_text_draw_canvas = canvas_y + canvas_padding
             available_text_width_canvas = canvas_width - 2 * canvas_padding
 
-            if self.settings.get("enable_text_background_panel", True):
+            if self.settings.get("enable_text_background_panel", True) and active_rules_colors:
                 text_panel_fill = "#F0F0F0" # Light gray for text background
                 text_panel_internal_padding = 2 * self.current_zoom_level # Small padding around text within its panel
 

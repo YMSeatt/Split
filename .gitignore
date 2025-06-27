@@ -66,3 +66,9 @@ classroom_data_v9.json
 __pycache__/dialogs.cpython-313.pyc
 __pycache__/other.cpython-313.pyc
 __pycache__/settingsdialog.cpython-313.pyc
+custom_behaviors_v9.json
+custom_homework_statuses_v9.json
+custom_homework_types_v9.json
+homework_templates_v9.json
+quiz_templates_v9.json
+student_groups_v9.json
