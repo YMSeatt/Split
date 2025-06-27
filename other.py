@@ -417,20 +417,6 @@ Remember to click "Apply" or "OK" in the Settings dialog to save your changes!
         
          # --- Settings & Customization Tab ---
         remarks_tab = ttk.Frame(notebook, padding=10)
-<<<<<<< docs/readme-help-update
-        remarks_text_content = f"""Remarks & Notices:
-
-- Image Export ('Export Layout as Image'): This feature captures the current view of your seating chart. It uses your system's PostScript capabilities. For this to work reliably, especially on Windows, you may need to have Ghostscript installed and accessible in your system's PATH. If you encounter errors, please ensure Ghostscript is set up correctly.
-- Conditional Formatting:
-    - Currently, conditional formatting rules based on quiz scores or specific quiz mark counts are being refined.
-    - If multiple conditional formatting rules apply to a student, the application will attempt to show this by striping the box. However, for rules that set a base color (like group-based rules), the first matching rule encountered will determine the base.
-- Automatic Layout Adjustment: If "Check for Collisions on Box Move" is enabled in General Settings, moving a student box might cause other items to shift to avoid overlap. If this behavior is disruptive, you can disable it.
-- Data Integrity: While the application includes backup and restore features, always ensure you have manual backups of your critical data, especially before major updates or system changes. The data is stored in JSON files in the application's data folder (accessible via File > Open Data Folder).
-- Feature Development: This application is actively developed. Some newer features, particularly around detailed homework analysis and advanced conditional formatting, are still evolving. Your feedback is valuable!
-
-    - Yaakov Maimon
-"""
-=======
         remarks_text_content = f"""
         Please note the following:
         
@@ -441,7 +427,6 @@ Remember to click "Apply" or "OK" in the Settings dialog to save your changes!
 - The Help section is not updated often enough, so it may not contain up-to-date information.
     -Yaakov Maimon
 """        
->>>>>>> main
         remarks_text = tk.Text(remarks_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
         remarks_text.insert("1.0", remarks_text_content)
         remarks_text.config(state="disabled")
