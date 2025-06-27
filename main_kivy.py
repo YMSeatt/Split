@@ -671,12 +671,31 @@ class SeatingChartAppLogic:
         except Exception as e:
             self.update_status(f"Failed to save image: {e}")
 
+    def get_recent_incidents_for_student(self, student_id):
+        now = datetime.now()
+        time_window = timedelta(hours=self.settings.get("recent_incident_time_window_hours", 24))
+        num_to_show = self.settings.get("num_recent_incidents_to_show", 2)
+        reverse_order = self.settings.get("reverse_incident_order", True)
+
+        recent_incidents = []
+        for log in reversed(self.behavior_log):
+            if log["student_id"] == student_id:
+                log_time = datetime.fromisoformat(log["timestamp"])
+                if now - log_time <= time_window:
+                    recent_incidents.append(log)
+                if len(recent_incidents) >= num_to_show:
+                    break
+        
+        if not reverse_order:
+            return recent_incidents
+        return list(reversed(recent_incidents))
+
     def _get_default_settings(self): # ... (as before) ...
         return {
             "show_recent_incidents_on_boxes": True, "num_recent_incidents_to_show": 2, "recent_incident_time_window_hours": 24, "show_full_recent_incidents": False, "reverse_incident_order": True, "selected_recent_behaviors_filter": None,
             "show_recent_homeworks_on_boxes": True, "num_recent_homeworks_to_show": 2, "recent_homework_time_window_hours": 24, "show_full_recent_homeworks": False, "reverse_homework_order": True, "selected_recent_homeworks_filter": None,
             "autosave_interval_ms": 30000, "default_student_box_width": DEFAULT_STUDENT_BOX_WIDTH, "default_student_box_height": DEFAULT_STUDENT_BOX_HEIGHT, "student_box_fill_color": DEFAULT_BOX_FILL_COLOR, "student_box_outline_color": DEFAULT_BOX_OUTLINE_COLOR,
-            "student_font_family": DEFAULT_FONT_FAMILY, "student_font_size": DEFAULT_FONT_SIZE, "student_font_color": DEFAULT_FONT_COLOR, "grid_snap_enabled": False, "grid_size": DEFAULT_GRID_SIZE, "behavior_initial_overrides": {}, "homework_initial_overrides": {},
+            "student_font_family": DEFAULT_FONT_FAMILY, "student_font_size": DEFAULT_FONT_SIZE, "behavior_font_size": DEFAULT_FONT_SIZE, "student_font_color": DEFAULT_FONT_COLOR, "grid_snap_enabled": False, "grid_size": DEFAULT_GRID_SIZE, "behavior_initial_overrides": {}, "homework_initial_overrides": {},
             "current_mode": "behavior", "max_undo_history_days": MAX_UNDO_HISTORY_DAYS, "conditional_formatting_rules": [], "student_groups_enabled": True, "show_zoom_level_display": True,
             "default_quiz_name": "Pop Quiz", "last_used_quiz_name_timeout_minutes": 60, "show_recent_incidents_during_quiz": True, "live_quiz_score_font_color": DEFAULT_QUIZ_SCORE_FONT_COLOR, "live_quiz_score_font_style_bold": DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD,
             "quiz_mark_types": DEFAULT_QUIZ_MARK_TYPES.copy(), "default_quiz_questions": 10, "quiz_score_calculation": "percentage", "combine_marks_for_display": True,
@@ -1901,6 +1920,7 @@ class StudentWidget(Widget): # ... (as before, with on_size/on_pos redraw bindin
 
             name_to_display = self.student_data.get('nickname') or self.student_data['first_name']
             font_size_sp = self.logic.settings.get("student_font_size", DEFAULT_FONT_SIZE)
+            behavior_font_size_sp = self.logic.settings.get("behavior_font_size", DEFAULT_FONT_SIZE)
 
             label = CoreLabel(text=name_to_display, font_size=font_size_sp, color=get_color_from_hex(DEFAULT_FONT_COLOR))
             label.refresh()
@@ -1917,6 +1937,26 @@ class StudentWidget(Widget): # ... (as before, with on_size/on_pos redraw bindin
                 text_y = (self.height - text_h) / 2 + text_h * 0.3
                 Color(*get_color_from_hex(DEFAULT_FONT_COLOR))
                 Rectangle(texture=text_texture, size=(text_w, text_h), pos=(text_x, text_y))
+
+            # Draw behavior logs
+            if self.logic.settings.get("show_recent_incidents_on_boxes", True):
+                y_offset = text_y - 5
+                for log in self.logic.get_recent_incidents_for_student(self.item_id):
+                    log_text = log['behavior']
+                    log_label = CoreLabel(text=log_text, font_size=behavior_font_size_sp, color=get_color_from_hex(DEFAULT_FONT_COLOR))
+                    log_label.refresh()
+                    log_texture = log_label.texture
+                    if log_texture:
+                        log_w, log_h = log_texture.size
+                        max_log_w = self.width * 0.9
+                        if log_w > max_log_w and max_log_w > 0:
+                            log_scale_factor = max_log_w / log_w
+                            log_w *= log_scale_factor
+                            log_h *= log_scale_factor
+                        log_x = (self.width - log_w) / 2
+                        y_offset -= log_h
+                        Color(*get_color_from_hex(DEFAULT_FONT_COLOR))
+                        Rectangle(texture=log_texture, size=(log_w, log_h), pos=(log_x, y_offset))
 
 
 class FurnitureWidget(Widget): # ... (as before, with on_size/on_pos redraw bindings and handle drawing) ...

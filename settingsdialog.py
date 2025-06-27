@@ -306,10 +306,7 @@ class SettingsDialog(simpledialog.Dialog):
         # Additional font size controls for specific log types
         row_after_defaults = 2 + 5 # After 5 rows used by create_color_font_settings_ui starting at row 2
 
-        ttk.Label(lf_defaults, text="Behavior Log Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
-        self.behavior_log_font_size_var = tk.IntVar(value=self.settings.get("behavior_log_font_size", DEFAULT_FONT_SIZE - 1))
-        ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.behavior_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
-        row_after_defaults += 1
+        
 
         ttk.Label(lf_defaults, text="Quiz Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
         self.quiz_log_font_size_var = tk.IntVar(value=self.settings.get("quiz_log_font_size", DEFAULT_FONT_SIZE))
@@ -744,7 +741,7 @@ class SettingsDialog(simpledialog.Dialog):
         ff_combo.grid(row=start_row+2,column=1,columnspan=2,sticky=tk.EW,padx=5,pady=3)
         ff_combo.bind("<MouseWheel>", lambda event: "break") # Prevent main canvas scroll
         # Font Size
-        ttk.Label(parent_frame, text="Default Font Size (pts):").grid(row=start_row+3,column=0,sticky=tk.W,padx=5,pady=3)
+        ttk.Label(parent_frame, text="Names Font Size (pts):").grid(row=start_row+3,column=0,sticky=tk.W,padx=5,pady=3)
         font_size_var = tk.IntVar(value=self.settings.get(font_size_key, DEFAULT_FONT_SIZE))
         setattr(self, f"{font_size_key}_var", font_size_var)
         ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=font_size_var, width=5).grid(row=start_row+3,column=1,sticky=tk.W,padx=5,pady=3)
@@ -754,6 +751,13 @@ class SettingsDialog(simpledialog.Dialog):
         setattr(self, f"{font_color_key}_var", font_color_var)
         ttk.Entry(parent_frame, textvariable=font_color_var, width=12).grid(row=start_row+4,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Button(parent_frame, text="Choose...", command=lambda v=font_color_var: self.choose_color_for_var(v)).grid(row=start_row+4,column=2,sticky=tk.W,padx=2,pady=3)
+
+        # Behaviors Font Size
+        ttk.Label(parent_frame, text="Behaviors Font Size (pts):").grid(row=start_row+5,column=0,sticky=tk.W,padx=5,pady=3)
+        behavior_font_size_var = tk.IntVar(value=self.settings.get('behavior_font_size', DEFAULT_FONT_SIZE))
+        setattr(self, 'behavior_font_size_var', behavior_font_size_var)
+        ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=behavior_font_size_var, width=5).grid(row=start_row+5,column=1,sticky=tk.W,padx=5,pady=3)
+
 
     def choose_color_for_var(self, color_var): # Helper for color choosers in settings
         initial_color = color_var.get()
@@ -992,8 +996,9 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
         self.settings["student_font_family"]=self.student_font_family_var.get()
         self.settings["student_font_size"]=self.student_font_size_var.get()
+        self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
         self.settings["student_font_color"]=self.student_font_color_var.get()
-        self.settings["behavior_log_font_size"] = self.behavior_log_font_size_var.get()
+        
         self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
         self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()
         self.settings["enable_text_background_panel"] = self.enable_text_panel_var.get() # New setting
