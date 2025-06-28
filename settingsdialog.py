@@ -322,6 +322,10 @@ class SettingsDialog(simpledialog.Dialog):
         self.enable_text_panel_var = tk.BooleanVar(value=self.settings.get("enable_text_background_panel", True))
         ttk.Checkbutton(lf_defaults, text="Enable text background panel on student boxes\n(improves legibility on colored stripes)",
                         variable=self.enable_text_panel_var).grid(row=15, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
+        
+        self.enable_text_panel_always_var = tk.BooleanVar(value=self.settings.get("always_show_text_background_panel", False))
+        ttk.Checkbutton(lf_defaults, text="Force enable text background panel on student boxes.\n(Not only when colored)",
+                        variable=self.enable_text_panel_always_var).grid(row=16, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
 
 
         lf_cond_format = ttk.LabelFrame(tab_frame, text="Conditional Formatting Rules", padding=10, width=1000)
@@ -622,6 +626,11 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Checkbutton(lf_autosave_excel, text=f"Enable autosaving log to Excel file ({os.path.basename(AUTOSAVE_EXCEL_FILE)})", variable=self.enable_excel_autosave_var).pack(anchor=tk.W, padx=5, pady=2)
         ttk.Label(lf_autosave_excel, text="Note: This uses current export filters if set, or exports all data. File is overwritten each time.").pack(anchor=tk.W, padx=5, pady=2)
 
+        lf_export_image = ttk.LabelFrame(tab_frame, text="Image Exporting", padding=10); lf_export_image.pack(fill=tk.X, pady=5)
+        self.dpi_image_export_var = tk.StringVar(value=self.settings.get("output_dpi", 600))
+        ttk.Label(lf_export_image, text="Set output dpi for image exports:").pack(anchor=tk.W, padx=5, pady=2)
+        self.export_image_spin = ttk.Spinbox(lf_export_image, to=900, values=['300', '600', '900']); self.export_image_spin.pack(anchor=tk.W, padx=5, pady=2)
+        self.export_image_spin.set(self.dpi_image_export_var.get())
 
     def create_security_tab(self, tab_frame):
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)
@@ -1002,6 +1011,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
         self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()
         self.settings["enable_text_background_panel"] = self.enable_text_panel_var.get() # New setting
+        self.settings["always_show_text_background_panel"] = self.enable_text_panel_always_var.get()
         # Behavior/Quiz Log Tab
         self.settings["show_recent_incidents_on_boxes"] = self.show_recent_var.get()
         self.settings["num_recent_incidents_to_show"] = self.num_recent_var.get()
@@ -1026,6 +1036,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["excel_export_separate_sheets_by_default"] = self.excel_sep_sheets_var.get()
         self.settings["excel_export_include_summaries_by_default"] = self.excel_inc_summary_var.get()
         self.settings["enable_excel_autosave"] = self.enable_excel_autosave_var.get()
+        self.settings["output_dpi"] = self.export_image_spin.get()
         # Security Tab
         self.settings["password_on_open"] = self.pw_on_open_var.get()
         self.settings["password_on_edit_action"] = self.pw_on_edit_var.get()

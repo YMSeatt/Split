@@ -1573,8 +1573,8 @@ class SeatingChartApp:
             # --- Text Drawing ---
             current_y_text_draw_canvas = canvas_y + canvas_padding
             available_text_width_canvas = canvas_width - 2 * canvas_padding
-
-            if self.settings.get("enable_text_background_panel", True) and active_rules_colors:
+            colored = True if self.settings.get("always_show_text_background_panel", False) or active_rules_colors else False
+            if self.settings.get("enable_text_background_panel", True) and colored:
                 text_panel_fill = "#F0F0F0" # Light gray for text background
                 text_panel_internal_padding = 2 * self.current_zoom_level # Small padding around text within its panel
 
@@ -2608,7 +2608,7 @@ class SeatingChartApp:
         # ... (same as v51)
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Log Quiz Score", "Enter password to log quiz score:"): return
-        student = self.students.get(student_id);
+        student = self.students.get(student_id)
         if not student: return
         initial_quiz_name = self.settings.get("default_quiz_name", "Pop Quiz")
         initial_num_questions = self.settings.get("_last_used_q_num_for_session", self.settings.get("default_quiz_questions", 10))
@@ -2632,6 +2632,7 @@ class SeatingChartApp:
             self.settings["_last_used_quiz_name_timestamp_for_session"] = self.last_used_quiz_name_timestamp
             self.settings["_last_used_q_num_for_session"] = self.initial_num_questions
             self.password_manager.record_activity()
+            self.draw_all_items()
 
     def save_data_wrapper(self, event=None, source="manual"):
         self._ensure_next_ids()
@@ -3948,7 +3949,7 @@ class SeatingChartApp:
             # Create PostScript of the entire scrollable region
             ps_io = io.BytesIO()
             timestamp = str(IMAGENAMEW)
-            self.canvas.postscript(
+            self.canvas.postscript( # type: ignore
                 x=x1 + postscript_x_offset,
                 y=y1 + postscript_y_offset,
                 width=x2 - x1, # Width of the scrollable area
@@ -3958,14 +3959,15 @@ class SeatingChartApp:
             )
             ps_io.seek(0)
             
+            output_dpi = self.settings.get("output_dpi", 600)
+            
             try:
                 img = Image.open(os.path.abspath(timestamp))
                 ps_file = ps_io
                 output_image_file = file_path
-                output_dpi = 600 
+                #output_dpi = 600 
                 scale_factor = output_dpi / 72.0
-                try:
-                    img.load(scale=scale_factor) 
+                try: img.load(scale=scale_factor)  # type: ignore
                 except AttributeError:
                     print("Warning: img.load(scale=...) might not be directly supported for .ps files in your Pillow version in this way.")
                     print("Pillow will use Ghostscript's default rasterization or a pre-set one.")
@@ -3990,11 +3992,9 @@ class SeatingChartApp:
             except Exception as e: print("e2", e)
             finally:
                 ps_io.close()
-                img.close()
-                try:os.remove(os.path.abspath(IMAGENAMEW))
+                try:os.remove(os.path.abspath(IMAGENAMEW)); img.close()
                 except FileNotFoundError: pass
-                #import os
-                
+                except: pass
 
         except tk.TclError as e_tk:
             messagebox.showerror("Image Export Error", f"Tkinter error during PostScript generation: {e_tk}", parent=self.root)
