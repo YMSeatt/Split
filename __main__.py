@@ -3922,7 +3922,7 @@ class SeatingChartApp:
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Export Image", "Enter password to export layout as image:"): return
         file_path = filedialog.asksaveasfilename(defaultextension=".png", initialfile=f"layout_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-                                               filetypes=[("PNG Image", "*.png"), ("All files", "*.*")], parent=self.root)
+                                               filetypes=[("PNG Image", "*.png"), ("JPG Image", "*.jpg"), ("WebP Image", "*.webp"), ("TIFF Image", "*.tiff"), ("BMP Image", "*.bmp"), ("PPM Image", "*.ppm"), ("PGM Image", "*.pgm"),("GIF Image", "*.gif"), ("All files", "*.*")], parent=self.root)
         if not file_path: self.update_status("Image export cancelled."); return
         try:
             # Determine current bounds of drawn items on canvas (in canvas coordinates)
@@ -3959,7 +3959,7 @@ class SeatingChartApp:
             )
             ps_io.seek(0)
             
-            output_dpi = self.settings.get("output_dpi", 600)
+            output_dpi = int(self.settings.get("output_dpi", 600))
             
             try:
                 img = Image.open(os.path.abspath(timestamp))
