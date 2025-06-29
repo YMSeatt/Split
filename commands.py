@@ -1,6 +1,7 @@
 import os
 import sys
 from datetime import datetime
+import tkinter as tk
 
 # def listener(callback: typing.Callable[[str], None]) -> None: ...
 
@@ -644,4 +645,9 @@ if __name__ == "__main__":
     root = tk.Tk()
     from seatingchartmain import SeatingChartApp
     app = SeatingChartApp(root)
+    try:
+        import darkdetect; import threading
+        t = threading.Thread(target=darkdetect.listener, args=(app.theme_auto, ))
+        t.daemon = True; t.start()
+    except: pass
     root.mainloop()

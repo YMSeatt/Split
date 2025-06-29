@@ -77,7 +77,7 @@ GROUP_COLOR_INDICATOR_SIZE = 12
 DEFAULT_THEME = "System"
 THEME_LIST = ["Light", "Dark", "System"]
 
-DRAG_THRESHOLD = 5
+DRAG_THRESHOLD = 0
 DEFAULT_GRID_SIZE = 20
 MAX_UNDO_HISTORY_DAYS = 90
 LAYOUT_COLLISION_OFFSET = 5
@@ -244,6 +244,7 @@ class SeatingChartApp:
         self.selected_items = set()
         self.undo_stack = []
         self.redo_stack = []
+        self.type_theme = "sv_ttk"
         try:
             self.theme_style_using = sv_ttk.get_theme()
         except:
@@ -377,12 +378,14 @@ class SeatingChartApp:
         
         #if filename in os.listdir(os.path.dirname(get_app_data_path(filename))): print(filename, 1); filename = "tkinter_screenshot3.png"; print(filename, 2) 
             
-        
+        output_dpi = int(self.settings.get("output_dpi", 600))
         #print(path)
-        
-        img.save(file_path)
+        #img.save(output_image_file, dpi=(output_dpi, output_dpi))
+        img.save(file_path, dpi=(output_dpi, output_dpi))
         print(f"Screenshot saved to {filename}")
         self.update_status(f"Screenshot saved to {file_path}")
+        if messagebox.askyesno("Export Successful", f"Layout image saved to:\n{file_path}\n\nDo you want to open the file location?", parent=self.root): 
+            self.open_specific_export_folder(file_path)
 
     def _get_default_settings(self):
         return {
@@ -677,7 +680,7 @@ class SeatingChartApp:
         self.export_menu.add_command(label="To Excel Macro-Enabled (.xlsm)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsm"))
         self.export_menu.add_command(label="To CSV Files (.zip)", command=lambda: self.export_log_dialog_with_filter(export_type="csv"))
         self.export_menu.add_separator()
-        self.export_menu.add_command(label="Export Layout as Image (see Help)...", command=self.export_layout_as_image)
+        self.export_menu.add_command(label="Export Layout as Image (see Help)...", command=self.capture_tkinter_window) #self.export_layout_as_image)
         self.export_menu.add_command(label="Generate Attendance Report...", command=self.generate_attendance_report_dialog)
         self.export_menu_btn["menu"] = self.export_menu; self.export_menu_btn.pack(side=tk.LEFT, padx=2)
         ttk.Button(top_controls_frame_row1, text="Settings", command=self.open_settings_dialog).pack(side=tk.LEFT, padx=2)
@@ -3976,7 +3979,7 @@ class SeatingChartApp:
                 # Now save the image. The 'dpi' parameter here is metadata for formats like PNG/TIFF.
                 # The actual pixel dimensions are determined by the rasterization step.
                 img.save(output_image_file, dpi=(output_dpi, output_dpi))
-                print(f"PostScript file '{img}' converted to '{output_image_file}' at {output_dpi} DPI.")     
+                print(f"PostScript file '{timestamp}' converted to '{output_image_file}' at {output_dpi} DPI.")     
                 
                 
                 img.save(file_path, "png")
@@ -4612,36 +4615,23 @@ class SeatingChartApp:
         else:
             self.update_status("Homework template management cancelled or no changes made.")
         self.password_manager.record_activity()
-
+    
     def set_theme(self, theme, canvas_color):
-        if theme != "System": sv_ttk.set_theme(theme)
-        else: sv_ttk.set_theme(darkdetect.theme())
+        self.theme_style_using = theme
+        self.theme_set()
         
-        if theme != self.settings.get("theme", DEFAULT_THEME) or canvas_color != self.settings.get("canvas_color", "Default"):
-            if theme != "System":
-                if sv_ttk.get_theme() != theme:
-                    sv_ttk.set_theme(theme)
-            else:
-                current_system_theme = darkdetect.theme()
-                if sv_ttk.get_theme() != current_system_theme:
-                    sv_ttk.set_theme(current_system_theme)
-
-            self.theme_style_using = theme # Store the user's selection ('System', 'Light', 'Dark')
-            self.settings["theme"] = theme # Save to settings
-
-            if canvas_color == "Default" or canvas_color == "" or canvas_color is None:
-                self.custom_canvas_color = None
-                self.settings["canvas_color"] = "Default"
-            else:
-                self.custom_canvas_color = canvas_color
-                self.settings["canvas_color"] = canvas_color
-
-            self._apply_canvas_color() # Apply the new canvas color
-            self.settings_changed_flag = True # Indicate settings changed for saving
-            self.draw_all_items() # Redraw items as theme/canvas color change might affect them
-            self.update_status(f"Theme set to {theme}. Canvas color updated.")
-
-
+        if canvas_color == "Default" or canvas_color == "" or canvas_color == None:
+            canvas_color = None; self.custom_canvas_color = None
+        else:
+            self.custom_canvas_color = canvas_color
+            self.canvas_color = canvas_color
+        
+        if self.custom_canvas_color: self.canvas_color = self.custom_canvas_color
+        elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
+        elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
+        else: self.canvas_color = "lightgrey"
+        self.canvas.configure(bg=self.canvas_color)
+    
     def _apply_canvas_color(self):
         """Applies the current canvas color based on theme and custom settings."""
         if self.custom_canvas_color and self.custom_canvas_color != "Default":
@@ -4655,50 +4645,26 @@ class SeatingChartApp:
         
         if hasattr(self, 'canvas') and self.canvas:
             self.canvas.configure(bg=self.canvas_color)
-
-
-    def theme_auto(self, init=False, new_system_theme=None):
-        """
-        Automatically sets the theme based on system detection or stored preference.
-        Called by darkdetect.listener when system theme changes, or during init.
-        """
-        stored_theme_preference = self.settings.get("theme", DEFAULT_THEME)
+    
+    def theme_set(self, theme=None):
+        if self.type_theme == "sv_ttk":
+            if self.theme_style_using == "System":
+                sv_ttk.set_theme(darkdetect.theme())
+            else:
+                sv_ttk.set_theme(self.theme_style_using)
+        else:
+            style.theme_use(self.type_theme)
+    
+    def theme_auto(self, init=False):
+        self.theme_set()
+        if self.custom_canvas_color != "Default" and self.custom_canvas_color != None: self.canvas_color = self.custom_canvas_color
+        elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
+        elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
+        else: self.canvas_color = "lightgrey"
         
-        effective_theme_to_apply = ""
-        if stored_theme_preference == "System":
-            effective_theme_to_apply = new_system_theme or darkdetect.theme() # Use new if provided, else detect
-        else: # User has a fixed 'Light' or 'Dark' preference
-            effective_theme_to_apply = stored_theme_preference
-
-        # Only call sv_ttk.set_theme if the theme actually needs to change
-        try:
-            current_svttk_theme = sv_ttk.get_theme()
-            if current_svttk_theme.lower() != effective_theme_to_apply.lower():
-                sv_ttk.set_theme(effective_theme_to_apply)
-                if not init: # Avoid status update and redraw during initial setup if possible
-                    self.update_status(f"System theme changed to {effective_theme_to_apply}. Applied.")
-                    # Redraw might be needed if colors depend on the theme
-                    self.draw_all_items()
-            # Always update internal state and canvas color regardless of sv_ttk call
-            self.theme_style_using = stored_theme_preference # This should reflect the setting ('System', 'Light', 'Dark')
-            self._apply_canvas_color()
-            if not init and hasattr(self, 'canvas') and self.canvas: # Only redraw if not init and canvas exists
-                 self.draw_all_items()
-
-
-        except Exception as e:
-            print(f"Error in theme_auto: {e}")
-            if not init: # Fallback if sv_ttk fails during runtime update
-                try:
-                    sv_ttk.set_theme("light") # A known safe default
-                    self.theme_style_using = "Light" # Update internal state
-                    self._apply_canvas_color()
-                except: pass # Final fallback
-
-        # Canvas color update is handled by _apply_canvas_color now
-        # if not init and hasattr(self, 'canvas') and self.canvas:
-        #    self.canvas.configure(bg=self.canvas_color)
-
+        if not init == True:
+            print(init, self.canvas_color, self.custom_canvas_color)
+            self.canvas.configure(bg=self.canvas_color) # type: ignore
 
     def open_settings_dialog(self):
         if self.password_manager.is_locked:
@@ -5063,7 +5029,7 @@ if __name__ == "__main__":
         # Some themes might require python -m tkinter to see available ones on your system
         # Or use ttkthemes for more options: from ttkthemes import ThemedTk
         # root = ThemedTk(theme="arc") # Example using ttkthemes
-        #style = ttk.Style(root)
+        style = ttk.Style(root)
         #available_themes = style.theme_names() # ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative') on Windows
         # print("Available themes:", available_themes)
         sv_ttk.set_theme("Light")
