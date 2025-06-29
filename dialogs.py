@@ -1705,3 +1705,9 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
         # Changes were made directly to self.all_students (app.students)
         # The self.assignments_changed flag will be checked by the parent dialog
         pass
+# --- Main Execution ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    from seatingchartmain import SeatingChartApp
+    app = SeatingChartApp(root)
+    root.mainloop()

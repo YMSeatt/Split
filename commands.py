@@ -639,3 +639,9 @@ class ManageStudentGroupCommand(Command):
                    data['old_student_group_assignments'], data['new_student_group_assignments'],
                    data['old_next_group_id_num'], data['new_next_group_id_num'], timestamp)
 
+# --- Main Execution ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    from seatingchartmain import SeatingChartApp
+    app = SeatingChartApp(root)
+    root.mainloop()

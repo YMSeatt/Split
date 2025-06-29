@@ -3976,7 +3976,7 @@ class SeatingChartApp:
                 # Now save the image. The 'dpi' parameter here is metadata for formats like PNG/TIFF.
                 # The actual pixel dimensions are determined by the rasterization step.
                 img.save(output_image_file, dpi=(output_dpi, output_dpi))
-                print(f"PostScript file '{ps_file}' converted to '{output_image_file}' at {output_dpi} DPI.")     
+                print(f"PostScript file '{img}' converted to '{output_image_file}' at {output_dpi} DPI.")     
                 
                 
                 img.save(file_path, "png")
@@ -3992,9 +3992,9 @@ class SeatingChartApp:
             except Exception as e: print("e2", e)
             finally:
                 ps_io.close()
-                try:os.remove(os.path.abspath(IMAGENAMEW)); img.close()
+                """try: img.close(); os.remove(os.path.abspath(IMAGENAMEW))
                 except FileNotFoundError: pass
-                except: pass
+                except: pass"""
 
         except tk.TclError as e_tk:
             messagebox.showerror("Image Export Error", f"Tkinter error during PostScript generation: {e_tk}", parent=self.root)

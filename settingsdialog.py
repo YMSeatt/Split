@@ -10,7 +10,7 @@ import sys
 
 from dialogs import PasswordPromptDialog, ConditionalFormattingRuleDialog
 from quizhomework import ManageInitialsDialog, ManageMarkTypesDialog, ManageLiveSelectOptionsDialog 
-
+#from seatingchartmain import SeatingChartApp
 
 
 # --- Application Constants ---
@@ -1055,3 +1055,12 @@ class SettingsDialog(simpledialog.Dialog):
         # would have set self.settings_changed_flag = True already.
         self.result = self.settings_changed_flag # Simpledialog will check this
 
+
+
+
+# --- Main Execution ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    from seatingchartmain import SeatingChartApp
+    app = SeatingChartApp(root)
+    root.mainloop()

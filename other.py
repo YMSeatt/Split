@@ -461,3 +461,9 @@ Phone: +1 206-750-5557
         self.bind("<Escape>", self.ok)
         box.pack()
 
+# --- Main Execution ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    from seatingchartmain import SeatingChartApp
+    app = SeatingChartApp(root)
+    root.mainloop()

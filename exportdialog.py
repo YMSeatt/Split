@@ -287,3 +287,9 @@ class ExportFilterDialog(simpledialog.Dialog):
         }
 
 
+# --- Main Execution ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    from seatingchartmain import SeatingChartApp
+    app = SeatingChartApp(root)
+    root.mainloop()

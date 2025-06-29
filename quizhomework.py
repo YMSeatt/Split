@@ -673,3 +673,11 @@ class ManageLiveSelectOptionsDialog(simpledialog.Dialog):
         if self.current_options != updated_options: # If direct edits changed things
             self.options_changed_flag = True
         self.current_options = updated_options # Finalize list
+
+
+# --- Main Execution ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    from seatingchartmain import SeatingChartApp
+    app = SeatingChartApp(root)
+    root.mainloop()
