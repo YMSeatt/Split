@@ -3907,7 +3907,7 @@ class SeatingChartApp:
             with zipfile.ZipFile(zip_file_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                 zf.write(all_logs_csv_path, arcname="all_logs.csv")
                 zf.write(students_csv_path, arcname="students.csv")
-                if filter_settings.get("include_summaries", False): # Basic summary text file
+                if filter_settings.get("include_summaries", False): # type: ignore # Basic summary text file
                     summary_txt_path = os.path.join(temp_dir, "summary.txt")
                     with open(summary_txt_path, 'w', encoding='utf-8')as f_sum:
                         f_sum.write(f"Log Export Summary - {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
