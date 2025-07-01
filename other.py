@@ -383,6 +383,7 @@ Switching Modes:
 The "Settings" dialog allows extensive customization:
 
 - General: Autosave interval, grid snapping, student group feature toggle, max undo history.
+    - The canvas borders are for exporting the layout as an image. Anything beyond the lines (left or up) will not show up in the image.
 - Student Boxes: Default appearance (size, colors, font), and Conditional Formatting rules (e.g., change box color if a student is in a specific group or has many recent incidents).
 - Behavior & Quiz:
     - Recent Incidents Display: Control how behavior/quiz logs appear on student boxes.
@@ -420,11 +421,12 @@ Remember to click "Apply" or "OK" in the Settings dialog to save your changes!
         remarks_text_content = f"""
         Please note the following:
         
-- The 'Export Layout as Image' function now works!!! Just make sure to have Ghostscript installed.
+- The 'Export Layout as Image' function works, but it doesn't capture Hebrew. Just make sure to have Ghostscript installed.
 - I am still working on the homework logging and exporting - so expect to see more features, and don't be surprised if something doesn't work as expected.
 - The Conditional Formatting feature now works for quizzes, and if you have more than one rule applying to the same box, it will split the box into different sections.
 - If you are trying to undo or redo a move of a box and the program keeps saying "Adjusted layout for _ items due to overlap with _______." you may need to turn off checking for collisions on box move in settings (General Tab).
 - The Help section is not updated often enough, so it may not contain up-to-date information.
+
     -Yaakov Maimon
 """        
         remarks_text = tk.Text(remarks_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
@@ -464,6 +466,8 @@ Phone: +1 206-750-5557
 # --- Main Execution ---
 if __name__ == "__main__":
     root = tk.Tk()
+    import sv_ttk
+    sv_ttk.set_theme("Light")
     from seatingchartmain import SeatingChartApp
     app = SeatingChartApp(root)
     try:

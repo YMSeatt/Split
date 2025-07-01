@@ -214,18 +214,12 @@ class SettingsDialog(simpledialog.Dialog):
         return self.notebook
 
     def create_general_tab(self, tab_frame):
-        lf = ttk.LabelFrame(tab_frame, text="Application Behavior", padding=10); lf.pack(fill=tk.X, pady=5)
+        lf = ttk.LabelFrame(tab_frame, text="Application Behavior", padding=10); lf.pack(fill=tk.BOTH, side=tk.LEFT, pady=5)
         # Autosave interval
         ttk.Label(lf, text="Autosave Interval (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.autosave_interval_var = tk.IntVar(value=self.settings.get("autosave_interval_ms", 30000) // 1000)
         ttk.Spinbox(lf, from_=10, to=300, increment=10, textvariable=self.autosave_interval_var, width=5).grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
 
-        # Grid snap
-        self.grid_snap_var = tk.BooleanVar(value=self.settings.get("grid_snap_enabled", False))
-        ttk.Checkbutton(lf, text="Enable Snap to Grid during Drag", variable=self.grid_snap_var).grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
-        ttk.Label(lf, text="Grid Size (pixels):").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
-        self.grid_size_var = tk.IntVar(value=self.settings.get("grid_size", DEFAULT_GRID_SIZE))
-        ttk.Spinbox(lf, from_=5, to=100, increment=5, textvariable=self.grid_size_var, width=5).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
 
         # Student Groups Enabled
         self.groups_enabled_var = tk.BooleanVar(value=self.settings.get("student_groups_enabled", True))
@@ -234,18 +228,6 @@ class SettingsDialog(simpledialog.Dialog):
         # Zoom Level Display
         self.show_zoom_var = tk.BooleanVar(value=self.settings.get("show_zoom_level_display", True))
         ttk.Checkbutton(lf, text="Show Zoom Level % Display on Main Screen", variable=self.show_zoom_var).grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
-
-
-        # Student box management visibility
-        self.show_management_var = tk.BooleanVar(value=self.settings.get("always_show_box_management", False))
-        ttk.Checkbutton(lf, text="Always show box management tools", variable=self.show_management_var).grid(row=5, column=0, columnspan=2, sticky='W', padx=5, pady=3)
-
-
-        # Check for collisions on redraw
-        self.check_for_collisions_var = tk.BooleanVar(value=self.settings.get("check_for_collisions", True))
-        ttk.Checkbutton(lf, text="Check for collisions on box move", variable=self.check_for_collisions_var).grid(row=6, column=0, columnspan=2, sticky='W', padx=5, pady=3)
-
-
 
         # Max Undo History Days
         ttk.Label(lf, text="Max Undo History (days):").grid(row=10, column=0, sticky=tk.W, padx=5, pady=3)
@@ -259,36 +241,46 @@ class SettingsDialog(simpledialog.Dialog):
         theme_combo.grid(row=12, column=1, sticky="W", padx=5, pady=3)
         theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
         theme_combo.set(self.theme.get())
+
+        # Canvas Management LabelFrame
+        cmf = ttk.LabelFrame(tab_frame, text="Canvas Management", padding=10); cmf.pack(padx=5, fill=tk.BOTH)
+        # Student box management visibility
+        self.show_management_var = tk.BooleanVar(value=self.settings.get("always_show_box_management", False))
+        ttk.Checkbutton(cmf, text="Always show box management tools", variable=self.show_management_var).grid(row=5, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+
+
+        # Check for collisions on redraw
+        self.check_for_collisions_var = tk.BooleanVar(value=self.settings.get("check_for_collisions", True))
+        ttk.Checkbutton(cmf, text="Check for collisions on box move", variable=self.check_for_collisions_var).grid(row=6, column=0, columnspan=2, sticky='W', padx=5, pady=3)
         
         # Canvas Color
-        ttk.Label(lf, text = "Canvas color (background): ").grid(row=13,column=0,sticky='W', padx=5, pady=3)
+        ttk.Label(cmf, text = "Canvas color (background): ").grid(row=13,column=0,sticky='W', padx=5, pady=3)
         
-        canvas_color_entry = ttk.Entry(lf, textvariable= self.custom_canvas_color)
+        canvas_color_entry = ttk.Entry(cmf, textvariable= self.custom_canvas_color)
         canvas_color_entry.grid(row=13, column=1, sticky="W", padx=5, pady=3)
         
-        
-        #ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
-        #fill_var = tk.StringVar(value=self.settings.get(fill_key, DEFAULT_BOX_FILL_COLOR))
-        #setattr(self, f"{fill_key}_var", fill_var) # Store var on self
-        #ttk.Entry(, textvariable=fill_var, width=12).grid(row=start_row,column=1,sticky=tk.W,padx=5,pady=3)
-        
-        if self.custom_canvas_color.get() == "":
-            #print("Hi")
-            #self.custom_canvas_color
-            pass
-        else:
-            #print("Hi2", self.custom_canvas_color.get())
-            #print(self.custom_canvas_color)
+        if self.custom_canvas_color.get() != "":
             self.custom2 = tk.StringVar(value=self.custom_canvas_color.get())
-        ttk.Button(lf, text="Choose...", command=lambda v=self.custom_canvas_color: self.choose_color_for_canvas(v)).grid(row=13,column=2,sticky=tk.W,padx=2,pady=3)
-        ttk.Button(lf, text="Default", command=lambda v=self.custom_canvas_color: self.reset_canvas_color(v)).grid(row=13,column=3, sticky='W', padx=5, pady=3)
-        #theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
-        #theme_combo.set(self.theme.get())
-        #print(self.theme.get(), "initlial")
         
+        ttk.Button(cmf, text="Choose...", command=lambda v=self.custom_canvas_color: self.choose_color_for_canvas(v)).grid(row=13,column=2,sticky=tk.W,padx=2,pady=3)
+        ttk.Button(cmf, text="Default", command=lambda v=self.custom_canvas_color: self.reset_canvas_color(v)).grid(row=13,column=3, sticky='W', padx=5, pady=3)
         
+        # Grid snap
+        self.grid_snap_var = tk.BooleanVar(value=self.settings.get("grid_snap_enabled", False))
+        ttk.Checkbutton(cmf, text="Enable Snap to Grid during Drag", variable=self.grid_snap_var).grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        ttk.Label(cmf, text="Grid Size (pixels):").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
+        self.grid_size_var = tk.IntVar(value=self.settings.get("grid_size", DEFAULT_GRID_SIZE))
+        ttk.Spinbox(cmf, from_=5, to=100, increment=5, textvariable=self.grid_size_var, width=5).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
         
+        # Canvas Border Visibility
+        self.canvas_border_var = tk.BooleanVar(value=self.settings.get("show_canvas_border_lines", False))
+        ttk.Checkbutton(cmf, text="Show canvas borders (see help)", variable=self.canvas_border_var, command=self.force_canvas_border_visi).grid(row=15, column=0, sticky=tk.W, padx=5, pady=3)
         
+        self.force_canvas_border_var = tk.BooleanVar(value=self.settings.get("force_canvas_border_lines", False))
+        self.force_canvas_border_btn = ttk.Checkbutton(cmf, text="Always show canvas borders", variable=self.force_canvas_border_var)
+        self.force_canvas_border_btn.grid(row=15, column=1, sticky=tk.W, padx=5, pady=3)
+        
+        self.force_canvas_border_visi()
 
     def create_student_display_tab(self, tab_frame):
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
@@ -849,6 +841,10 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True
             self.populate_conditional_rules_listbox()
 
+    def force_canvas_border_visi(self):
+        self.force_canvas_border_btn.configure(state="normal" if self.canvas_border_var.get() == True else 'disabled')
+
+
 
     def _manage_custom_list_generic(self, listbox, custom_list_ref, item_type_name, add_func_name, edit_func_name):
         # This is a placeholder for a more generic dialog if needed, for now specific ones are used
@@ -996,17 +992,19 @@ class SettingsDialog(simpledialog.Dialog):
         self.app.custom_canvas_color = self.custom_canvas_color.get()
         self.settings["always_show_box_management"] = self.show_management_var.get()
         self.settings["check_for_collisions"] = self.check_for_collisions_var.get()
+        self.settings["show_canvas_border_lines"] = self.canvas_border_var.get()
+        self.settings["force_canvas_border_lines"] = self.force_canvas_border_var.get()
         #print("Theme2", self.theme2)
         #print(self.theme.get(), "Get")
         # Student Display Tab
         self.settings["default_student_box_width"]=self.def_stud_w_var.get()
         self.settings["default_student_box_height"]=self.def_stud_h_var.get()
-        self.settings["student_box_fill_color"]=self.student_box_fill_color_var.get()
-        self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
-        self.settings["student_font_family"]=self.student_font_family_var.get()
-        self.settings["student_font_size"]=self.student_font_size_var.get()
-        self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
-        self.settings["student_font_color"]=self.student_font_color_var.get()
+        #self.settings["student_box_fill_color"]=self.student_box_fill_color_var.get()
+        #self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
+        #self.settings["student_font_family"]=self.student_font_family_var.get()
+        #self.settings["student_font_size"]=self.student_font_size_var.get()
+        #self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
+        #self.settings["student_font_color"]=self.student_font_color_var.get()
         
         self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
         self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()
@@ -1062,6 +1060,8 @@ class SettingsDialog(simpledialog.Dialog):
 if __name__ == "__main__":
     root = tk.Tk()
     from seatingchartmain import SeatingChartApp
+    import sv_ttk
+    sv_ttk.set_theme("Light")
     app = SeatingChartApp(root)
     try:
         import darkdetect; import threading

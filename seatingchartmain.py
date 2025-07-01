@@ -680,7 +680,7 @@ class SeatingChartApp:
         self.export_menu.add_command(label="To Excel Macro-Enabled (.xlsm)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsm"))
         self.export_menu.add_command(label="To CSV Files (.zip)", command=lambda: self.export_log_dialog_with_filter(export_type="csv"))
         self.export_menu.add_separator()
-        self.export_menu.add_command(label="Export Layout as Image (see Help)...", command=self.capture_tkinter_window) #self.export_layout_as_image)
+        self.export_menu.add_command(label="Export Layout as Image (see Help)...", command=self.export_layout_as_image) #self.export_layout_as_image)
         self.export_menu.add_command(label="Generate Attendance Report...", command=self.generate_attendance_report_dialog)
         self.export_menu_btn["menu"] = self.export_menu; self.export_menu_btn.pack(side=tk.LEFT, padx=2)
         ttk.Button(top_controls_frame_row1, text="Settings", command=self.open_settings_dialog).pack(side=tk.LEFT, padx=2)
@@ -1746,9 +1746,13 @@ class SeatingChartApp:
 
     def draw_all_items(self, check_collisions_on_redraw=False):
         # ... (same as v51)
-        try: self.canvas.delete("student_item"); self.canvas.delete("furniture_item")
+        try: self.canvas.delete("student_item"); self.canvas.delete("furniture_item"); self.canvas.delete("border_line")
         except AttributeError: pass
         all_items_data = list(self.students.values()) + list(self.furniture.values())
+        
+        if ((self.edit_mode_var.get() == True or self.settings.get("always_show_box_management", False) == True) and self.settings.get("show_canvas_border_lines", False) == True) or self.settings.get("force_canvas_border_lines", False) == True:
+            self.canvas.create_line(0,0,1,2000, tags=("border_line", "border_vertical"))
+            self.canvas.create_line(0,0,2000,1, tags=("border_line", "border_horizontal"))
         if not all_items_data:
             try:
                 default_sr_w = self.canvas_orig_width * self.current_zoom_level; default_sr_h = self.canvas_orig_height * self.current_zoom_level
@@ -3965,7 +3969,7 @@ class SeatingChartApp:
             output_dpi = int(self.settings.get("output_dpi", 600))
             
             try:
-                img = Image.open(os.path.abspath(timestamp))
+                img = Image.open("export_layout_as_image_helper2")#os.path.abspath(timestamp))
                 ps_file = ps_io
                 output_image_file = file_path
                 #output_dpi = 600 
