@@ -295,6 +295,11 @@ class SeatingChartApp:
         self.pan_y = 0.0
 
         # Ruler and guide attributes
+        self.guides = [] # To store {'id': str, 'type': 'v'/'h', 'world_coord': float, 'canvas_item_id': int}
+        self.next_guide_id_num = 1
+        self.add_guide_mode: Optional[str] = None # 'vertical', 'horizontal', or None
+        self.active_guide_button: Optional[ttk.Button] = None # To manage button visual state
+
         self.ruler_thickness = 25  # pixels
         self.ruler_bg_color = "#f0f0f0"
         self.ruler_line_color = "#555555"
@@ -548,13 +553,18 @@ class SeatingChartApp:
 
         # Guide IDs
         max_g_id_num = 0
-        for guide_info in self.temporary_guides: # Assuming guides are loaded into self.temporary_guides by now
-            guide_id_str = guide_info.get('id', '')
-            if guide_id_str.startswith("guide_v_") or guide_id_str.startswith("guide_h_"):
-                try: max_g_id_num = max(max_g_id_num, int(guide_id_str.split("_")[-1]))
-                except (ValueError, IndexError, TypeError): pass
-        self.next_guide_id_num = max(self.settings.get("next_guide_id_num", 1), max_g_id_num + 1)
-        self.settings["next_guide_id_num"] = self.next_guide_id_num
+        # Ensure self.guides exists and is iterable; it might not be populated if loading very old data before migration
+        if hasattr(self, 'guides') and isinstance(self.guides, list):
+            for guide_info in self.guides:
+                guide_id_str = guide_info.get('id', '')
+                if guide_id_str.startswith("guide_v_") or guide_id_str.startswith("guide_h_"):
+                    try: max_g_id_num = max(max_g_id_num, int(guide_id_str.split("_")[-1]))
+                    except (ValueError, IndexError, TypeError): pass
+
+        # self.next_guide_id_num is now a direct attribute, not in settings dictionary initially
+        # It will be loaded from the main data file if present, otherwise defaults to 1.
+        # This ensures it's correctly set after loading data that might contain guides.
+        self.next_guide_id_num = max(getattr(self, 'next_guide_id_num', 1), max_g_id_num + 1)
 
 
     def periodic_checks(self):
@@ -744,6 +754,12 @@ class SeatingChartApp:
 
         self.toggle_grid_btn = ttk.Button(view_controls_frame, text="Toggle Grid", command=self.toggle_grid_visibility)
         self.toggle_grid_btn.pack(side=tk.LEFT, padx=2)
+
+        # Add Guide Buttons
+        self.add_v_guide_btn = ttk.Button(view_controls_frame, text="Add V Guide", command=lambda: self.toggle_add_guide_mode("vertical", self.add_v_guide_btn))
+        self.add_v_guide_btn.pack(side=tk.LEFT, padx=2)
+        self.add_h_guide_btn = ttk.Button(view_controls_frame, text="Add H Guide", command=lambda: self.toggle_add_guide_mode("horizontal", self.add_h_guide_btn))
+        self.add_h_guide_btn.pack(side=tk.LEFT, padx=2)
 
         self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=3)
         layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=0)
@@ -1791,12 +1807,13 @@ class SeatingChartApp:
 
         # Draw temporary guides first, so they are under items if needed (though typically on top)
         # self.draw_temporary_guides() # Guides will be drawn after items for better visibility
+        # The new self.draw_guides() is called after items.
 
         all_items_data = list(self.students.values()) + list(self.furniture.values())
         
         if ((self.edit_mode_var.get() == True or self.settings.get("always_show_box_management", False) == True) and self.settings.get("show_canvas_border_lines", False) == True) or self.settings.get("force_canvas_border_lines", False) == True:
-            self.canvas.create_line(0,0,1,2000, tags=("border_line", "border_vertical"))
-            self.canvas.create_line(0,0,2000,1, tags=("border_line", "border_horizontal"))
+            self.canvas.create_line(0,0,1,2000, tags=("border_line", "border_vertical")) # These seem to be fixed debug lines, not dynamic with canvas/zoom
+            self.canvas.create_line(0,0,2000,1, tags=("border_line", "border_horizontal")) # Consider removing or making them dynamic if kept.
         if not all_items_data:
             try:
                 default_sr_w = self.canvas_orig_width * self.current_zoom_level; default_sr_h = self.canvas_orig_height * self.current_zoom_level
@@ -1824,11 +1841,35 @@ class SeatingChartApp:
         for student_id in self.students: self.draw_single_student(student_id, check_collisions=check_collisions_on_redraw)
         for furniture_id in self.furniture: self.draw_single_furniture(furniture_id)
 
-        self.draw_temporary_guides() # Draw guides on top of items
+        self.draw_guides() # Draw guides on top of items
         self.update_toggle_incidents_button_text(); self.update_zoom_display()
         self.update_toggle_rulers_button_text()
         self.update_toggle_grid_button_text()
 
+    def draw_guides(self):
+        """Draws all stored guides on the canvas."""
+        if not self.canvas: return
+        self.canvas.delete("guide") # Delete only items tagged 'guide'
+
+        for guide_info in self.guides:
+            guide_type = guide_info['type']
+            world_coord = guide_info['world_coord']
+            guide_id_tag = guide_info['id'] # e.g., "guide_v_1"
+
+            canvas_item_id = None
+            if guide_type == 'h': # Horizontal guide
+                _, screen_y = self.world_to_canvas_coords(0, world_coord)
+                canvas_item_id = self.canvas.create_line(
+                    0, screen_y, self.canvas.winfo_width(), screen_y,
+                    fill=self.guide_line_color, tags=("guide", guide_id_tag, "guide_h"), width=1, dash=(4, 2)
+                )
+            elif guide_type == 'v': # Vertical guide
+                screen_x, _ = self.world_to_canvas_coords(world_coord, 0)
+                canvas_item_id = self.canvas.create_line(
+                    screen_x, 0, screen_x, self.canvas.winfo_height(),
+                    fill=self.guide_line_color, tags=("guide", guide_id_tag, "guide_v"), width=1, dash=(4, 2)
+                )
+            guide_info['canvas_item_id'] = canvas_item_id # Store/update Tkinter canvas item ID
 
     def toggle_grid_visibility(self):
         self.settings["show_grid"] = not self.settings.get("show_grid", False)
@@ -1838,6 +1879,101 @@ class SeatingChartApp:
 
     def update_toggle_grid_button_text(self):
         if hasattr(self, 'toggle_grid_btn'):
+            text = "Hide Grid" if self.settings.get("show_grid", False) else "Show Grid"
+            self.toggle_grid_btn.config(text=text)
+
+    def toggle_add_guide_mode(self, mode: str, button_pressed: ttk.Button):
+        """Toggles the mode for adding guides and updates button visuals."""
+        if self.add_guide_mode == mode: # Toggle off
+            self.add_guide_mode = None
+            if self.active_guide_button:
+                self.active_guide_button.state(['!pressed', '!focus']) # Remove pressed and focus state
+            self.active_guide_button = None
+            self.update_status("Add guide mode deactivated.")
+        else: # Toggle on for the given mode
+            if self.active_guide_button: # Deactivate any other active guide button
+                self.active_guide_button.state(['!pressed', '!focus'])
+
+            self.add_guide_mode = mode
+            self.active_guide_button = button_pressed
+            self.active_guide_button.state(['pressed', 'focus']) # Set pressed and focus state
+            self.update_status(f"Click on canvas to add a {mode} guide. Click button again to cancel.")
+
+        # Ensure other button is not in pressed state
+        if mode == "vertical" and hasattr(self, 'add_h_guide_btn') and self.add_h_guide_btn != button_pressed:
+            self.add_h_guide_btn.state(['!pressed', '!focus'])
+        elif mode == "horizontal" and hasattr(self, 'add_v_guide_btn') and self.add_v_guide_btn != button_pressed:
+            self.add_v_guide_btn.state(['!pressed', '!focus'])
+
+
+    def update_toggle_rulers_button_text(self):
+        if hasattr(self, 'toggle_rulers_btn'):
+            text = "Hide Rulers" if self.settings.get("show_rulers", False) else "Show Rulers"
+            self.toggle_rulers_btn.config(text=text)
+
+    def draw_rulers(self):
+        if not self.canvas: return
+        # Horizontal Ruler (Top)
+        self.canvas.create_rectangle(0, 0, self.canvas.winfo_width(), self.ruler_thickness,
+                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
+        # Vertical Ruler (Left)
+        self.canvas.create_rectangle(0, self.ruler_thickness, self.ruler_thickness, self.canvas.winfo_height(),
+                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
+
+        # Markings
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+
+        # Determine visible world coordinates
+        world_x_start, world_y_start = self.canvas_to_world_coords(0,0)
+        world_x_end, world_y_end = self.canvas_to_world_coords(canvas_width, canvas_height)
+
+        # Adjust for ruler thickness when calculating visible world range for markings
+        world_x_for_hruler_start, _ = self.canvas_to_world_coords(self.ruler_thickness, self.ruler_thickness)
+        world_x_for_hruler_end, _ = self.canvas_to_world_coords(canvas_width, self.ruler_thickness)
+
+        _, world_y_for_vruler_start = self.canvas_to_world_coords(self.ruler_thickness, self.ruler_thickness)
+        _, world_y_for_vruler_end = self.canvas_to_world_coords(self.ruler_thickness, canvas_height)
+
+
+        # Dynamic interval based on zoom - simplified
+        interval = 50
+        if self.current_zoom_level < 0.5: interval = 100
+        elif self.current_zoom_level > 2: interval = 20
+
+        # Horizontal Markings
+        start_mark_x = int(world_x_for_hruler_start / interval) * interval
+        for world_x in range(start_mark_x, int(world_x_for_hruler_end) + interval, interval):
+            canvas_x, _ = self.world_to_canvas_coords(world_x, world_y_start) # Use world_y_start for consistency
+            if canvas_x >= self.ruler_thickness and canvas_x <= canvas_width:
+                tick_len = 5 if world_x % (interval * 2) != 0 else 10
+                self.canvas.create_line(canvas_x, self.ruler_thickness - tick_len, canvas_x, self.ruler_thickness,
+                                        fill=self.ruler_line_color, tags="ruler_marking")
+                if tick_len == 10:
+                    self.canvas.create_text(canvas_x, self.ruler_thickness - tick_len - 5, text=str(world_x),
+                                            fill=self.ruler_text_color, anchor=tk.S, tags="ruler_marking_text", font=(DEFAULT_FONT_FAMILY, 8))
+        # Vertical Markings
+        start_mark_y = int(world_y_for_vruler_start / interval) * interval
+        for world_y in range(start_mark_y, int(world_y_for_vruler_end) + interval, interval):
+            _, canvas_y = self.world_to_canvas_coords(world_x_start, world_y) # Use world_x_start for consistency
+            if canvas_y >= self.ruler_thickness and canvas_y <= canvas_height:
+                tick_len = 5 if world_y % (interval * 2) != 0 else 10
+                self.canvas.create_line(self.ruler_thickness - tick_len, canvas_y, self.ruler_thickness, canvas_y,
+                                        fill=self.ruler_line_color, tags="ruler_marking")
+                if tick_len == 10:
+                    self.canvas.create_text(self.ruler_thickness - tick_len - 5, canvas_y, text=str(world_y),
+                                            fill=self.ruler_text_color, anchor=tk.E, tags="ruler_marking_text", font=(DEFAULT_FONT_FAMILY, 8))
+
+    def draw_temporary_guides(self): # Renamed to draw_guides and logic moved to SeatingChartApp.draw_guides
+        pass # This method is now effectively replaced by self.draw_guides() called from draw_all_items
+
+    def clear_temporary_guides(self):
+        self.guides.clear() # Changed from self.temporary_guides
+        if self.canvas:
+            self.canvas.delete("guide") # Changed tag from "temporary_guide"
+
+
+    def _calculate_quiz_score_percentage(self, log_entry):
             text = "Hide Grid" if self.settings.get("show_grid", False) else "Show Grid"
             self.toggle_grid_btn.config(text=text)
 
@@ -2210,15 +2346,104 @@ class SeatingChartApp:
             self.update_status(f"{len(self.selected_items)} items selected.")
         self.password_manager.record_activity()
 
+    def _get_guide_at_canvas_coords(self, event_x, event_y, tolerance=10):
+        """
+        Checks if a click at canvas coordinates (event_x, event_y) is on/near a guide.
+        Returns the ID of the guide if hit, otherwise None.
+        Uses a tolerance for easier clicking.
+        """
+        for guide_info in reversed(self.guides): # Check topmost guides first
+            if guide_info.get('canvas_item_id') is None:
+                continue # Guide not drawn or ID missing
+
+            # Get current screen coordinates of the guide line
+            # For Tkinter, self.canvas.coords(item_id) returns [x1, y1, x2, y2]
+            try:
+                coords = self.canvas.coords(guide_info['canvas_item_id'])
+                if not coords: continue
+            except tk.TclError: # Item might have been deleted unexpectedly
+                continue
+
+            guide_type = guide_info['type']
+
+            if guide_type == 'h': # Horizontal guide
+                # coords are [x1, y1, x2, y1] - check y-coordinate proximity
+                guide_screen_y = coords[1]
+                if abs(event_y - guide_screen_y) < tolerance and \
+                   min(coords[0], coords[2]) <= event_x <= max(coords[0], coords[2]):
+                    return guide_info['id']
+            elif guide_type == 'v': # Vertical guide
+                # coords are [x1, y1, x1, y2] - check x-coordinate proximity
+                guide_screen_x = coords[0]
+                if abs(event_x - guide_screen_x) < tolerance and \
+                   min(coords[1], coords[3]) <= event_y <= max(coords[1], coords[3]):
+                    return guide_info['id']
+        return None
+
     def on_canvas_left_press(self, event):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Interact", "Enter password to interact with canvas:"): return
         self.canvas.focus_set()
 
-        # Ruler interaction
-        if self.settings.get("show_rulers", False):
-            # Horizontal ruler area (top)
-            if event.y < self.ruler_thickness and event.x > self.ruler_thickness:
+        # Guide Creation via Add Guide Mode
+        if self.add_guide_mode:
+            # Check if click is outside ruler areas to prevent placing guide when trying to use ruler for legacy placement
+            on_h_ruler = self.settings.get("show_rulers", False) and event.y < self.ruler_thickness and event.x > self.ruler_thickness
+            on_v_ruler = self.settings.get("show_rulers", False) and event.x < self.ruler_thickness and event.y > self.ruler_thickness
+
+            if not on_h_ruler and not on_v_ruler:
+                world_x, world_y = self.canvas_to_world_coords(event.x, event.y)
+                guide_type_to_add = self.add_guide_mode
+
+                current_guide_id_num = self.next_guide_id_num
+                self.next_guide_id_num += 1
+                # self.settings["next_guide_id_num"] = self.next_guide_id_num # Will be saved with main data if guides are persistent
+
+                guide_id_str = f"guide_{guide_type_to_add[0]}_{current_guide_id_num}"
+                world_coord_to_use = world_x if guide_type_to_add == 'vertical' else world_y
+
+                new_guide_data = {'id': guide_id_str, 'type': guide_type_to_add[0], 'world_coord': world_coord_to_use, 'canvas_item_id': None}
+                self.guides.append(new_guide_data)
+
+                self.draw_all_items() # Redraws everything including the new guide via self.draw_guides()
+                self.update_status(f"Added {guide_type_to_add} guide ({guide_id_str}) at {world_coord_to_use:.0f}.")
+
+                # Deactivate add guide mode and reset button state
+                if self.active_guide_button:
+                    self.toggle_add_guide_mode(self.add_guide_mode, self.active_guide_button) # This will set mode to None and fix button
+                else: # Should not happen if button toggling is correct
+                    self.add_guide_mode = None
+                return # Consume event
+            # else: Click was on a ruler, let ruler interaction (legacy placement) handle it or do nothing.
+
+        # Check for guide dragging (if not in add_guide_mode)
+        if not self.add_guide_mode:
+            clicked_guide_id = self._get_guide_at_canvas_coords(event.x, event.y)
+            if clicked_guide_id:
+                guide_info = next((g for g in self.guides if g['id'] == clicked_guide_id), None)
+                if guide_info:
+                    self.drag_data = {
+                        "item_id": None, # Ensures student/furniture drag logic doesn't run
+                        "is_dragging_guide": True,
+                        "dragged_guide_id": clicked_guide_id,
+                        "dragged_guide_type": guide_info['type'],
+                        "original_world_coord": guide_info['world_coord'],
+                        # Store canvas click coords, world coords will be calculated in on_canvas_drag relative to this
+                        "start_click_canvas_x": event.x,
+                        "start_click_canvas_y": event.y,
+                        "start_drag_world_x": guide_info['world_coord'] if guide_info['type'] == 'v' else self.canvas_to_world_coords(event.x, event.y)[0],
+                        "start_drag_world_y": guide_info['world_coord'] if guide_info['type'] == 'h' else self.canvas_to_world_coords(event.x, event.y)[1],
+                    }
+                    self._drag_started_on_item = True # To prevent canvas scan_mark
+                    self.update_status(f"Dragging guide {clicked_guide_id}")
+                    if guide_info['type'] == 'h': self.canvas.config(cursor="sb_v_double_arrow")
+                    else: self.canvas.config(cursor="sb_h_double_arrow")
+                    self.password_manager.record_activity()
+                    return # Consume event, guide drag initiated
+
+        # Ruler interaction (Legacy guide placement, can be kept or removed)
+        if self.settings.get("show_rulers", False) and not self.add_guide_mode: # Only if not in button-activated add_guide_mode
+            if event.y < self.ruler_thickness and event.x > self.ruler_thickness: # Horizontal ruler
                 self.active_ruler_guide_coord_x, _ = self.canvas_to_world_coords(event.x, event.y)
                 self.active_ruler_guide_coord_y = None
                 self.update_status(f"Click on canvas to place vertical guide at x={self.active_ruler_guide_coord_x:.0f}")
@@ -2359,40 +2584,34 @@ class SeatingChartApp:
 
         if self.drag_data.get('is_dragging_guide'):
             dragged_guide_id = self.drag_data.get('dragged_guide_id')
-            guide_info = next((g for g in self.temporary_guides if g['id'] == dragged_guide_id), None)
-            if not guide_info: return
+            guide_info = next((g for g in self.guides if g['id'] == dragged_guide_id), None)
+            if not guide_info or guide_info.get('canvas_item_id') is None:
+                return # Guide not found or not drawn
 
-            current_world_x, current_world_y = self.canvas_to_world_coords(event.x, event.y)
-            start_drag_world_x, start_drag_world_y = self.canvas_to_world_coords(
-                self.drag_data['start_click_canvas_x'], self.drag_data['start_click_canvas_y']
-            )
+            current_event_world_x, current_event_world_y = self.canvas_to_world_coords(event.x, event.y)
 
             original_guide_world_coord = self.drag_data['original_world_coord']
+            start_drag_world_x = self.drag_data['start_drag_world_x']
+            start_drag_world_y = self.drag_data['start_drag_world_y']
+
             new_world_coord = original_guide_world_coord
 
             if guide_info['type'] == 'h': # Horizontal guide, update Y world_coord
-                delta_world_y = current_world_y - start_drag_world_y
+                delta_world_y = current_event_world_y - start_drag_world_y
                 new_world_coord = original_guide_world_coord + delta_world_y
                 guide_info['world_coord'] = new_world_coord
-                if guide_info['canvas_id']:
-                    _, screen_y = self.world_to_canvas_coords(0, new_world_coord)
-                    self.canvas.coords(guide_info['canvas_id'], 0, screen_y, self.canvas.winfo_width(), screen_y)
-                else: # Should not happen if guide was drawn, but as a fallback
-                    self.draw_temporary_guides() # Redraw all if something went wrong
+                _, screen_y = self.world_to_canvas_coords(0, new_world_coord)
+                self.canvas.coords(guide_info['canvas_item_id'], 0, screen_y, self.canvas.winfo_width(), screen_y)
+
             elif guide_info['type'] == 'v': # Vertical guide, update X world_coord
-                delta_world_x = current_world_x - start_drag_world_x
+                delta_world_x = current_event_world_x - start_drag_world_x
                 new_world_coord = original_guide_world_coord + delta_world_x
                 guide_info['world_coord'] = new_world_coord
-                if guide_info['canvas_id']:
-                    screen_x, _ = self.world_to_canvas_coords(new_world_coord, 0)
-                    self.canvas.coords(guide_info['canvas_id'], screen_x, 0, screen_x, self.canvas.winfo_height())
-                else: # Fallback
-                    self.draw_temporary_guides()
+                screen_x, _ = self.world_to_canvas_coords(new_world_coord, 0)
+                self.canvas.coords(guide_info['canvas_item_id'], screen_x, 0, screen_x, self.canvas.winfo_height())
 
-            # Update status less frequently during drag, or only on release
-            # self.update_status(f"Dragging guide {guide_info['id']} to {new_world_coord:.0f}")
             self.password_manager.record_activity()
-            return # Event handled
+            return # Event handled, do not pass to student/furniture drag
 
         if not self.drag_data.get("item_id") or not self._drag_started_on_item: return
 
@@ -2452,20 +2671,29 @@ class SeatingChartApp:
 
         if self.drag_data.get('is_dragging_guide'):
             dragged_guide_id = self.drag_data.get('dragged_guide_id')
-            guide_info = next((g for g in self.temporary_guides if g['id'] == dragged_guide_id), None)
+            guide_info = next((g for g in self.guides if g['id'] == dragged_guide_id), None)
 
             if guide_info:
-                self.update_status(f"Guide {guide_info['id']} set at {guide_info['world_coord']:.0f}")
-            else:
-                self.update_status("Guide drag finished.") # Fallback
+                # Final update of world_coord happened during on_canvas_drag
+                # Optionally, snap to grid here if desired for guides
+                # e.g., if self.settings.get("grid_snap_enabled", False):
+                #   grid_size = self.settings.get("grid_size", DEFAULT_GRID_SIZE)
+                #   guide_info['world_coord'] = round(guide_info['world_coord'] / grid_size) * grid_size
+                #   # Redraw this specific guide to snap position if coords changed
+                #   self.canvas.delete(guide_info['id']) # Delete by specific guide_id tag
+                #   self._draw_single_guide(guide_info) # A hypothetical method to redraw one guide
 
-            self.canvas.config(cursor="arrow") # Reset cursor
+                self.update_status(f"Guide {guide_info['id']} position finalized at {guide_info['world_coord']:.0f}.")
+                # If guides are persistent, consider saving here or flagging for save
+                # self.save_data_wrapper(source="guide_drag_end")
+            else:
+                self.update_status("Guide drag finished.")
+
+            self.canvas.config(cursor="") # Reset cursor to default
             self.drag_data.clear()
-            self._drag_started_on_item = False
+            self._drag_started_on_item = False # Reset general drag flag
             self.password_manager.record_activity()
-            # Full redraw might be good to ensure all items are correctly layered if guides affect that.
-            # However, individual guide redraw in on_canvas_drag should be sufficient for the guide itself.
-            # self.draw_all_items()
+            self.draw_all_items() # Redraw to ensure canvas is clean and guide is in final state
             return # Event handled
 
         clicked_item_id_at_press = self._potential_click_target
@@ -2995,21 +3223,23 @@ class SeatingChartApp:
                         "homework_log": self.homework_log,
                         "settings": self.settings, "last_excel_export_path": self.last_excel_export_path,
                         "_per_student_last_cleared": self._per_student_last_cleared,
-                        "undo_stack": serializable_undo_stack, "redo_stack": serializable_redo_stack
+                        "undo_stack": serializable_undo_stack, "redo_stack": serializable_redo_stack,
+                        "guides": [], # Placeholder, will be populated next
+                        "next_guide_id_num": self.next_guide_id_num
                         }
 
-        if self.settings.get("save_guides_to_file", True):
-            guides_to_save = []
-            for guide_info in self.temporary_guides:
-                guides_to_save.append({
-                    'id': guide_info.get('id'),
-                    'type': guide_info.get('type'),
-                    'world_coord': guide_info.get('world_coord')
-                    # canvas_id is deliberately excluded as it's runtime specific
-                })
-            data_to_save["temporary_guides"] = guides_to_save
-        else:
-            data_to_save["temporary_guides"] = [] # Save empty list if not saving guides
+        # Prepare guides for saving (without canvas_item_id)
+        guides_to_save = []
+        for guide_info in self.guides:
+            guides_to_save.append({
+                'id': guide_info.get('id'),
+                'type': guide_info.get('type'),
+                'world_coord': guide_info.get('world_coord')
+            })
+        data_to_save["guides"] = guides_to_save
+
+        # No longer saving guides based on a setting, they are always part of the main data structure.
+        # The old "temporary_guides" logic from v55 Kivy is removed/adapted.
 
         try:
             with open(DATA_FILE, 'w', encoding='utf-8') as f: json.dump(data_to_save, f, indent=4)
@@ -3086,20 +3316,21 @@ class SeatingChartApp:
                 self.theme_style_using = self.settings.get("theme", "System") # Newer
                 self.custom_canvas_color = self.settings.get("canvas_color", "Default")
 
-                # Load guides if setting is true and guides exist in data
-                if self.settings.get("save_guides_to_file", True):
-                    loaded_guides_raw = data.get("temporary_guides", [])
-                    self.temporary_guides = []
-                    for guide_data_raw in loaded_guides_raw:
-                        # Ensure only expected keys are loaded and canvas_id is reset
-                        self.temporary_guides.append({
-                            'id': guide_data_raw.get('id'),
-                            'type': guide_data_raw.get('type'),
-                            'world_coord': guide_data_raw.get('world_coord'),
-                            'canvas_id': None
-                        })
-                else:
-                    self.temporary_guides = []
+                # Load guides
+                loaded_guides_raw = data.get("guides", []) # Load from "guides" key
+                self.guides = [] # Initialize self.guides before populating
+                for guide_data_raw in loaded_guides_raw:
+                    # Ensure only expected keys are loaded and canvas_item_id is reset (will be set on draw)
+                    self.guides.append({
+                        'id': guide_data_raw.get('id'),
+                        'type': guide_data_raw.get('type'),
+                        'world_coord': guide_data_raw.get('world_coord'),
+                        'canvas_item_id': None
+                    })
+
+                # Load next_guide_id_num, defaulting to 1 if not present
+                self.next_guide_id_num = data.get("next_guide_id_num", 1)
+
 
                 self.undo_stack.clear(); self.redo_stack.clear()
                 loaded_undo_stack = data.get("undo_stack", [])
@@ -3231,17 +3462,34 @@ class SeatingChartApp:
     def _migrate_v9_data(self, data):
         """Migration for data version 9 (APP_VERSION v54) to v10 (APP_VERSION v55)."""
         # Key change: Addition of persistent guides.
-        if "settings" in data:
-            data["settings"].setdefault("save_guides_to_file", True)
-            data["settings"].setdefault("guides_stay_when_rulers_hidden", True)
-            data["settings"].setdefault("next_guide_id_num", 1)
+        # These settings are no longer used as guides are part of main data.
+        # data["settings"].setdefault("save_guides_to_file", True) # Removed
+        # data["settings"].setdefault("guides_stay_when_rulers_hidden", True) # Removed
+        # data["settings"].setdefault("next_guide_id_num", 1) # Removed from settings, direct attribute now
 
-        if "temporary_guides" not in data: # Ensure the list for guides exists
-            data["temporary_guides"] = []
-            # Or, if old data might have guides under a different key, migrate them here.
-            # For now, assumes new list.
+        # Ensure 'guides' list and 'next_guide_id_num' exist at the top level of data
+        if "guides" not in data:
+            data["guides"] = []
+        if "next_guide_id_num" not in data:
+            data["next_guide_id_num"] = 1
 
-        print("Applied v9 (to v10) data migration (guides).")
+        # If migrating from a version that used "temporary_guides" in settings (like Kivy v55)
+        # and by chance that data structure is present, convert it.
+        # This is unlikely for seatingchartmain.py's own data evolution but defensive.
+        if "settings" in data and "temporary_guides" in data["settings"]:
+            if not data["guides"]: # Only if 'guides' isn't already populated
+                 data["guides"] = data["settings"].pop("temporary_guides", [])
+            else: # guides already exists, just remove the old settings one
+                data["settings"].pop("temporary_guides", None)
+
+        if "settings" in data and "next_guide_id_num" in data["settings"]:
+            if data.get("next_guide_id_num",1) == 1: # Only if main data one is still default
+                data["next_guide_id_num"] = data["settings"].pop("next_guide_id_num",1)
+            else: # next_guide_id_num already has a value, remove from settings
+                 data["settings"].pop("next_guide_id_num", None)
+
+
+        print("Applied v9 (to v10) data migration (guides integrated into main data structure).")
         return data
 
     def _migrate_v7_data(self, data):
