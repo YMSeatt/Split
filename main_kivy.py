@@ -706,6 +706,8 @@ class SeatingChartAppLogic:
             "_last_used_quiz_name_for_session": "", "_last_used_quiz_name_timestamp_for_session": None, "_last_used_q_num_for_session": 10,
             "_last_used_homework_name_for_session": "", "_last_used_homework_name_timestamp_for_session": None, "_last_used_hw_items_for_session": 5,
             "theme": "System", "enable_text_background_panel": True,
+            "show_rulers": False, # New setting for rulers
+            "show_grid": False, # New setting for grid
         }
 
     def update_status(self, message):
@@ -1188,6 +1190,114 @@ class SeatingChartAppLogic:
                 except: pass
         self.settings["next_custom_homework_type_id_num"] = max(self.settings.get("next_custom_homework_type_id_num", 1), max_chwt_id + 1)
 
+    def toggle_rulers(self):
+        self.settings['show_rulers'] = not self.settings.get('show_rulers', False)
+        self.update_status(f"Rulers {'shown' if self.settings['show_rulers'] else 'hidden'}.")
+        if hasattr(self.app, 'seating_canvas_widget'):
+            self.app.seating_canvas_widget.guides_to_draw.clear() # Clear temporary guides
+            self.app.seating_canvas_widget.redraw_all_items_on_canvas() # This will trigger ruler redraw
+
+    def toggle_grid(self):
+        self.settings['show_grid'] = not self.settings.get('show_grid', False)
+        self.update_status(f"Grid {'shown' if self.settings['show_grid'] else 'hidden'}.")
+        if hasattr(self.app, 'seating_canvas_widget'):
+            self.app.seating_canvas_widget.redraw_all_items_on_canvas()
+
+    def distribute_selected_items_evenly(self, direction='horizontal'):
+        if len(self.selected_items) < 2:
+            self.update_status("Select at least two items to distribute.")
+            return
+
+        items_to_distribute = []
+        for item_id in self.selected_items:
+            item_data = None
+            item_type = None
+            if item_id in self.students:
+                item_data = self.students[item_id]
+                item_type = "student"
+            elif item_id in self.furniture:
+                item_data = self.furniture[item_id]
+                item_type = "furniture"
+
+            if item_data:
+                items_to_distribute.append({
+                    "id": item_id,
+                    "type": item_type,
+                    "x": float(item_data["x"]),
+                    "y": float(item_data["y"]),
+                    "width": float(item_data.get("width", DEFAULT_STUDENT_BOX_WIDTH if item_type == "student" else REBBI_DESK_WIDTH)),
+                    "height": float(item_data.get("height", DEFAULT_STUDENT_BOX_HEIGHT if item_type == "student" else REBBI_DESK_HEIGHT)),
+                })
+
+        if not items_to_distribute:
+            return
+
+        moves_for_command = []
+
+        if direction == 'horizontal':
+            items_to_distribute.sort(key=lambda item: item['x'])
+            min_x = items_to_distribute[0]['x']
+            max_x_item = items_to_distribute[-1]
+            max_x_coord = max_x_item['x'] + max_x_item['width']
+
+            total_items_width = sum(item['width'] for item in items_to_distribute)
+            total_span = max_x_coord - min_x
+
+            if len(items_to_distribute) > 1:
+                available_space_for_gaps = total_span - total_items_width
+                if available_space_for_gaps < 0: # Overlapping, use a minimum gap
+                    gap_size = 5 # Or some small default positive gap
+                else:
+                    gap_size = available_space_for_gaps / (len(items_to_distribute) - 1)
+            else: # Single item, no distribution needed (already handled by < 2 check)
+                return
+
+            current_x = min_x
+            for i, item in enumerate(items_to_distribute):
+                if item['x'] != current_x:
+                    moves_for_command.append({
+                        'id': item['id'], 'type': item['type'],
+                        'old_x': item['x'], 'old_y': item['y'], # Keep original y
+                        'new_x': current_x, 'new_y': item['y']
+                    })
+                current_x += item['width'] + gap_size
+
+        elif direction == 'vertical':
+            items_to_distribute.sort(key=lambda item: item['y'])
+            min_y = items_to_distribute[0]['y']
+            max_y_item = items_to_distribute[-1]
+            max_y_coord = max_y_item['y'] + max_y_item['height']
+
+            total_items_height = sum(item['height'] for item in items_to_distribute)
+            total_span = max_y_coord - min_y
+
+            if len(items_to_distribute) > 1:
+                available_space_for_gaps = total_span - total_items_height
+                if available_space_for_gaps < 0: # Overlapping
+                    gap_size = 5
+                else:
+                    gap_size = available_space_for_gaps / (len(items_to_distribute) - 1)
+            else:
+                return
+
+            current_y = min_y
+            for i, item in enumerate(items_to_distribute):
+                if item['y'] != current_y:
+                    moves_for_command.append({
+                        'id': item['id'], 'type': item['type'],
+                        'old_x': item['x'], 'old_y': item['y'], # Keep original x
+                        'new_x': item['x'], 'new_y': current_y
+                    })
+                current_y += item['height'] + gap_size
+
+        if moves_for_command:
+            command = MoveItemsCommand(self, moves_for_command)
+            self.execute_command(command)
+            self.update_status(f"Distributed {len(moves_for_command)} items {direction}ly.")
+        else:
+            self.update_status(f"Items already distributed {direction}ly or no change needed.")
+
+
 # ... (Kivy App, Popup, and Widget classes as defined previously) ...
 # (Pasted content from previous `overwrite_file_with_block` for these classes)
 
@@ -1261,6 +1371,23 @@ class SeatingChartKivyApp(App):
         btn_redo.bind(on_press=lambda x: self.logic.redo_last_action())
         top_controls.add_widget(btn_redo)
         self.logic.redo_button_kivy = btn_redo
+
+        # Distribute buttons
+        btn_dist_h = Button(text="Distribute H")
+        btn_dist_h.bind(on_press=lambda x: self.logic.distribute_selected_items_evenly('horizontal'))
+        top_controls.add_widget(btn_dist_h)
+
+        btn_dist_v = Button(text="Distribute V")
+        btn_dist_v.bind(on_press=lambda x: self.logic.distribute_selected_items_evenly('vertical'))
+        top_controls.add_widget(btn_dist_v)
+
+        btn_toggle_rulers = Button(text="Toggle Rulers")
+        btn_toggle_rulers.bind(on_press=lambda x: self.logic.toggle_rulers())
+        top_controls.add_widget(btn_toggle_rulers)
+
+        btn_toggle_grid = Button(text="Toggle Grid")
+        btn_toggle_grid.bind(on_press=lambda x: self.logic.toggle_grid())
+        top_controls.add_widget(btn_toggle_grid)
 
         root_widget.add_widget(top_controls)
         self.seating_canvas_widget = SeatingCanvasLayout()
@@ -2032,13 +2159,161 @@ class SeatingCanvasLayout(ScatterLayout):
         self.scale_min = 0.2; self.scale_max = 5.0
         self.current_drag_info: Optional[Dict[str, Any]] = None
         self.last_touch_pos = (0,0)
+        self.ruler_size = 30  # In screen pixels
+        self.ruler_color = get_color_from_hex("#e0e0e0")
+        self.ruler_line_color = get_color_from_hex("#555555")
+        self.ruler_text_color = get_color_from_hex("#333333")
+        self.guide_line_color = get_color_from_hex("#0000FF80") # Blue with alpha
+        self.active_guide_placement: Optional[Tuple[str, float]] = None # e.g. ('h', 100.5) or ('v', 50.0)
+        self.guides_to_draw: List[Tuple[str, float]] = [] # List of ('h' or 'v', world_coord)
 
     def redraw_all_items_on_canvas(self, *args):
+        self.canvas.before.clear()
+        self.canvas.after.clear()
+
+        if self.app_logic.settings.get('show_rulers', False):
+            self.draw_rulers()
+
+        if self.app_logic.settings.get('show_grid', False):
+            self.draw_grid()
+
+        self.draw_guides() # Draw temporary guides
+
         self.app_logic.draw_all_items_kivy(self)
-        # print("SeatingCanvasLayout external redraw_all_items_on_canvas triggered") # Too noisy for now
+
+    def draw_grid(self):
+        with self.canvas.before: # Draw grid before items and rulers
+            grid_size = self.app_logic.settings.get('grid_size', DEFAULT_GRID_SIZE)
+            if grid_size <= 0: return
+
+            Color(0.8, 0.8, 0.8, 0.5) # Light grey for grid lines
+
+            # Get visible world rect
+            bottom_left_world = self.to_local(0,0)
+            top_right_world = self.to_local(self.width, self.height)
+
+            visible_world_x_min = bottom_left_world[0]
+            visible_world_x_max = top_right_world[0]
+            visible_world_y_min = bottom_left_world[1]
+            visible_world_y_max = top_right_world[1]
+
+            # Vertical grid lines
+            start_grid_x = (int(visible_world_x_min / grid_size)) * grid_size
+            for world_x in range(start_grid_x, int(visible_world_x_max + grid_size), grid_size):
+                # Transform world x to screen x for line drawing
+                screen_x_start, screen_y_start = self.to_parent(world_x, visible_world_y_min)
+                screen_x_end, screen_y_end = self.to_parent(world_x, visible_world_y_max)
+                # Ensure lines are drawn within ScatterLayout's bounds if they map outside due to rotation/scale
+                # This is simplified; true clipping to viewport is more complex with Scatter's transform
+                Line(points=[screen_x_start, 0, screen_x_end, self.height], width=0.5)
+
+
+            # Horizontal grid lines
+            start_grid_y = (int(visible_world_y_min / grid_size)) * grid_size
+            for world_y in range(start_grid_y, int(visible_world_y_max + grid_size), grid_size):
+                screen_x_start, screen_y_start = self.to_parent(visible_world_x_min, world_y)
+                screen_x_end, screen_y_end = self.to_parent(visible_world_x_max, world_y)
+                Line(points=[0, screen_y_start, self.width, screen_y_end], width=0.5)
+
+
+    def draw_rulers(self):
+        # Rulers are drawn in screen space, but markings reflect world coordinates
+        # This requires transforming world coordinates to screen coordinates considering pan and zoom.
+        # The ScatterLayout's transform (self.transform) does this.
+
+        # Horizontal Ruler (Top)
+        with self.canvas.before: # Draw before items
+            Color(*self.ruler_color)
+            Rectangle(pos=(0, self.height - self.ruler_size), size=(self.width, self.ruler_size))
+            Color(*self.ruler_line_color)
+            Line(points=[0, self.height - self.ruler_size, self.width, self.height - self.ruler_size], width=1)
+
+            # Vertical Ruler (Left)
+            Color(*self.ruler_color)
+            Rectangle(pos=(0, 0), size=(self.ruler_size, self.height - self.ruler_size)) # Avoid overlap with H ruler
+            Color(*self.ruler_line_color)
+            Line(points=[self.ruler_size, 0, self.ruler_size, self.height - self.ruler_size], width=1)
+
+            # Markings - this is the tricky part due to zoom/pan
+            # We need to find what world coordinates are visible and map them to screen positions
+            # The ScatterLayout's to_local and to_parent methods handle coordinate transformations.
+            # to_local: screen/parent to widget local. to_parent: widget local to screen/parent.
+            # For rulers, we are interested in the world coordinates visible in the viewport.
+
+            # Get visible world rect (approximate)
+            bottom_left_world = self.to_local(0, 0)
+            top_right_world = self.to_local(self.width, self.height)
+
+            visible_world_x_min = bottom_left_world[0]
+            visible_world_x_max = top_right_world[0]
+            visible_world_y_min = bottom_left_world[1]
+            visible_world_y_max = top_right_world[1]
+
+            # Horizontal Ruler Markings
+            # Determine a suitable interval for markings based on zoom level
+            # World units per 100 pixels on screen (approx)
+            world_per_100px_h = abs(self.to_local(100,0)[0] - self.to_local(0,0)[0])
+            interval_h = 10
+            if world_per_100px_h > 50: interval_h = 50
+            if world_per_100px_h > 100: interval_h = 100
+            if world_per_100px_h > 200: interval_h = 200
+            if world_per_100px_h < 10 : interval_h = 5
+            if world_per_100px_h < 2 : interval_h = 1
+
+
+            start_mark_x = (int(visible_world_x_min / interval_h)) * interval_h
+            for world_x in range(start_mark_x, int(visible_world_x_max + interval_h), interval_h):
+                screen_x, _ = self.to_parent(world_x, 0) # Convert world_x to screen_x
+                if screen_x > self.ruler_size and screen_x < self.width: # Draw only if visible on ruler
+                    tick_height = 5 if world_x % (interval_h * 5) != 0 else 10
+                    Line(points=[screen_x, self.height - self.ruler_size, screen_x, self.height - self.ruler_size + tick_height], width=1)
+                    if tick_height == 10:
+                        label = CoreLabel(text=str(world_x), font_size=10, color=self.ruler_text_color)
+                        label.refresh()
+                        if label.texture:
+                             Rectangle(texture=label.texture, pos=(screen_x + 2, self.height - self.ruler_size + tick_height + 2), size=label.texture.size)
+
+            # Vertical Ruler Markings
+            world_per_100px_v = abs(self.to_local(0,100)[1] - self.to_local(0,0)[1])
+            interval_v = 10
+            if world_per_100px_v > 50: interval_v = 50
+            if world_per_100px_v > 100: interval_v = 100
+            if world_per_100px_v > 200: interval_v = 200
+            if world_per_100px_v < 10 : interval_v = 5
+            if world_per_100px_v < 2 : interval_v = 1
+
+
+            start_mark_y = (int(visible_world_y_min / interval_v)) * interval_v
+            for world_y in range(start_mark_y, int(visible_world_y_max + interval_v), interval_v):
+                _, screen_y = self.to_parent(0, world_y)
+                if screen_y > 0 and screen_y < self.height - self.ruler_size:
+                    tick_width = 5 if world_y % (interval_v * 5) != 0 else 10
+                    Line(points=[self.ruler_size - tick_width, screen_y, self.ruler_size, screen_y], width=1)
+                    if tick_width == 10:
+                        label = CoreLabel(text=str(world_y), font_size=10, color=self.ruler_text_color)
+                        label.refresh()
+                        if label.texture:
+                            # Rotate text for vertical ruler (Kivy labels don't rotate easily, draw texture rotated)
+                            # This is complex with PushMatrix/Rotate/PopMatrix or drawing to Fbo then texture.
+                            # For simplicity, draw text horizontally next to ruler for now.
+                            Rectangle(texture=label.texture, pos=(self.ruler_size - tick_width - label.texture.width - 2, screen_y - label.texture.height / 2), size=label.texture.size)
+
+    def draw_guides(self):
+        with self.canvas.after: # Draw guides on top of items
+            Color(*self.guide_line_color)
+            for guide_type, world_coord in self.guides_to_draw:
+                if guide_type == 'h': # Horizontal guide
+                    # Convert world_coord (y) to screen coordinates
+                    _, screen_y = self.to_parent(0, world_coord)
+                    Line(points=[0, screen_y, self.width, screen_y], width=1.2)
+                elif guide_type == 'v': # Vertical guide
+                    # Convert world_coord (x) to screen coordinates
+                    screen_x, _ = self.to_parent(world_coord, 0)
+                    Line(points=[screen_x, 0, screen_x, self.height], width=1.2)
+
 
     def get_widget_at_touch(self, touch_pos_screen):
-        for widget in reversed(self.children):
+        for widget in reversed(self.children): # Children are StudentWidget, FurnitureWidget
             if widget.collide_point(*widget.to_local(*touch_pos_screen, relative_to=self)):
                 return widget
         return None
@@ -2067,11 +2342,45 @@ class SeatingCanvasLayout(ScatterLayout):
     def on_touch_down(self, touch: MotionEvent):
         if not self.collide_point(*touch.pos): return False
         self.last_touch_pos = touch.pos
-
         app_logic = self.app_logic
+
+        # Check for ruler clicks first if rulers are active
+        if app_logic.settings.get('show_rulers', False):
+            # Horizontal ruler area (top)
+            if touch.y > self.height - self.ruler_size and touch.x > self.ruler_size :
+                world_x, _ = self.to_local(*touch.pos) # Get world x-coordinate from touch
+                self.active_guide_placement = ('v', world_x) # Prepare to place a vertical guide
+                app_logic.update_status(f"Click on canvas to place vertical guide at x={world_x:.1f}")
+                return True # Consume touch
+            # Vertical ruler area (left)
+            elif touch.x < self.ruler_size and touch.y < self.height - self.ruler_size:
+                _, world_y = self.to_local(*touch.pos) # Get world y-coordinate from touch
+                self.active_guide_placement = ('h', world_y) # Prepare to place a horizontal guide
+                app_logic.update_status(f"Click on canvas to place horizontal guide at y={world_y:.1f}")
+                return True # Consume touch
+
+        # If a guide is pending placement, place it on canvas click
+        if self.active_guide_placement:
+            guide_type, world_coord = self.active_guide_placement
+            # Check if click is on canvas area (not on rulers again)
+            if not (touch.y > self.height - self.ruler_size and touch.x > self.ruler_size) and \
+               not (touch.x < self.ruler_size and touch.y < self.height - self.ruler_size):
+                self.guides_to_draw.append((guide_type, world_coord))
+                self.redraw_all_items_on_canvas()
+                app_logic.update_status(f"Placed {guide_type} guide at {world_coord:.1f}. Guides are temporary.")
+            else: # Clicked on ruler again, cancel placement
+                app_logic.update_status("Guide placement cancelled.")
+            self.active_guide_placement = None
+            return True
+
+
         touched_item_widget = self.get_widget_at_touch(touch.pos)
 
         if touch.is_right_click: # Context Menu
+            if self.active_guide_placement: # Cancel guide placement on right click
+                self.active_guide_placement = None
+                app_logic.update_status("Guide placement cancelled.")
+                return True
             if touched_item_widget and hasattr(touched_item_widget, 'item_id'):
                 app_logic.show_item_context_menu_kivy(touched_item_widget.item_id,
                                                      "student" if isinstance(touched_item_widget, StudentWidget) else "furniture",
