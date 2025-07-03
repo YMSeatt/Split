@@ -74,3 +74,10 @@ quiz_templates_v9.json
 student_groups_v9.json
 ImageMagickGenerator.py
 generated_image.png
+classroom_data_v10.json
+custom_behaviors_v10.json
+custom_homework_statuses_v10.json
+custom_homework_types_v10.json
+homework_templates_v10.json
+quiz_templates_v10.json
+student_groups_v10.json
