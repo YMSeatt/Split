@@ -282,6 +282,22 @@ class SettingsDialog(simpledialog.Dialog):
         
         self.force_canvas_border_visi()
 
+        # Canvas View Options (Rulers, Grid)
+        lf_view_options = ttk.LabelFrame(lf, text="Canvas View Options", padding=10)
+        lf_view_options.grid(row=16, column=0, columnspan=3, sticky=tk.EW, padx=5, pady=10)
+
+        self.show_rulers_var = tk.BooleanVar(value=self.settings.get("show_rulers", False))
+        ttk.Checkbutton(lf_view_options, text="Show Rulers by Default", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+
+        self.show_grid_var = tk.BooleanVar(value=self.settings.get("show_grid", False))
+        ttk.Checkbutton(lf_view_options, text="Show Grid by Default", variable=self.show_grid_var).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
+
+        ttk.Label(lf_view_options, text="Grid Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
+        self.grid_color_var = tk.StringVar(value=self.settings.get("grid_color", "#d3d3d3"))
+        ttk.Entry(lf_view_options, textvariable=self.grid_color_var, width=12).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
+        ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.grid_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
+
+
     def create_student_display_tab(self, tab_frame):
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
         lf_defaults.grid(sticky="nsew", column=0,row=0, pady=5)
@@ -994,6 +1010,12 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["check_for_collisions"] = self.check_for_collisions_var.get()
         self.settings["show_canvas_border_lines"] = self.canvas_border_var.get()
         self.settings["force_canvas_border_lines"] = self.force_canvas_border_var.get()
+
+        # Canvas View Options from General Tab
+        self.settings["show_rulers"] = self.show_rulers_var.get()
+        self.settings["show_grid"] = self.show_grid_var.get()
+        self.settings["grid_color"] = self.grid_color_var.get()
+
         #print("Theme2", self.theme2)
         #print(self.theme.get(), "Get")
         # Student Display Tab
