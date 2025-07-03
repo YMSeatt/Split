@@ -53,8 +53,8 @@ except ImportError:
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v54.0" # Version incremented
-CURRENT_DATA_VERSION_TAG = "v9" # Incremented for new homework/marks features
+APP_VERSION = "v55.0" # Version incremented
+CURRENT_DATA_VERSION_TAG = "v10" # Incremented for guide saving
 
 # --- Default Configuration ---
 DEFAULT_STUDENT_BOX_WIDTH = 130
@@ -293,6 +293,16 @@ class SeatingChartApp:
         self.zoom_level = 1.0
         self.pan_x = 0.0
         self.pan_y = 0.0
+
+        # Ruler and guide attributes
+        self.ruler_thickness = 25  # pixels
+        self.ruler_bg_color = "#f0f0f0"
+        self.ruler_line_color = "#555555"
+        self.ruler_text_color = "#333333"
+        self.guide_line_color = "blue"
+        self.active_ruler_guide_coord_x: Optional[float] = None
+        self.active_ruler_guide_coord_y: Optional[float] = None
+        self.temporary_guides: List[Dict[str, Any]] = [] # List of {'type': 'h'/'v', 'world_coord': float, 'canvas_id': int}
         
         
         self.theme_auto(init=True)
@@ -472,6 +482,12 @@ class SeatingChartApp:
             "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
             "theme": "System", # Newer
             "enable_text_background_panel": True, # Default for the new setting
+            "show_rulers": False, # Default for rulers
+            "show_grid": False, # Default for grid visibility
+            "grid_color": "#d3d3d3", # Default light gray for grid lines
+            "save_guides_to_file": True, # New setting for guides
+            "guides_stay_when_rulers_hidden": True, # New setting for guides
+            "next_guide_id_num": 1, # Added in migration, also good here
         }
 
    
@@ -529,6 +545,16 @@ class SeatingChartApp:
                 try: max_chwt_id = max(max_chwt_id, int(chwt['id'].split("_")[1]))
                 except (ValueError, IndexError): pass
         self.settings["next_custom_homework_type_id_num"] = max(self.settings.get("next_custom_homework_type_id_num", 1), max_chwt_id + 1)
+
+        # Guide IDs
+        max_g_id_num = 0
+        for guide_info in self.temporary_guides: # Assuming guides are loaded into self.temporary_guides by now
+            guide_id_str = guide_info.get('id', '')
+            if guide_id_str.startswith("guide_v_") or guide_id_str.startswith("guide_h_"):
+                try: max_g_id_num = max(max_g_id_num, int(guide_id_str.split("_")[-1]))
+                except (ValueError, IndexError, TypeError): pass
+        self.next_guide_id_num = max(self.settings.get("next_guide_id_num", 1), max_g_id_num + 1)
+        self.settings["next_guide_id_num"] = self.next_guide_id_num
 
 
     def periodic_checks(self):
@@ -713,17 +739,26 @@ class SeatingChartApp:
         self.toggle_incidents_btn = ttk.Button(view_controls_frame, text="Hide Recent Logs", command=self.toggle_global_recent_logs_visibility); self.toggle_incidents_btn.pack(side=tk.LEFT, padx=2) # Renamed
         self.update_toggle_incidents_button_text()
 
+        self.toggle_rulers_btn = ttk.Button(view_controls_frame, text="Toggle Rulers", command=self.toggle_rulers_visibility)
+        self.toggle_rulers_btn.pack(side=tk.LEFT, padx=2)
+
+        self.toggle_grid_btn = ttk.Button(view_controls_frame, text="Toggle Grid", command=self.toggle_grid_visibility)
+        self.toggle_grid_btn.pack(side=tk.LEFT, padx=2)
+
         self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=3)
         layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=0)
         ttk.Button(layout_tools_frame, text="Align Top", command=lambda: self.align_selected_items("top")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Bottom", command=lambda: self.align_selected_items("bottom")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Left", command=lambda: self.align_selected_items("left")).pack(side=tk.LEFT,pady=1, padx=1)
+        ttk.Button(layout_tools_frame, text="Align Right", command=lambda: self.align_selected_items("right")).pack(side=tk.LEFT,pady=1, padx=1)
+        ttk.Button(layout_tools_frame, text="Distribute H", command=lambda: self.distribute_selected_items_evenly("horizontal")).pack(side=tk.LEFT, pady=1, padx=1)
+        ttk.Button(layout_tools_frame, text="Distribute V", command=lambda: self.distribute_selected_items_evenly("vertical")).pack(side=tk.LEFT, pady=1, padx=1)
+
         templates_groups_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout & Groups", padding=2); 
         templates_groups_frame.pack(side=tk.LEFT, padx=0)
         ttk.Button(templates_groups_frame, text="Save Layout...", command=self.save_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(templates_groups_frame, text="Load Layout...", command=self.load_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         self.manage_groups_btn = ttk.Button(templates_groups_frame, text="Manage Groups...", command=self.manage_student_groups_dialog); self.manage_groups_btn.pack(side=tk.LEFT,pady=1, padx=1)        
-        ttk.Button(layout_tools_frame, text="Align Right", command=lambda: self.align_selected_items("right")).pack(side=tk.LEFT,pady=1, padx=1)
         
         ttk.Button(self.manage_boxes_frame, text="Add Student", command=self.add_student_dialog).pack(side=tk.LEFT, padx=2)
         ttk.Button(self.manage_boxes_frame, text="Add Furniture", command=self.add_furniture_dialog).pack(side=tk.LEFT, padx=2)
@@ -1745,9 +1780,18 @@ class SeatingChartApp:
         except AttributeError: pass
 
     def draw_all_items(self, check_collisions_on_redraw=False):
-        # ... (same as v51)
-        try: self.canvas.delete("student_item"); self.canvas.delete("furniture_item"); self.canvas.delete("border_line")
-        except AttributeError: pass
+        if not self.canvas: return
+        self.canvas.delete("all") # Clear canvas before redrawing everything
+
+        if self.settings.get("show_grid", False):
+            self.draw_grid()
+
+        if self.settings.get("show_rulers", False):
+            self.draw_rulers()
+
+        # Draw temporary guides first, so they are under items if needed (though typically on top)
+        # self.draw_temporary_guides() # Guides will be drawn after items for better visibility
+
         all_items_data = list(self.students.values()) + list(self.furniture.values())
         
         if ((self.edit_mode_var.get() == True or self.settings.get("always_show_box_management", False) == True) and self.settings.get("show_canvas_border_lines", False) == True) or self.settings.get("force_canvas_border_lines", False) == True:
@@ -1779,7 +1823,168 @@ class SeatingChartApp:
             except AttributeError: pass
         for student_id in self.students: self.draw_single_student(student_id, check_collisions=check_collisions_on_redraw)
         for furniture_id in self.furniture: self.draw_single_furniture(furniture_id)
+
+        self.draw_temporary_guides() # Draw guides on top of items
         self.update_toggle_incidents_button_text(); self.update_zoom_display()
+        self.update_toggle_rulers_button_text()
+        self.update_toggle_grid_button_text()
+
+
+    def toggle_grid_visibility(self):
+        self.settings["show_grid"] = not self.settings.get("show_grid", False)
+        self.draw_all_items()
+        self.update_toggle_grid_button_text()
+        self.update_status(f"Grid {'shown' if self.settings['show_grid'] else 'hidden'}.")
+
+    def update_toggle_grid_button_text(self):
+        if hasattr(self, 'toggle_grid_btn'):
+            text = "Hide Grid" if self.settings.get("show_grid", False) else "Show Grid"
+            self.toggle_grid_btn.config(text=text)
+
+    def draw_grid(self):
+        if not self.canvas: return
+        grid_size = self.settings.get("grid_size", DEFAULT_GRID_SIZE)
+        grid_color = self.settings.get("grid_color", "#d3d3d3")
+        if grid_size <= 0: return
+
+        canvas_width_screen = self.canvas.winfo_width()
+        canvas_height_screen = self.canvas.winfo_height()
+
+        # Get the visible world coordinates
+        world_x_start, world_y_start = self.canvas_to_world_coords(0, 0)
+        world_x_end, world_y_end = self.canvas_to_world_coords(canvas_width_screen, canvas_height_screen)
+
+        # Adjust start coordinates to the nearest lower grid line
+        start_grid_x_world = int(world_x_start / grid_size) * grid_size
+        start_grid_y_world = int(world_y_start / grid_size) * grid_size
+
+        # Vertical lines
+        for world_x in range(start_grid_x_world, int(world_x_end) + grid_size, grid_size):
+            canvas_x, _ = self.world_to_canvas_coords(world_x, world_y_start)
+            # Draw line across the current visible canvas height, adjusted for ruler if present
+            line_y_start_on_canvas = self.ruler_thickness if self.settings.get("show_rulers", False) else 0
+            self.canvas.create_line(canvas_x, line_y_start_on_canvas, canvas_x, canvas_height_screen,
+                                    fill=grid_color, tags="grid_line", width=1, dash=(2,4))
+
+        # Horizontal lines
+        for world_y in range(start_grid_y_world, int(world_y_end) + grid_size, grid_size):
+            _, canvas_y = self.world_to_canvas_coords(world_x_start, world_y)
+            # Draw line across the current visible canvas width, adjusted for ruler if present
+            line_x_start_on_canvas = self.ruler_thickness if self.settings.get("show_rulers", False) else 0
+            self.canvas.create_line(line_x_start_on_canvas, canvas_y, canvas_width_screen, canvas_y,
+                                    fill=grid_color, tags="grid_line", width=1, dash=(2,4))
+
+
+    def toggle_rulers_visibility(self):
+        self.settings["show_rulers"] = not self.settings.get("show_rulers", False)
+
+        if not self.settings["show_rulers"]: # Rulers are being hidden
+            self.active_ruler_guide_coord_x = None # Always cancel pending guide placement
+            self.active_ruler_guide_coord_y = None
+            if not self.settings.get("guides_stay_when_rulers_hidden", True):
+                self.clear_temporary_guides() # Clear data and canvas items
+            else:
+                # Keep data, just delete canvas items and nullify canvas_id
+                if self.canvas:
+                    for guide_info in self.temporary_guides:
+                        if guide_info.get('canvas_id') is not None:
+                            self.canvas.delete(guide_info['canvas_id'])
+                            guide_info['canvas_id'] = None
+
+        self.draw_all_items() # This will redraw rulers if shown, and guides if data exists and rulers shown
+        self.update_toggle_rulers_button_text()
+        self.update_status(f"Rulers {'shown' if self.settings['show_rulers'] else 'hidden'}.")
+
+    def update_toggle_rulers_button_text(self):
+        if hasattr(self, 'toggle_rulers_btn'):
+            text = "Hide Rulers" if self.settings.get("show_rulers", False) else "Show Rulers"
+            self.toggle_rulers_btn.config(text=text)
+
+    def draw_rulers(self):
+        if not self.canvas: return
+        # Horizontal Ruler (Top)
+        self.canvas.create_rectangle(0, 0, self.canvas.winfo_width(), self.ruler_thickness,
+                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
+        # Vertical Ruler (Left)
+        self.canvas.create_rectangle(0, self.ruler_thickness, self.ruler_thickness, self.canvas.winfo_height(),
+                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
+
+        # Markings
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+
+        # Determine visible world coordinates
+        world_x_start, world_y_start = self.canvas_to_world_coords(0,0)
+        world_x_end, world_y_end = self.canvas_to_world_coords(canvas_width, canvas_height)
+
+        # Adjust for ruler thickness when calculating visible world range for markings
+        world_x_for_hruler_start, _ = self.canvas_to_world_coords(self.ruler_thickness, self.ruler_thickness)
+        world_x_for_hruler_end, _ = self.canvas_to_world_coords(canvas_width, self.ruler_thickness)
+
+        _, world_y_for_vruler_start = self.canvas_to_world_coords(self.ruler_thickness, self.ruler_thickness)
+        _, world_y_for_vruler_end = self.canvas_to_world_coords(self.ruler_thickness, canvas_height)
+
+
+        # Dynamic interval based on zoom - simplified
+        interval = 50
+        if self.current_zoom_level < 0.5: interval = 100
+        elif self.current_zoom_level > 2: interval = 20
+
+        # Horizontal Markings
+        start_mark_x = int(world_x_for_hruler_start / interval) * interval
+        for world_x in range(start_mark_x, int(world_x_for_hruler_end) + interval, interval):
+            canvas_x, _ = self.world_to_canvas_coords(world_x, world_y_start) # Use world_y_start for consistency
+            if canvas_x >= self.ruler_thickness and canvas_x <= canvas_width:
+                tick_len = 5 if world_x % (interval * 2) != 0 else 10
+                self.canvas.create_line(canvas_x, self.ruler_thickness - tick_len, canvas_x, self.ruler_thickness,
+                                        fill=self.ruler_line_color, tags="ruler_marking")
+                if tick_len == 10:
+                    self.canvas.create_text(canvas_x, self.ruler_thickness - tick_len - 5, text=str(world_x),
+                                            fill=self.ruler_text_color, anchor=tk.S, tags="ruler_marking_text", font=(DEFAULT_FONT_FAMILY, 8))
+        # Vertical Markings
+        start_mark_y = int(world_y_for_vruler_start / interval) * interval
+        for world_y in range(start_mark_y, int(world_y_for_vruler_end) + interval, interval):
+            _, canvas_y = self.world_to_canvas_coords(world_x_start, world_y) # Use world_x_start for consistency
+            if canvas_y >= self.ruler_thickness and canvas_y <= canvas_height:
+                tick_len = 5 if world_y % (interval * 2) != 0 else 10
+                self.canvas.create_line(self.ruler_thickness - tick_len, canvas_y, self.ruler_thickness, canvas_y,
+                                        fill=self.ruler_line_color, tags="ruler_marking")
+                if tick_len == 10:
+                    self.canvas.create_text(self.ruler_thickness - tick_len - 5, canvas_y, text=str(world_y),
+                                            fill=self.ruler_text_color, anchor=tk.E, tags="ruler_marking_text", font=(DEFAULT_FONT_FAMILY, 8))
+
+    def draw_temporary_guides(self):
+        if not self.canvas: return
+        self.canvas.delete("temporary_guide") # Clear old guides before redrawing
+
+        # Redraw persistent guides based on self.temporary_guides list
+        # Note: This loop is for redrawing guides that were previously added and stored.
+        # The actual 'canvas_id' stored in the dictionary is not used here for redrawing,
+        # as we are clearing all "temporary_guide" tagged items and redrawing.
+        # If we wanted to selectively update/remove, canvas_id would be useful.
+        for guide_info in self.temporary_guides:
+            guide_type = guide_info['type']
+            world_coord = guide_info['world_coord']
+
+            guide_canvas_id = None
+            if guide_type == 'h': # Horizontal guide
+                # Convert world_coord (y) to current screen coordinates
+                _, screen_y = self.world_to_canvas_coords(0, world_coord) # x doesn't matter for horizontal line screen y
+                guide_canvas_id = self.canvas.create_line(0, screen_y, self.canvas.winfo_width(), screen_y,
+                                                          fill=self.guide_line_color, tags=("temporary_guide", guide_info.get('id', 'unknown_guide')), width=1, dash=(4, 2))
+            elif guide_type == 'v': # Vertical guide
+                # Convert world_coord (x) to current screen coordinates
+                screen_x, _ = self.world_to_canvas_coords(world_coord, 0) # y doesn't matter for vertical line screen x
+                guide_canvas_id = self.canvas.create_line(screen_x, 0, screen_x, self.canvas.winfo_height(),
+                                                          fill=self.guide_line_color, tags=("temporary_guide", guide_info.get('id', 'unknown_guide')), width=1, dash=(4, 2))
+            if guide_canvas_id:
+                guide_info['canvas_id'] = guide_canvas_id # Store the canvas ID
+
+    def clear_temporary_guides(self):
+        self.temporary_guides.clear()
+        if self.canvas:
+            self.canvas.delete("temporary_guide")
+
 
     def _calculate_quiz_score_percentage(self, log_entry):
         """Calculates the score percentage for a given quiz log entry."""
@@ -2009,6 +2214,90 @@ class SeatingChartApp:
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Interact", "Enter password to interact with canvas:"): return
         self.canvas.focus_set()
+
+        # Ruler interaction
+        if self.settings.get("show_rulers", False):
+            # Horizontal ruler area (top)
+            if event.y < self.ruler_thickness and event.x > self.ruler_thickness:
+                self.active_ruler_guide_coord_x, _ = self.canvas_to_world_coords(event.x, event.y)
+                self.active_ruler_guide_coord_y = None
+                self.update_status(f"Click on canvas to place vertical guide at x={self.active_ruler_guide_coord_x:.0f}")
+                return # Consume click
+            # Vertical ruler area (left)
+            elif event.x < self.ruler_thickness and event.y > self.ruler_thickness:
+                _, self.active_ruler_guide_coord_y = self.canvas_to_world_coords(event.x, event.y)
+                self.active_ruler_guide_coord_x = None
+                self.update_status(f"Click on canvas to place horizontal guide at y={self.active_ruler_guide_coord_y:.0f}")
+                return # Consume click
+
+        # Place active guide if one is pending and click is on canvas proper
+        if self.active_ruler_guide_coord_x is not None or self.active_ruler_guide_coord_y is not None:
+            # Check if click is outside ruler areas
+            if not (event.y < self.ruler_thickness and event.x > self.ruler_thickness) and \
+               not (event.x < self.ruler_thickness and event.y > self.ruler_thickness):
+
+                current_guide_id_num = self.next_guide_id_num
+                self.next_guide_id_num += 1
+                self.settings["next_guide_id_num"] = self.next_guide_id_num # Persist the incremented counter
+
+                if self.active_ruler_guide_coord_x is not None:
+                    guide_id = f"guide_v_{current_guide_id_num}"
+                    self.temporary_guides.append({'id': guide_id, 'type': 'v', 'world_coord': self.active_ruler_guide_coord_x, 'canvas_id': None})
+                    self.update_status(f"Placed vertical guide ({guide_id}) at x={self.active_ruler_guide_coord_x:.0f}. Guides are temporary.")
+                elif self.active_ruler_guide_coord_y is not None:
+                    guide_id = f"guide_h_{current_guide_id_num}"
+                    self.temporary_guides.append({'id': guide_id, 'type': 'h', 'world_coord': self.active_ruler_guide_coord_y, 'canvas_id': None})
+                    self.update_status(f"Placed horizontal guide ({guide_id}) at y={self.active_ruler_guide_coord_y:.0f}. Guides are temporary.")
+                self.draw_all_items() # Redraw to show the new guide
+            else: # Clicked on a ruler again, cancel placement
+                 self.update_status("Guide placement cancelled.")
+            self.active_ruler_guide_coord_x = None
+            self.active_ruler_guide_coord_y = None
+            return # Consume click
+
+        # Check for guide dragging
+        HIT_TOLERANCE = 5 # Pixels
+        for guide_info in reversed(self.temporary_guides): # Check topmost first
+            if guide_info.get('canvas_id') is None:
+                continue
+
+            coords = self.canvas.coords(guide_info['canvas_id'])
+            if not coords: continue
+
+            guide_type = guide_info['type']
+            world_coord = guide_info['world_coord']
+
+            is_hit = False
+            if guide_type == 'h':
+                # Horizontal guide: coords are [x1, y1, x2, y1]
+                guide_screen_y = coords[1]
+                if abs(event.y - guide_screen_y) < HIT_TOLERANCE and \
+                   coords[0] <= event.x <= coords[2]:
+                    is_hit = True
+                    self.canvas.config(cursor="sb_v_double_arrow")
+            elif guide_type == 'v':
+                # Vertical guide: coords are [x1, y1, x1, y2]
+                guide_screen_x = coords[0]
+                if abs(event.x - guide_screen_x) < HIT_TOLERANCE and \
+                   coords[1] <= event.y <= coords[3]:
+                    is_hit = True
+                    self.canvas.config(cursor="sb_h_double_arrow")
+
+            if is_hit:
+                self.drag_data = {
+                    'is_dragging_guide': True,
+                    'dragged_guide_id': guide_info['id'],
+                    'dragged_guide_type': guide_type,
+                    'original_world_coord': world_coord,
+                    'start_click_canvas_x': event.x,
+                    'start_click_canvas_y': event.y,
+                    'item_id': None # Ensure other drag logic doesn't interfere
+                }
+                self._drag_started_on_item = True # Use this flag to indicate an active drag
+                self.update_status(f"Dragging guide {guide_info['id']}")
+                self.password_manager.record_activity()
+                return # Consume event
+
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
         self.drag_data = {"x": world_event_x, "y": world_event_y, "item_id": None, "item_type": None,
                           "start_x_world": world_event_x, "start_y_world": world_event_y, # Store start in world
@@ -2067,6 +2356,44 @@ class SeatingChartApp:
 
     def on_canvas_drag(self, event):
         if self.password_manager.is_locked: return
+
+        if self.drag_data.get('is_dragging_guide'):
+            dragged_guide_id = self.drag_data.get('dragged_guide_id')
+            guide_info = next((g for g in self.temporary_guides if g['id'] == dragged_guide_id), None)
+            if not guide_info: return
+
+            current_world_x, current_world_y = self.canvas_to_world_coords(event.x, event.y)
+            start_drag_world_x, start_drag_world_y = self.canvas_to_world_coords(
+                self.drag_data['start_click_canvas_x'], self.drag_data['start_click_canvas_y']
+            )
+
+            original_guide_world_coord = self.drag_data['original_world_coord']
+            new_world_coord = original_guide_world_coord
+
+            if guide_info['type'] == 'h': # Horizontal guide, update Y world_coord
+                delta_world_y = current_world_y - start_drag_world_y
+                new_world_coord = original_guide_world_coord + delta_world_y
+                guide_info['world_coord'] = new_world_coord
+                if guide_info['canvas_id']:
+                    _, screen_y = self.world_to_canvas_coords(0, new_world_coord)
+                    self.canvas.coords(guide_info['canvas_id'], 0, screen_y, self.canvas.winfo_width(), screen_y)
+                else: # Should not happen if guide was drawn, but as a fallback
+                    self.draw_temporary_guides() # Redraw all if something went wrong
+            elif guide_info['type'] == 'v': # Vertical guide, update X world_coord
+                delta_world_x = current_world_x - start_drag_world_x
+                new_world_coord = original_guide_world_coord + delta_world_x
+                guide_info['world_coord'] = new_world_coord
+                if guide_info['canvas_id']:
+                    screen_x, _ = self.world_to_canvas_coords(new_world_coord, 0)
+                    self.canvas.coords(guide_info['canvas_id'], screen_x, 0, screen_x, self.canvas.winfo_height())
+                else: # Fallback
+                    self.draw_temporary_guides()
+
+            # Update status less frequently during drag, or only on release
+            # self.update_status(f"Dragging guide {guide_info['id']} to {new_world_coord:.0f}")
+            self.password_manager.record_activity()
+            return # Event handled
+
         if not self.drag_data.get("item_id") or not self._drag_started_on_item: return
 
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
@@ -2122,6 +2449,25 @@ class SeatingChartApp:
     def on_canvas_release(self, event):
         # ... (largely same as v51, but uses start_x_world/start_y_world for move calculations)
         if self.password_manager.is_locked: return
+
+        if self.drag_data.get('is_dragging_guide'):
+            dragged_guide_id = self.drag_data.get('dragged_guide_id')
+            guide_info = next((g for g in self.temporary_guides if g['id'] == dragged_guide_id), None)
+
+            if guide_info:
+                self.update_status(f"Guide {guide_info['id']} set at {guide_info['world_coord']:.0f}")
+            else:
+                self.update_status("Guide drag finished.") # Fallback
+
+            self.canvas.config(cursor="arrow") # Reset cursor
+            self.drag_data.clear()
+            self._drag_started_on_item = False
+            self.password_manager.record_activity()
+            # Full redraw might be good to ensure all items are correctly layered if guides affect that.
+            # However, individual guide redraw in on_canvas_drag should be sufficient for the guide itself.
+            # self.draw_all_items()
+            return # Event handled
+
         clicked_item_id_at_press = self._potential_click_target
         dragged_item_id = self.drag_data.get("item_id")
         was_resizing = self.drag_data.get("is_resizing", False)
@@ -2649,7 +2995,22 @@ class SeatingChartApp:
                         "homework_log": self.homework_log,
                         "settings": self.settings, "last_excel_export_path": self.last_excel_export_path,
                         "_per_student_last_cleared": self._per_student_last_cleared,
-                        "undo_stack": serializable_undo_stack, "redo_stack": serializable_redo_stack}
+                        "undo_stack": serializable_undo_stack, "redo_stack": serializable_redo_stack
+                        }
+
+        if self.settings.get("save_guides_to_file", True):
+            guides_to_save = []
+            for guide_info in self.temporary_guides:
+                guides_to_save.append({
+                    'id': guide_info.get('id'),
+                    'type': guide_info.get('type'),
+                    'world_coord': guide_info.get('world_coord')
+                    # canvas_id is deliberately excluded as it's runtime specific
+                })
+            data_to_save["temporary_guides"] = guides_to_save
+        else:
+            data_to_save["temporary_guides"] = [] # Save empty list if not saving guides
+
         try:
             with open(DATA_FILE, 'w', encoding='utf-8') as f: json.dump(data_to_save, f, indent=4)
             verbose_save = source not in ["autosave", "command_execution", "undo_command", "redo_command", "toggle_mode",
@@ -2689,19 +3050,23 @@ class SeatingChartApp:
                 if data_version_from_filename is None or data_version_from_filename <= 3:
                     print(f"Migrating data from v3/v4 format (or older) from {target_file}")
                     data = self._migrate_v3_edited_data(data); data = self._migrate_v4_data(data); data = self._migrate_v5_data(data)
-                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data) # Add v8 migration
+                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
                 elif data_version_from_filename == 5:
                     print(f"Migrating data from v5 format from {target_file}")
-                    data = self._migrate_v5_data(data); data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data)
+                    data = self._migrate_v5_data(data); data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
                 elif data_version_from_filename == 6:
                     print(f"Migrating data from v6 format from {target_file}")
-                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data)
+                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
                 elif data_version_from_filename == 7:
                     print(f"Migrating data from v7 format from {target_file}")
-                    data = self._migrate_v7_data(data); data = self._migrate_v8_data(data)
-                elif data_version_from_filename == 8: # New: If loading v8 data
+                    data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
+                elif data_version_from_filename == 8:
                     print(f"Migrating data from v8 format from {target_file}")
-                    data = self._migrate_v8_data(data)
+                    data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
+                elif data_version_from_filename == 9: # New: If loading v9 data
+                    print(f"Migrating data from v9 format from {target_file}")
+                    data = self._migrate_v9_data(data)
+
 
                 final_settings = default_settings_copy.copy(); final_settings.update(data.get("settings", {}))
                 data["settings"] = final_settings
@@ -2720,6 +3085,21 @@ class SeatingChartApp:
 
                 self.theme_style_using = self.settings.get("theme", "System") # Newer
                 self.custom_canvas_color = self.settings.get("canvas_color", "Default")
+
+                # Load guides if setting is true and guides exist in data
+                if self.settings.get("save_guides_to_file", True):
+                    loaded_guides_raw = data.get("temporary_guides", [])
+                    self.temporary_guides = []
+                    for guide_data_raw in loaded_guides_raw:
+                        # Ensure only expected keys are loaded and canvas_id is reset
+                        self.temporary_guides.append({
+                            'id': guide_data_raw.get('id'),
+                            'type': guide_data_raw.get('type'),
+                            'world_coord': guide_data_raw.get('world_coord'),
+                            'canvas_id': None
+                        })
+                else:
+                    self.temporary_guides = []
 
                 self.undo_stack.clear(); self.redo_stack.clear()
                 loaded_undo_stack = data.get("undo_stack", [])
@@ -2811,10 +3191,15 @@ class SeatingChartApp:
             data["settings"].setdefault("_last_used_homework_name_for_session", "")
             data["settings"].setdefault("_last_used_homework_name_timestamp_for_session", None)
             data["settings"].setdefault("_last_used_hw_items_for_session", 5)
+            data["settings"].setdefault("next_guide_id_num", 1) # For v10 guides
 
         # Ensure homework_log list exists at the top level of data
         if "homework_log" not in data:
             data["homework_log"] = []
+
+        # Ensure guides list exists for v10, initialize if migrating from older
+        if "guides" not in data:
+            data["guides"] = []
 
         # Migrate existing behavior_log entries that might have been intended as homework
         # This is heuristic; might need adjustment based on how users previously logged homework.
@@ -2840,6 +3225,23 @@ class SeatingChartApp:
 
         data["behavior_log"] = temp_behavior_log
         data["homework_log"] = temp_homework_log
+        print("Applied v8 (to v9) data migration.")
+        return data
+
+    def _migrate_v9_data(self, data):
+        """Migration for data version 9 (APP_VERSION v54) to v10 (APP_VERSION v55)."""
+        # Key change: Addition of persistent guides.
+        if "settings" in data:
+            data["settings"].setdefault("save_guides_to_file", True)
+            data["settings"].setdefault("guides_stay_when_rulers_hidden", True)
+            data["settings"].setdefault("next_guide_id_num", 1)
+
+        if "temporary_guides" not in data: # Ensure the list for guides exists
+            data["temporary_guides"] = []
+            # Or, if old data might have guides under a different key, migrate them here.
+            # For now, assumes new list.
+
+        print("Applied v9 (to v10) data migration (guides).")
         return data
 
     def _migrate_v7_data(self, data):
@@ -4511,6 +4913,122 @@ class SeatingChartApp:
             self.update_status(f"Aligned {len(move_commands_for_align)} items to {edge}.")
         else: self.update_status("Items already aligned."); self.draw_all_items(check_collisions_on_redraw=True)
         self.password_manager.record_activity()
+
+    def distribute_selected_items_evenly(self, direction='horizontal'):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Distribute", "Enter password to distribute items:"): return
+
+        if len(self.selected_items) < 2:
+            self.update_status("Select at least two items to distribute.")
+            return
+
+        items_to_distribute = []
+        for item_id in self.selected_items:
+            item_data = None
+            item_type = None
+            default_width = DEFAULT_STUDENT_BOX_WIDTH
+            default_height = DEFAULT_STUDENT_BOX_HEIGHT
+
+            if item_id in self.students:
+                item_data = self.students[item_id]
+                item_type = "student"
+            elif item_id in self.furniture:
+                item_data = self.furniture[item_id]
+                item_type = "furniture"
+                # Furniture might have different defaults, but let's assume student defaults for now if not specified.
+                # Or better, use specific furniture defaults if available.
+                default_width = REBBI_DESK_WIDTH
+                default_height = REBBI_DESK_HEIGHT
+
+
+            if item_data:
+                # Use _current_world_width/height if available (from draw_single_student/furniture)
+                # otherwise fallback to item's own width/height or defaults.
+                width = item_data.get('_current_world_width', item_data.get('width', default_width))
+                height = item_data.get('_current_world_height', item_data.get('height', default_height))
+
+                # For students, width/height might be in style_overrides
+                if item_type == "student":
+                    style_overrides = item_data.get("style_overrides", {})
+                    width = style_overrides.get("width", width)
+                    height = style_overrides.get("height", height)
+
+                items_to_distribute.append({
+                    "id": item_id,
+                    "type": item_type,
+                    "x": float(item_data["x"]),
+                    "y": float(item_data["y"]),
+                    "width": float(width),
+                    "height": float(height),
+                })
+
+        if not items_to_distribute:
+            return
+
+        moves_for_command = []
+
+        if direction == 'horizontal':
+            items_to_distribute.sort(key=lambda item: item['x'])
+
+            min_x_overall = items_to_distribute[0]['x']
+            # Max x-coordinate is the x of the rightmost item's right edge
+            max_x_item_overall = items_to_distribute[-1]
+            max_x_coord_overall = max_x_item_overall['x'] + max_x_item_overall['width']
+
+            total_items_width = sum(item['width'] for item in items_to_distribute)
+            total_span = max_x_coord_overall - min_x_overall
+
+            if len(items_to_distribute) > 1:
+                available_space_for_gaps = total_span - total_items_width
+                # Prevent negative gap if items overlap significantly; ensure a minimal positive gap or zero.
+                gap_size = max(0, available_space_for_gaps / (len(items_to_distribute) - 1))
+            else:
+                return # Should be caught by len < 2 check
+
+            current_x = min_x_overall # Start placing the first item at its original position (or the leftmost edge)
+            for i, item in enumerate(items_to_distribute):
+                # Only create a move command if the item's position actually changes
+                if abs(item['x'] - current_x) > 0.01: # Using a small tolerance for float comparison
+                    moves_for_command.append({
+                        'id': item['id'], 'type': item['type'],
+                        'old_x': item['x'], 'old_y': item['y'],
+                        'new_x': current_x, 'new_y': item['y'] # Keep original y
+                    })
+                current_x += item['width'] + gap_size
+
+        elif direction == 'vertical':
+            items_to_distribute.sort(key=lambda item: item['y'])
+
+            min_y_overall = items_to_distribute[0]['y']
+            max_y_item_overall = items_to_distribute[-1]
+            max_y_coord_overall = max_y_item_overall['y'] + max_y_item_overall['height']
+
+            total_items_height = sum(item['height'] for item in items_to_distribute)
+            total_span = max_y_coord_overall - min_y_overall
+
+            if len(items_to_distribute) > 1:
+                available_space_for_gaps = total_span - total_items_height
+                gap_size = max(0, available_space_for_gaps / (len(items_to_distribute) - 1))
+            else:
+                return
+
+            current_y = min_y_overall
+            for i, item in enumerate(items_to_distribute):
+                if abs(item['y'] - current_y) > 0.01:
+                    moves_for_command.append({
+                        'id': item['id'], 'type': item['type'],
+                        'old_x': item['x'], 'old_y': item['y'],
+                        'new_x': item['x'], 'new_y': current_y # Keep original x
+                    })
+                current_y += item['height'] + gap_size
+
+        if moves_for_command:
+            self.execute_command(MoveItemsCommand(self, moves_for_command))
+            self.update_status(f"Distributed {len(moves_for_command)} items {direction}ly.")
+        else:
+            self.update_status(f"Items already distributed {direction}ly or no change needed.")
+        self.password_manager.record_activity()
+
 
     def assign_student_to_group_via_menu(self, student_id, group_id):
         if self.password_manager.is_locked:
