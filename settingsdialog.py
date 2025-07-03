@@ -297,6 +297,13 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Entry(lf_view_options, textvariable=self.grid_color_var, width=12).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
         ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.grid_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
 
+        # New Guide Settings
+        self.save_guides_var = tk.BooleanVar(value=self.settings.get("save_guides_to_file", True))
+        ttk.Checkbutton(lf_view_options, text="Save Guides with Layout Data", variable=self.save_guides_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+
+        self.persist_guides_toggle_var = tk.BooleanVar(value=self.settings.get("guides_stay_when_rulers_hidden", True))
+        ttk.Checkbutton(lf_view_options, text="Keep Guides in Memory when 'Toggle Rulers' is Off", variable=self.persist_guides_toggle_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+
 
     def create_student_display_tab(self, tab_frame):
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
@@ -1015,6 +1022,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["show_rulers"] = self.show_rulers_var.get()
         self.settings["show_grid"] = self.show_grid_var.get()
         self.settings["grid_color"] = self.grid_color_var.get()
+        self.settings["save_guides_to_file"] = self.save_guides_var.get()
+        self.settings["guides_stay_when_rulers_hidden"] = self.persist_guides_toggle_var.get()
 
         #print("Theme2", self.theme2)
         #print(self.theme.get(), "Get")

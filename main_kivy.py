@@ -55,8 +55,8 @@ from io import BytesIO
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v54.0"
-CURRENT_DATA_VERSION_TAG = "v9"
+APP_VERSION = "v55.0"
+CURRENT_DATA_VERSION_TAG = "v10"
 
 # --- Default Configuration ---
 DEFAULT_STUDENT_BOX_WIDTH = 130
@@ -993,9 +993,9 @@ class SeatingChartAppLogic:
                     version_num_str = ''.join(filter(str.isdigit, os.path.basename(target_file)))
                     if version_num_str: data_version_from_filename = int(version_num_str)
                 except: pass
-                current_tag_num = int(''.join(filter(str.isdigit, CURRENT_DATA_VERSION_TAG)))
-                if data_version_from_filename is None:
-                     data = self._migrate_v3_edited_data(data); data = self._migrate_v4_data(data); data = self._migrate_v5_data(data); data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data)
+                current_tag_num = int(''.join(filter(str.isdigit, CURRENT_DATA_VERSION_TAG))) # Should be 10
+                if data_version_from_filename is None: # Very old file, run all migrations
+                     data = self._migrate_v3_edited_data(data); data = self._migrate_v4_data(data); data = self._migrate_v5_data(data); data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
                 elif data_version_from_filename < current_tag_num:
                     if data_version_from_filename < 4: data = self._migrate_v3_edited_data(data)
                     if data_version_from_filename < 5: data = self._migrate_v4_data(data)
@@ -1003,6 +1003,7 @@ class SeatingChartAppLogic:
                     if data_version_from_filename < 7: data = self._migrate_v6_data(data)
                     if data_version_from_filename < 8: data = self._migrate_v7_data(data)
                     if data_version_from_filename < 9: data = self._migrate_v8_data(data)
+                    if data_version_from_filename < 10: data = self._migrate_v9_data(data) # New migration for guides
 
                 final_settings = default_settings_copy.copy()
                 final_settings.update(data.get("settings", {}))
@@ -1054,8 +1055,17 @@ class SeatingChartAppLogic:
     def _migrate_v4_data(self, data): print("Migrating v4 (stub)"); return data
     def _migrate_v5_data(self, data): print("Migrating v5 (stub)"); return data
     def _migrate_v6_data(self, data): print("Migrating v6 (stub)"); return data
-    def _migrate_v7_data(self, data): print("Migrating v7 (stub)"); return data
-    def _migrate_v8_data(self, data): print("Migrating v8 (stub)"); return data
+    def _migrate_v7_data(self, data): print("Kivy: Migrating v7 (stub)"); return data
+    def _migrate_v8_data(self, data): print("Kivy: Migrating v8 (stub)"); return data
+    def _migrate_v9_data(self, data): # Stub for Kivy
+        print("Kivy: Migrating v9 to v10 (stub for guides).")
+        if "settings" in data:
+            data["settings"].setdefault("save_guides_to_file", True) # Keep consistent
+            data["settings"].setdefault("guides_stay_when_rulers_hidden", True)
+            data["settings"].setdefault("next_guide_id_num", 1)
+        if "temporary_guides" not in data: # Kivy calls them guides_to_draw, but use consistent key for data file
+            data["guides_to_draw"] = [] # Or "guides" if we align keys
+        return data
 
     def save_data_wrapper(self, event=None, source="manual"):
         if not DATA_FILE:

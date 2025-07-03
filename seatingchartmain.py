@@ -53,8 +53,8 @@ except ImportError:
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v54.0" # Version incremented
-CURRENT_DATA_VERSION_TAG = "v9" # Incremented for new homework/marks features
+APP_VERSION = "v55.0" # Version incremented
+CURRENT_DATA_VERSION_TAG = "v10" # Incremented for guide saving
 
 # --- Default Configuration ---
 DEFAULT_STUDENT_BOX_WIDTH = 130
@@ -485,6 +485,9 @@ class SeatingChartApp:
             "show_rulers": False, # Default for rulers
             "show_grid": False, # Default for grid visibility
             "grid_color": "#d3d3d3", # Default light gray for grid lines
+            "save_guides_to_file": True, # New setting for guides
+            "guides_stay_when_rulers_hidden": True, # New setting for guides
+            "next_guide_id_num": 1, # Added in migration, also good here
         }
 
    
@@ -542,6 +545,16 @@ class SeatingChartApp:
                 try: max_chwt_id = max(max_chwt_id, int(chwt['id'].split("_")[1]))
                 except (ValueError, IndexError): pass
         self.settings["next_custom_homework_type_id_num"] = max(self.settings.get("next_custom_homework_type_id_num", 1), max_chwt_id + 1)
+
+        # Guide IDs
+        max_g_id_num = 0
+        for guide_info in self.temporary_guides: # Assuming guides are loaded into self.temporary_guides by now
+            guide_id_str = guide_info.get('id', '')
+            if guide_id_str.startswith("guide_v_") or guide_id_str.startswith("guide_h_"):
+                try: max_g_id_num = max(max_g_id_num, int(guide_id_str.split("_")[-1]))
+                except (ValueError, IndexError, TypeError): pass
+        self.next_guide_id_num = max(self.settings.get("next_guide_id_num", 1), max_g_id_num + 1)
+        self.settings["next_guide_id_num"] = self.next_guide_id_num
 
 
     def periodic_checks(self):
@@ -1864,11 +1877,21 @@ class SeatingChartApp:
 
     def toggle_rulers_visibility(self):
         self.settings["show_rulers"] = not self.settings.get("show_rulers", False)
-        if not self.settings["show_rulers"]:
-            self.clear_temporary_guides()
-            self.active_ruler_guide_coord_x = None
+
+        if not self.settings["show_rulers"]: # Rulers are being hidden
+            self.active_ruler_guide_coord_x = None # Always cancel pending guide placement
             self.active_ruler_guide_coord_y = None
-        self.draw_all_items()
+            if not self.settings.get("guides_stay_when_rulers_hidden", True):
+                self.clear_temporary_guides() # Clear data and canvas items
+            else:
+                # Keep data, just delete canvas items and nullify canvas_id
+                if self.canvas:
+                    for guide_info in self.temporary_guides:
+                        if guide_info.get('canvas_id') is not None:
+                            self.canvas.delete(guide_info['canvas_id'])
+                            guide_info['canvas_id'] = None
+
+        self.draw_all_items() # This will redraw rulers if shown, and guides if data exists and rulers shown
         self.update_toggle_rulers_button_text()
         self.update_status(f"Rulers {'shown' if self.settings['show_rulers'] else 'hidden'}.")
 
@@ -1943,16 +1966,19 @@ class SeatingChartApp:
             guide_type = guide_info['type']
             world_coord = guide_info['world_coord']
 
+            guide_canvas_id = None
             if guide_type == 'h': # Horizontal guide
                 # Convert world_coord (y) to current screen coordinates
                 _, screen_y = self.world_to_canvas_coords(0, world_coord) # x doesn't matter for horizontal line screen y
-                self.canvas.create_line(0, screen_y, self.canvas.winfo_width(), screen_y,
-                                        fill=self.guide_line_color, tags="temporary_guide", width=1, dash=(4, 2))
+                guide_canvas_id = self.canvas.create_line(0, screen_y, self.canvas.winfo_width(), screen_y,
+                                                          fill=self.guide_line_color, tags=("temporary_guide", guide_info.get('id', 'unknown_guide')), width=1, dash=(4, 2))
             elif guide_type == 'v': # Vertical guide
                 # Convert world_coord (x) to current screen coordinates
                 screen_x, _ = self.world_to_canvas_coords(world_coord, 0) # y doesn't matter for vertical line screen x
-                self.canvas.create_line(screen_x, 0, screen_x, self.canvas.winfo_height(),
-                                        fill=self.guide_line_color, tags="temporary_guide", width=1, dash=(4, 2))
+                guide_canvas_id = self.canvas.create_line(screen_x, 0, screen_x, self.canvas.winfo_height(),
+                                                          fill=self.guide_line_color, tags=("temporary_guide", guide_info.get('id', 'unknown_guide')), width=1, dash=(4, 2))
+            if guide_canvas_id:
+                guide_info['canvas_id'] = guide_canvas_id # Store the canvas ID
 
     def clear_temporary_guides(self):
         self.temporary_guides.clear()
@@ -2209,18 +2235,68 @@ class SeatingChartApp:
             # Check if click is outside ruler areas
             if not (event.y < self.ruler_thickness and event.x > self.ruler_thickness) and \
                not (event.x < self.ruler_thickness and event.y > self.ruler_thickness):
+
+                current_guide_id_num = self.next_guide_id_num
+                self.next_guide_id_num += 1
+                self.settings["next_guide_id_num"] = self.next_guide_id_num # Persist the incremented counter
+
                 if self.active_ruler_guide_coord_x is not None:
-                    self.temporary_guides.append({'type': 'v', 'world_coord': self.active_ruler_guide_coord_x, 'canvas_id': None})
-                    self.update_status(f"Placed vertical guide at x={self.active_ruler_guide_coord_x:.0f}. Guides are temporary.")
+                    guide_id = f"guide_v_{current_guide_id_num}"
+                    self.temporary_guides.append({'id': guide_id, 'type': 'v', 'world_coord': self.active_ruler_guide_coord_x, 'canvas_id': None})
+                    self.update_status(f"Placed vertical guide ({guide_id}) at x={self.active_ruler_guide_coord_x:.0f}. Guides are temporary.")
                 elif self.active_ruler_guide_coord_y is not None:
-                    self.temporary_guides.append({'type': 'h', 'world_coord': self.active_ruler_guide_coord_y, 'canvas_id': None})
-                    self.update_status(f"Placed horizontal guide at y={self.active_ruler_guide_coord_y:.0f}. Guides are temporary.")
+                    guide_id = f"guide_h_{current_guide_id_num}"
+                    self.temporary_guides.append({'id': guide_id, 'type': 'h', 'world_coord': self.active_ruler_guide_coord_y, 'canvas_id': None})
+                    self.update_status(f"Placed horizontal guide ({guide_id}) at y={self.active_ruler_guide_coord_y:.0f}. Guides are temporary.")
                 self.draw_all_items() # Redraw to show the new guide
             else: # Clicked on a ruler again, cancel placement
                  self.update_status("Guide placement cancelled.")
             self.active_ruler_guide_coord_x = None
             self.active_ruler_guide_coord_y = None
             return # Consume click
+
+        # Check for guide dragging
+        HIT_TOLERANCE = 5 # Pixels
+        for guide_info in reversed(self.temporary_guides): # Check topmost first
+            if guide_info.get('canvas_id') is None:
+                continue
+
+            coords = self.canvas.coords(guide_info['canvas_id'])
+            if not coords: continue
+
+            guide_type = guide_info['type']
+            world_coord = guide_info['world_coord']
+
+            is_hit = False
+            if guide_type == 'h':
+                # Horizontal guide: coords are [x1, y1, x2, y1]
+                guide_screen_y = coords[1]
+                if abs(event.y - guide_screen_y) < HIT_TOLERANCE and \
+                   coords[0] <= event.x <= coords[2]:
+                    is_hit = True
+                    self.canvas.config(cursor="sb_v_double_arrow")
+            elif guide_type == 'v':
+                # Vertical guide: coords are [x1, y1, x1, y2]
+                guide_screen_x = coords[0]
+                if abs(event.x - guide_screen_x) < HIT_TOLERANCE and \
+                   coords[1] <= event.y <= coords[3]:
+                    is_hit = True
+                    self.canvas.config(cursor="sb_h_double_arrow")
+
+            if is_hit:
+                self.drag_data = {
+                    'is_dragging_guide': True,
+                    'dragged_guide_id': guide_info['id'],
+                    'dragged_guide_type': guide_type,
+                    'original_world_coord': world_coord,
+                    'start_click_canvas_x': event.x,
+                    'start_click_canvas_y': event.y,
+                    'item_id': None # Ensure other drag logic doesn't interfere
+                }
+                self._drag_started_on_item = True # Use this flag to indicate an active drag
+                self.update_status(f"Dragging guide {guide_info['id']}")
+                self.password_manager.record_activity()
+                return # Consume event
 
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
         self.drag_data = {"x": world_event_x, "y": world_event_y, "item_id": None, "item_type": None,
@@ -2280,6 +2356,44 @@ class SeatingChartApp:
 
     def on_canvas_drag(self, event):
         if self.password_manager.is_locked: return
+
+        if self.drag_data.get('is_dragging_guide'):
+            dragged_guide_id = self.drag_data.get('dragged_guide_id')
+            guide_info = next((g for g in self.temporary_guides if g['id'] == dragged_guide_id), None)
+            if not guide_info: return
+
+            current_world_x, current_world_y = self.canvas_to_world_coords(event.x, event.y)
+            start_drag_world_x, start_drag_world_y = self.canvas_to_world_coords(
+                self.drag_data['start_click_canvas_x'], self.drag_data['start_click_canvas_y']
+            )
+
+            original_guide_world_coord = self.drag_data['original_world_coord']
+            new_world_coord = original_guide_world_coord
+
+            if guide_info['type'] == 'h': # Horizontal guide, update Y world_coord
+                delta_world_y = current_world_y - start_drag_world_y
+                new_world_coord = original_guide_world_coord + delta_world_y
+                guide_info['world_coord'] = new_world_coord
+                if guide_info['canvas_id']:
+                    _, screen_y = self.world_to_canvas_coords(0, new_world_coord)
+                    self.canvas.coords(guide_info['canvas_id'], 0, screen_y, self.canvas.winfo_width(), screen_y)
+                else: # Should not happen if guide was drawn, but as a fallback
+                    self.draw_temporary_guides() # Redraw all if something went wrong
+            elif guide_info['type'] == 'v': # Vertical guide, update X world_coord
+                delta_world_x = current_world_x - start_drag_world_x
+                new_world_coord = original_guide_world_coord + delta_world_x
+                guide_info['world_coord'] = new_world_coord
+                if guide_info['canvas_id']:
+                    screen_x, _ = self.world_to_canvas_coords(new_world_coord, 0)
+                    self.canvas.coords(guide_info['canvas_id'], screen_x, 0, screen_x, self.canvas.winfo_height())
+                else: # Fallback
+                    self.draw_temporary_guides()
+
+            # Update status less frequently during drag, or only on release
+            # self.update_status(f"Dragging guide {guide_info['id']} to {new_world_coord:.0f}")
+            self.password_manager.record_activity()
+            return # Event handled
+
         if not self.drag_data.get("item_id") or not self._drag_started_on_item: return
 
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
@@ -2335,6 +2449,25 @@ class SeatingChartApp:
     def on_canvas_release(self, event):
         # ... (largely same as v51, but uses start_x_world/start_y_world for move calculations)
         if self.password_manager.is_locked: return
+
+        if self.drag_data.get('is_dragging_guide'):
+            dragged_guide_id = self.drag_data.get('dragged_guide_id')
+            guide_info = next((g for g in self.temporary_guides if g['id'] == dragged_guide_id), None)
+
+            if guide_info:
+                self.update_status(f"Guide {guide_info['id']} set at {guide_info['world_coord']:.0f}")
+            else:
+                self.update_status("Guide drag finished.") # Fallback
+
+            self.canvas.config(cursor="arrow") # Reset cursor
+            self.drag_data.clear()
+            self._drag_started_on_item = False
+            self.password_manager.record_activity()
+            # Full redraw might be good to ensure all items are correctly layered if guides affect that.
+            # However, individual guide redraw in on_canvas_drag should be sufficient for the guide itself.
+            # self.draw_all_items()
+            return # Event handled
+
         clicked_item_id_at_press = self._potential_click_target
         dragged_item_id = self.drag_data.get("item_id")
         was_resizing = self.drag_data.get("is_resizing", False)
@@ -2862,7 +2995,22 @@ class SeatingChartApp:
                         "homework_log": self.homework_log,
                         "settings": self.settings, "last_excel_export_path": self.last_excel_export_path,
                         "_per_student_last_cleared": self._per_student_last_cleared,
-                        "undo_stack": serializable_undo_stack, "redo_stack": serializable_redo_stack}
+                        "undo_stack": serializable_undo_stack, "redo_stack": serializable_redo_stack
+                        }
+
+        if self.settings.get("save_guides_to_file", True):
+            guides_to_save = []
+            for guide_info in self.temporary_guides:
+                guides_to_save.append({
+                    'id': guide_info.get('id'),
+                    'type': guide_info.get('type'),
+                    'world_coord': guide_info.get('world_coord')
+                    # canvas_id is deliberately excluded as it's runtime specific
+                })
+            data_to_save["temporary_guides"] = guides_to_save
+        else:
+            data_to_save["temporary_guides"] = [] # Save empty list if not saving guides
+
         try:
             with open(DATA_FILE, 'w', encoding='utf-8') as f: json.dump(data_to_save, f, indent=4)
             verbose_save = source not in ["autosave", "command_execution", "undo_command", "redo_command", "toggle_mode",
@@ -2902,19 +3050,23 @@ class SeatingChartApp:
                 if data_version_from_filename is None or data_version_from_filename <= 3:
                     print(f"Migrating data from v3/v4 format (or older) from {target_file}")
                     data = self._migrate_v3_edited_data(data); data = self._migrate_v4_data(data); data = self._migrate_v5_data(data)
-                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data) # Add v8 migration
+                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
                 elif data_version_from_filename == 5:
                     print(f"Migrating data from v5 format from {target_file}")
-                    data = self._migrate_v5_data(data); data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data)
+                    data = self._migrate_v5_data(data); data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
                 elif data_version_from_filename == 6:
                     print(f"Migrating data from v6 format from {target_file}")
-                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data)
+                    data = self._migrate_v6_data(data); data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
                 elif data_version_from_filename == 7:
                     print(f"Migrating data from v7 format from {target_file}")
-                    data = self._migrate_v7_data(data); data = self._migrate_v8_data(data)
-                elif data_version_from_filename == 8: # New: If loading v8 data
+                    data = self._migrate_v7_data(data); data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
+                elif data_version_from_filename == 8:
                     print(f"Migrating data from v8 format from {target_file}")
-                    data = self._migrate_v8_data(data)
+                    data = self._migrate_v8_data(data); data = self._migrate_v9_data(data)
+                elif data_version_from_filename == 9: # New: If loading v9 data
+                    print(f"Migrating data from v9 format from {target_file}")
+                    data = self._migrate_v9_data(data)
+
 
                 final_settings = default_settings_copy.copy(); final_settings.update(data.get("settings", {}))
                 data["settings"] = final_settings
@@ -2933,6 +3085,21 @@ class SeatingChartApp:
 
                 self.theme_style_using = self.settings.get("theme", "System") # Newer
                 self.custom_canvas_color = self.settings.get("canvas_color", "Default")
+
+                # Load guides if setting is true and guides exist in data
+                if self.settings.get("save_guides_to_file", True):
+                    loaded_guides_raw = data.get("temporary_guides", [])
+                    self.temporary_guides = []
+                    for guide_data_raw in loaded_guides_raw:
+                        # Ensure only expected keys are loaded and canvas_id is reset
+                        self.temporary_guides.append({
+                            'id': guide_data_raw.get('id'),
+                            'type': guide_data_raw.get('type'),
+                            'world_coord': guide_data_raw.get('world_coord'),
+                            'canvas_id': None
+                        })
+                else:
+                    self.temporary_guides = []
 
                 self.undo_stack.clear(); self.redo_stack.clear()
                 loaded_undo_stack = data.get("undo_stack", [])
@@ -3024,10 +3191,15 @@ class SeatingChartApp:
             data["settings"].setdefault("_last_used_homework_name_for_session", "")
             data["settings"].setdefault("_last_used_homework_name_timestamp_for_session", None)
             data["settings"].setdefault("_last_used_hw_items_for_session", 5)
+            data["settings"].setdefault("next_guide_id_num", 1) # For v10 guides
 
         # Ensure homework_log list exists at the top level of data
         if "homework_log" not in data:
             data["homework_log"] = []
+
+        # Ensure guides list exists for v10, initialize if migrating from older
+        if "guides" not in data:
+            data["guides"] = []
 
         # Migrate existing behavior_log entries that might have been intended as homework
         # This is heuristic; might need adjustment based on how users previously logged homework.
@@ -3053,6 +3225,23 @@ class SeatingChartApp:
 
         data["behavior_log"] = temp_behavior_log
         data["homework_log"] = temp_homework_log
+        print("Applied v8 (to v9) data migration.")
+        return data
+
+    def _migrate_v9_data(self, data):
+        """Migration for data version 9 (APP_VERSION v54) to v10 (APP_VERSION v55)."""
+        # Key change: Addition of persistent guides.
+        if "settings" in data:
+            data["settings"].setdefault("save_guides_to_file", True)
+            data["settings"].setdefault("guides_stay_when_rulers_hidden", True)
+            data["settings"].setdefault("next_guide_id_num", 1)
+
+        if "temporary_guides" not in data: # Ensure the list for guides exists
+            data["temporary_guides"] = []
+            # Or, if old data might have guides under a different key, migrate them here.
+            # For now, assumes new list.
+
+        print("Applied v9 (to v10) data migration (guides).")
         return data
 
     def _migrate_v7_data(self, data):
