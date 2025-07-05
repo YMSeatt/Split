@@ -2697,7 +2697,10 @@ class SeatingChartApp:
                 if tag.startswith("student_") and tag in self.students: temp_id, temp_type = tag, "student"
                 elif tag.startswith("furniture_") and tag in self.furniture: temp_id, temp_type = tag, "furniture"
                 elif tag.startswith("guide") and self.is_in_guides(tag): temp_id, temp_type = tag, "guide"; context_item_id = "guide"
-                elif tag == ("current"): temp_id, temp_type = tags[i], "guide"; context_item_id = "guide"; print("HI")
+                elif tag == ("current"): 
+                    temp_id, temp_type = tags[1], "guide"
+                    context_item_id = "guide"
+                    break
                 if "rect" in tag: is_main_rect = True
                 i+=1
             if temp_id and is_main_rect: context_item_id, context_item_type = temp_id, temp_type; break
@@ -2708,7 +2711,8 @@ class SeatingChartApp:
                 else: self.draw_single_furniture(context_item_id)
             if context_item_type == "student": self.show_student_context_menu(event, context_item_id)
             elif context_item_type == "furniture": self.show_furniture_context_menu(event, context_item_id)
-            elif context_item_type == "guide" or context_item_id == "current": self.show_guide_context_menu(event, temp_id); print("TRUE!!!!")
+            elif context_item_id == "guide":
+                self.show_guide_context_menu(event, temp_id)
         else: self.show_general_context_menu(event)
         self.password_manager.record_activity()
 
@@ -2817,14 +2821,15 @@ class SeatingChartApp:
         for guide in self.guides:
             if guide.get("id") == tag: return True
         return False
+    
     def show_guide_context_menu(self, event, guide_id):
         # ... (updated for homework mode)
         #if guide_id not in self.guides: return
         #guide_data = self.guides[guide_id]
-        #print(guide_data)
+        print(guide_id)
         for guide in self.guides:
-            if guide.get("id") == guide_id: guide_data = guide
-            
+            if guide.get("id") == guide_id: guide_data = guide.get("id")
+        #print(guide_id.get("id"))
         context_menu = tk.Menu(self.canvas, tearoff=0); current_mode = self.mode_var.get()
         
         context_menu.add_command(label=f"Delete guide", command=lambda: self.delete_guide(guide_id))
@@ -2842,9 +2847,9 @@ class SeatingChartApp:
         self.password_manager.record_activity()
 
     def delete_all_guides(self):
-
-        self.canvas.delete(guide.get("id"))
-        self.guides.clear()
+        if messagebox.askyesno("Delete all guides", "Are you sure you want to delete ALL guides?"):
+            self.canvas.delete("guide")
+            self.guides.clear()
 
     def _select_items_by_type(self, item_type_key):
         # ... (same as v51)
