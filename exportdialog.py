@@ -4,7 +4,10 @@ import os
 import sys
 from datetime import datetime
 from tkcalendar import DateEntry
-from tkcalendar import DateEntryCustom
+try:
+    from tkcalendar import DateEntryCustom
+except ImportError:
+    DateEntryCustom = DateEntry
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"

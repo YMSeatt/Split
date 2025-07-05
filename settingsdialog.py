@@ -15,8 +15,8 @@ from quizhomework import ManageInitialsDialog, ManageMarkTypesDialog, ManageLive
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v52.0" # Version incremented
-CURRENT_DATA_VERSION_TAG = "v9" # Incremented for new homework/marks features
+APP_VERSION = "v55.0" # Version incremented
+CURRENT_DATA_VERSION_TAG = "v10" # Incremented for new homework/marks features
 
 # --- Default Configuration ---
 DEFAULT_STUDENT_BOX_WIDTH = 130
@@ -157,7 +157,7 @@ class SettingsDialog(simpledialog.Dialog):
     def __init__(self, parent, current_settings, custom_behaviors, all_behaviors, app,
                  custom_homework_statuses, all_homework_statuses, # RENAMED
                  custom_homework_types, all_homework_types, # NEW
-                 password_manager_instance, theme, custom_canvas_color):
+                 password_manager_instance, theme, custom_canvas_color, styles, style):
         self.settings = current_settings
         self.custom_behaviors_ref = custom_behaviors
         self.all_behaviors_ref = all_behaviors
@@ -171,7 +171,15 @@ class SettingsDialog(simpledialog.Dialog):
         self.app = app
         self.password_manager = password_manager_instance
         self.theme = tk.StringVar(value=theme)
+        if style == "sun-valley-light" or style == "sun-valley-dark" or style == "sv_ttk":
+            style = "sun-valley (Default)"
+        self.style = tk.StringVar(value=style)
         self.theme2 = self.theme.get()
+        self.styles = list(styles)
+        for styl in self.styles:
+            if "sun-valley" in styl:
+                self.styles.remove(styl)                
+        self.styles.append("sun-valley (Default)")
         self.custom_canvas_color = tk.StringVar(value= custom_canvas_color if custom_canvas_color != None else "Default")
         self.settings_changed_flag = False
         self.initial_settings_snapshot = {k: (v.copy() if isinstance(v, (dict, list)) else v) for k,v in current_settings.items()}
@@ -234,14 +242,26 @@ class SettingsDialog(simpledialog.Dialog):
         self.max_undo_days_var = tk.IntVar(value=self.settings.get("max_undo_history_days", MAX_UNDO_HISTORY_DAYS))
         ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5).grid(row=10, column=1, sticky=tk.W, padx=5, pady=3)
         
-        # Theme
-        ttk.Label(lf, text = "Theme: ").grid(row=12,column=0,sticky='W', padx=5, pady=3)
         
-        theme_combo = ttk.Combobox(lf, values = THEME_LIST, textvariable= self.theme, state='readonly')
-        theme_combo.grid(row=12, column=1, sticky="W", padx=5, pady=3)
-        theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
-        theme_combo.set(self.theme.get())
+        # Theme
+        
+        
+        
+        ttk.Label(lf, text = "Theme: ").grid(row=12,column=0,sticky='W', padx=0, pady=3)
+        
+        style_combo = ttk.Combobox(lf, values= list(self.styles), textvariable=self.style, width=14, state='readonly')
+        style_combo.grid(row=12, column=0, sticky=tk.E)
+        style_combo.bind("<<ComboboxSelected>>", self.style_set)
+        style_combo.set(self.style.get())
+        
+        self.theme_combo = ttk.Combobox(lf, values = THEME_LIST, textvariable= self.theme, state='readonly')
+        self.theme_combo.grid(row=12, column=1, sticky="W", padx=(5,0), pady=3)
+        self.theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
+        self.theme_combo.set(self.theme.get())
 
+        self.style_set()
+        
+        
         # Canvas Management LabelFrame
         cmf = ttk.LabelFrame(tab_frame, text="Canvas Management", padding=10); cmf.pack(padx=5, fill=tk.BOTH)
         # Student box management visibility
@@ -283,8 +303,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.force_canvas_border_visi()
 
         # Canvas View Options (Rulers, Grid)
-        lf_view_options = ttk.LabelFrame(lf, text="Canvas View Options", padding=10)
-        lf_view_options.grid(row=16, column=0, columnspan=3, sticky=tk.EW, padx=5, pady=10)
+        lf_view_options = ttk.LabelFrame(tab_frame, text="Canvas View Options", padding=10)
+        lf_view_options.pack(fill=tk.BOTH, padx=5, pady=10)
 
         self.show_rulers_var = tk.BooleanVar(value=self.settings.get("show_rulers", False))
         ttk.Checkbutton(lf_view_options, text="Show Rulers by Default", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
@@ -696,6 +716,10 @@ class SettingsDialog(simpledialog.Dialog):
         self.theme2 = self.theme.get()
         #print("theme2", self.theme2)
 
+    def style_set(self, event=None):
+        self.app.type_theme = self.style.get()
+        self.theme_combo.configure(state='disabled' if "sun-valley" not in self.style.get().lower() else 'readonly')
+        self.theme_combo.set("Light") if "sun-valley" not in self.style.get().lower() else "System"
 
     def set_or_change_password(self):
         new_pw = self.new_pw_var.get()
@@ -1012,6 +1036,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["theme"] = self.theme.get()
         self.settings["canvas_color"] = self.custom_canvas_color.get()
         self.app.theme_style_using = self.theme2
+        self.settings["type_theme"] = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
+        self.app.type_theme = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
         self.app.custom_canvas_color = self.custom_canvas_color.get()
         self.settings["always_show_box_management"] = self.show_management_var.get()
         self.settings["check_for_collisions"] = self.check_for_collisions_var.get()

@@ -310,7 +310,6 @@ class SeatingChartApp:
         self.temporary_guides: List[Dict[str, Any]] = [] # List of {'type': 'h'/'v', 'world_coord': float, 'canvas_id': int}
         
         
-        self.theme_auto(init=True)
         self.load_custom_behaviors()
         self.load_custom_homework_types() # NEW
         self.load_custom_homework_statuses() # RENAMED
@@ -325,6 +324,7 @@ class SeatingChartApp:
 
         self.load_data() # Loads main data, including settings
         self._ensure_next_ids()
+        self.theme_auto(init=True)
 
         self.setup_ui()
         self.draw_all_items()
@@ -1905,78 +1905,6 @@ class SeatingChartApp:
         elif mode == "horizontal" and hasattr(self, 'add_v_guide_btn') and self.add_v_guide_btn != button_pressed:
             self.add_v_guide_btn.state(['!pressed', '!focus'])
 
-
-    def update_toggle_rulers_button_text(self):
-        if hasattr(self, 'toggle_rulers_btn'):
-            text = "Hide Rulers" if self.settings.get("show_rulers", False) else "Show Rulers"
-            self.toggle_rulers_btn.config(text=text)
-
-    def draw_rulers(self):
-        if not self.canvas: return
-        # Horizontal Ruler (Top)
-        self.canvas.create_rectangle(0, 0, self.canvas.winfo_width(), self.ruler_thickness,
-                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
-        # Vertical Ruler (Left)
-        self.canvas.create_rectangle(0, self.ruler_thickness, self.ruler_thickness, self.canvas.winfo_height(),
-                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
-
-        # Markings
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
-
-        # Determine visible world coordinates
-        world_x_start, world_y_start = self.canvas_to_world_coords(0,0)
-        world_x_end, world_y_end = self.canvas_to_world_coords(canvas_width, canvas_height)
-
-        # Adjust for ruler thickness when calculating visible world range for markings
-        world_x_for_hruler_start, _ = self.canvas_to_world_coords(self.ruler_thickness, self.ruler_thickness)
-        world_x_for_hruler_end, _ = self.canvas_to_world_coords(canvas_width, self.ruler_thickness)
-
-        _, world_y_for_vruler_start = self.canvas_to_world_coords(self.ruler_thickness, self.ruler_thickness)
-        _, world_y_for_vruler_end = self.canvas_to_world_coords(self.ruler_thickness, canvas_height)
-
-
-        # Dynamic interval based on zoom - simplified
-        interval = 50
-        if self.current_zoom_level < 0.5: interval = 100
-        elif self.current_zoom_level > 2: interval = 20
-
-        # Horizontal Markings
-        start_mark_x = int(world_x_for_hruler_start / interval) * interval
-        for world_x in range(start_mark_x, int(world_x_for_hruler_end) + interval, interval):
-            canvas_x, _ = self.world_to_canvas_coords(world_x, world_y_start) # Use world_y_start for consistency
-            if canvas_x >= self.ruler_thickness and canvas_x <= canvas_width:
-                tick_len = 5 if world_x % (interval * 2) != 0 else 10
-                self.canvas.create_line(canvas_x, self.ruler_thickness - tick_len, canvas_x, self.ruler_thickness,
-                                        fill=self.ruler_line_color, tags="ruler_marking")
-                if tick_len == 10:
-                    self.canvas.create_text(canvas_x, self.ruler_thickness - tick_len - 5, text=str(world_x),
-                                            fill=self.ruler_text_color, anchor=tk.S, tags="ruler_marking_text", font=(DEFAULT_FONT_FAMILY, 8))
-        # Vertical Markings
-        start_mark_y = int(world_y_for_vruler_start / interval) * interval
-        for world_y in range(start_mark_y, int(world_y_for_vruler_end) + interval, interval):
-            _, canvas_y = self.world_to_canvas_coords(world_x_start, world_y) # Use world_x_start for consistency
-            if canvas_y >= self.ruler_thickness and canvas_y <= canvas_height:
-                tick_len = 5 if world_y % (interval * 2) != 0 else 10
-                self.canvas.create_line(self.ruler_thickness - tick_len, canvas_y, self.ruler_thickness, canvas_y,
-                                        fill=self.ruler_line_color, tags="ruler_marking")
-                if tick_len == 10:
-                    self.canvas.create_text(self.ruler_thickness - tick_len - 5, canvas_y, text=str(world_y),
-                                            fill=self.ruler_text_color, anchor=tk.E, tags="ruler_marking_text", font=(DEFAULT_FONT_FAMILY, 8))
-
-    def draw_temporary_guides(self): # Renamed to draw_guides and logic moved to SeatingChartApp.draw_guides
-        pass # This method is now effectively replaced by self.draw_guides() called from draw_all_items
-
-    def clear_temporary_guides(self):
-        self.guides.clear() # Changed from self.temporary_guides
-        if self.canvas:
-            self.canvas.delete("guide") # Changed tag from "temporary_guide"
-
-
-    def _calculate_quiz_score_percentage(self, log_entry):
-            text = "Hide Grid" if self.settings.get("show_grid", False) else "Show Grid"
-            self.toggle_grid_btn.config(text=text)
-
     def draw_grid(self):
         if not self.canvas: return
         grid_size = self.settings.get("grid_size", DEFAULT_GRID_SIZE)
@@ -2385,11 +2313,13 @@ class SeatingChartApp:
             if not self.prompt_for_password("Unlock to Interact", "Enter password to interact with canvas:"): return
         self.canvas.focus_set()
 
+        x_coords = event.x; y_coords = event.y
+        world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
         # Guide Creation via Add Guide Mode
         if self.add_guide_mode:
             # Check if click is outside ruler areas to prevent placing guide when trying to use ruler for legacy placement
-            on_h_ruler = self.settings.get("show_rulers", False) and event.y < self.ruler_thickness and event.x > self.ruler_thickness
-            on_v_ruler = self.settings.get("show_rulers", False) and event.x < self.ruler_thickness and event.y > self.ruler_thickness
+            on_h_ruler = self.settings.get("show_rulers", False) and world_event_y < self.ruler_thickness and world_event_x > self.ruler_thickness
+            on_v_ruler = self.settings.get("show_rulers", False) and world_event_x < self.ruler_thickness and world_event_y > self.ruler_thickness
 
             if not on_h_ruler and not on_v_ruler:
                 world_x, world_y = self.canvas_to_world_coords(event.x, event.y)
@@ -2418,7 +2348,7 @@ class SeatingChartApp:
 
         # Check for guide dragging (if not in add_guide_mode)
         if not self.add_guide_mode:
-            clicked_guide_id = self._get_guide_at_canvas_coords(event.x, event.y)
+            clicked_guide_id = self._get_guide_at_canvas_coords(world_event_x, world_event_y)
             if clicked_guide_id:
                 guide_info = next((g for g in self.guides if g['id'] == clicked_guide_id), None)
                 if guide_info:
@@ -2431,8 +2361,8 @@ class SeatingChartApp:
                         # Store canvas click coords, world coords will be calculated in on_canvas_drag relative to this
                         "start_click_canvas_x": event.x,
                         "start_click_canvas_y": event.y,
-                        "start_drag_world_x": guide_info['world_coord'] if guide_info['type'] == 'v' else self.canvas_to_world_coords(event.x, event.y)[0],
-                        "start_drag_world_y": guide_info['world_coord'] if guide_info['type'] == 'h' else self.canvas_to_world_coords(event.x, event.y)[1],
+                        "start_drag_world_x": guide_info['world_coord'] if guide_info['type'] != 'v' else self.canvas_to_world_coords(event.x, event.y)[0],
+                        "start_drag_world_y": guide_info['world_coord'] if guide_info['type'] != 'h' else self.canvas_to_world_coords(event.x, event.y)[1],
                     }
                     self._drag_started_on_item = True # To prevent canvas scan_mark
                     self.update_status(f"Dragging guide {clicked_guide_id}")
@@ -2443,13 +2373,13 @@ class SeatingChartApp:
 
         # Ruler interaction (Legacy guide placement, can be kept or removed)
         if self.settings.get("show_rulers", False) and not self.add_guide_mode: # Only if not in button-activated add_guide_mode
-            if event.y < self.ruler_thickness and event.x > self.ruler_thickness: # Horizontal ruler
+            if world_event_y < self.ruler_thickness and world_event_x > self.ruler_thickness: # Horizontal ruler
                 self.active_ruler_guide_coord_x, _ = self.canvas_to_world_coords(event.x, event.y)
                 self.active_ruler_guide_coord_y = None
                 self.update_status(f"Click on canvas to place vertical guide at x={self.active_ruler_guide_coord_x:.0f}")
                 return # Consume click
             # Vertical ruler area (left)
-            elif event.x < self.ruler_thickness and event.y > self.ruler_thickness:
+            elif world_event_x < self.ruler_thickness and world_event_y > self.ruler_thickness:
                 _, self.active_ruler_guide_coord_y = self.canvas_to_world_coords(event.x, event.y)
                 self.active_ruler_guide_coord_x = None
                 self.update_status(f"Click on canvas to place horizontal guide at y={self.active_ruler_guide_coord_y:.0f}")
@@ -2458,8 +2388,8 @@ class SeatingChartApp:
         # Place active guide if one is pending and click is on canvas proper
         if self.active_ruler_guide_coord_x is not None or self.active_ruler_guide_coord_y is not None:
             # Check if click is outside ruler areas
-            if not (event.y < self.ruler_thickness and event.x > self.ruler_thickness) and \
-               not (event.x < self.ruler_thickness and event.y > self.ruler_thickness):
+            if not (world_event_y < self.ruler_thickness and world_event_x > self.ruler_thickness) and \
+               not (world_event_x < self.ruler_thickness and world_event_y > self.ruler_thickness):
 
                 current_guide_id_num = self.next_guide_id_num
                 self.next_guide_id_num += 1
@@ -2480,7 +2410,7 @@ class SeatingChartApp:
             self.active_ruler_guide_coord_y = None
             return # Consume click
 
-        # Check for guide dragging
+        # Check for guide dragging # I think this is unnecessary
         HIT_TOLERANCE = 5 # Pixels
         for guide_info in reversed(self.temporary_guides): # Check topmost first
             if guide_info.get('canvas_id') is None:
@@ -2496,15 +2426,15 @@ class SeatingChartApp:
             if guide_type == 'h':
                 # Horizontal guide: coords are [x1, y1, x2, y1]
                 guide_screen_y = coords[1]
-                if abs(event.y - guide_screen_y) < HIT_TOLERANCE and \
-                   coords[0] <= event.x <= coords[2]:
+                if abs(world_event_y - guide_screen_y) < HIT_TOLERANCE and \
+                   coords[0] <= world_event_x <= coords[2]:
                     is_hit = True
                     self.canvas.config(cursor="sb_v_double_arrow")
             elif guide_type == 'v':
                 # Vertical guide: coords are [x1, y1, x1, y2]
                 guide_screen_x = coords[0]
-                if abs(event.x - guide_screen_x) < HIT_TOLERANCE and \
-                   coords[1] <= event.y <= coords[3]:
+                if abs(world_event_x - guide_screen_x) < HIT_TOLERANCE and \
+                   coords[1] <= world_event_x <= coords[3]:
                     is_hit = True
                     self.canvas.config(cursor="sb_h_double_arrow")
 
@@ -2514,8 +2444,8 @@ class SeatingChartApp:
                     'dragged_guide_id': guide_info['id'],
                     'dragged_guide_type': guide_type,
                     'original_world_coord': world_coord,
-                    'start_click_canvas_x': event.x,
-                    'start_click_canvas_y': event.y,
+                    'start_click_canvas_x': world_event_x,
+                    'start_click_canvas_y': world_event_y,
                     'item_id': None # Ensure other drag logic doesn't interfere
                 }
                 self._drag_started_on_item = True # Use this flag to indicate an active drag
@@ -2601,14 +2531,14 @@ class SeatingChartApp:
                 new_world_coord = original_guide_world_coord + delta_world_y
                 guide_info['world_coord'] = new_world_coord
                 _, screen_y = self.world_to_canvas_coords(0, new_world_coord)
-                self.canvas.coords(guide_info['canvas_item_id'], 0, screen_y, self.canvas.winfo_width(), screen_y)
+                self.canvas.coords(guide_info['canvas_item_id'], 0, screen_y, self.canvas.winfo_width(), screen_y) # type: ignore
 
             elif guide_info['type'] == 'v': # Vertical guide, update X world_coord
                 delta_world_x = current_event_world_x - start_drag_world_x
                 new_world_coord = original_guide_world_coord + delta_world_x
                 guide_info['world_coord'] = new_world_coord
                 screen_x, _ = self.world_to_canvas_coords(new_world_coord, 0)
-                self.canvas.coords(guide_info['canvas_item_id'], screen_x, 0, screen_x, self.canvas.winfo_height())
+                self.canvas.coords(guide_info['canvas_item_id'], screen_x, 0, screen_x, self.canvas.winfo_height()) # type: ignore
 
             self.password_manager.record_activity()
             return # Event handled, do not pass to student/furniture drag
@@ -2757,14 +2687,19 @@ class SeatingChartApp:
             if not self.prompt_for_password("Unlock to Open Menu", "Enter password to open context menu:"): return
         self.canvas.focus_set()
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
-        item_canvas_ids_context = self.canvas.find_overlapping(event.x -1, event.y -1, event.x +1, event.y +1) # Screen coords
+        item_canvas_ids_context = self.canvas.find_overlapping(world_event_x -1, world_event_y -1, world_event_x +1, world_event_y +1) # Screen coords
         context_item_id, context_item_type = None, None
         for item_c_id in reversed(item_canvas_ids_context):
             tags = self.canvas.gettags(item_c_id); temp_id, temp_type, is_main_rect = None, None, False
+            i=0
             for tag in tags:
+                
                 if tag.startswith("student_") and tag in self.students: temp_id, temp_type = tag, "student"
                 elif tag.startswith("furniture_") and tag in self.furniture: temp_id, temp_type = tag, "furniture"
+                elif tag.startswith("guide") and self.is_in_guides(tag): temp_id, temp_type = tag, "guide"; context_item_id = "guide"
+                elif tag == ("current"): temp_id, temp_type = tags[i], "guide"; context_item_id = "guide"; print("HI")
                 if "rect" in tag: is_main_rect = True
+                i+=1
             if temp_id and is_main_rect: context_item_id, context_item_type = temp_id, temp_type; break
         if context_item_id:
             if context_item_id not in self.selected_items:
@@ -2773,6 +2708,7 @@ class SeatingChartApp:
                 else: self.draw_single_furniture(context_item_id)
             if context_item_type == "student": self.show_student_context_menu(event, context_item_id)
             elif context_item_type == "furniture": self.show_furniture_context_menu(event, context_item_id)
+            elif context_item_type == "guide" or context_item_id == "current": self.show_guide_context_menu(event, temp_id); print("TRUE!!!!")
         else: self.show_general_context_menu(event)
         self.password_manager.record_activity()
 
@@ -2822,6 +2758,7 @@ class SeatingChartApp:
         context_menu.add_command(label="Select All Furniture", command=self.select_all_furniture)
         context_menu.add_command(label="Select All Items", command=self.select_all_items)
         context_menu.add_command(label="Deselect All", command=self.deselect_all_items)
+        if self.guides != []: context_menu.add_command(label=f"Delete all guides", command=lambda: self.delete_all_guides())
         try: context_menu.tk_popup(event.x_root, event.y_root)
         finally: context_menu.grab_release()
 
@@ -2875,6 +2812,39 @@ class SeatingChartApp:
         context_menu.add_command(label=f"Delete {item_name}", command=lambda: self.delete_furniture_confirm(furniture_id))
         try: context_menu.tk_popup(event.x_root, event.y_root)
         finally: context_menu.grab_release()
+
+    def is_in_guides(self, tag):
+        for guide in self.guides:
+            if guide.get("id") == tag: return True
+        return False
+    def show_guide_context_menu(self, event, guide_id):
+        # ... (updated for homework mode)
+        #if guide_id not in self.guides: return
+        #guide_data = self.guides[guide_id]
+        #print(guide_data)
+        for guide in self.guides:
+            if guide.get("id") == guide_id: guide_data = guide
+            
+        context_menu = tk.Menu(self.canvas, tearoff=0); current_mode = self.mode_var.get()
+        
+        context_menu.add_command(label=f"Delete guide", command=lambda: self.delete_guide(guide_id))
+        context_menu.add_command(label=f"Delete all guides", command=lambda: self.delete_all_guides())
+        try: context_menu.tk_popup(event.x_root, event.y_root)
+        finally: context_menu.grab_release()
+
+    def delete_guide(self, guide_id):
+        self.canvas.delete(guide_id)
+        i=0
+        for guide in self.guides:
+            
+            if guide.get("id") == guide_id: del self.guides[i]
+            i+=1
+        self.password_manager.record_activity()
+
+    def delete_all_guides(self):
+
+        self.canvas.delete(guide.get("id"))
+        self.guides.clear()
 
     def _select_items_by_type(self, item_type_key):
         # ... (same as v51)
@@ -3315,6 +3285,7 @@ class SeatingChartApp:
 
                 self.theme_style_using = self.settings.get("theme", "System") # Newer
                 self.custom_canvas_color = self.settings.get("canvas_color", "Default")
+                self.type_theme = self.settings.get("type_theme", "sv_ttk")
 
                 # Load guides
                 loaded_guides_raw = data.get("guides", []) # Load from "guides" key
@@ -3373,15 +3344,6 @@ class SeatingChartApp:
         
         # Ensure next ID counters are robustly initialized/updated after data load
         self._ensure_next_ids()
-        if self.theme_style_using != "System":
-            try:
-                sv_ttk.set_theme(self.theme_style_using)
-            except: pass
-        else:
-            try:
-                sv_ttk.set_theme(darkdetect.theme())
-            except:
-                pass
         if data_loaded_successfully and not is_restore and file_path is None and \
            (os.path.basename(DATA_FILE) != f"classroom_data_{CURRENT_DATA_VERSION_TAG}.json" or \
             (data_version_from_filename is not None and data_version_from_filename < int(CURRENT_DATA_VERSION_TAG[1:]))):
@@ -5421,8 +5383,13 @@ class SeatingChartApp:
             if self.theme_style_using == "System":
                 sv_ttk.set_theme(darkdetect.theme())
             else:
-                sv_ttk.set_theme(self.theme_style_using)
+                if self.theme_style_using.lower() == "light" or self.theme_style_using.lower() == "dark":
+                    sv_ttk.set_theme(self.theme_style_using)
+                else:
+                    self.theme_style_using = "Light"
+                    sv_ttk.set_theme(self.theme_style_using)
         else:
+            style = ttk.Style(self.root)
             style.theme_use(self.type_theme)
     
     def theme_auto(self, init=False):
@@ -5439,13 +5406,15 @@ class SeatingChartApp:
     def open_settings_dialog(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Open Settings", "Enter password to open settings:"): return
+        style = ttk.Style(self.root)
+        self.styles = style.theme_names()
         # Store a copy of settings for potential revert or detailed change tracking for undo (complex)
         # For now, settings dialog applies changes directly and saves.
         # old_settings_snapshot = self.settings.copy() # For a potential future SettingsChangeCommand
         dialog = SettingsDialog(self.root, self.settings, self.custom_behaviors, self.all_behaviors, self,
                                 self.custom_homework_statuses, self.all_homework_statuses, # Homework log behaviors
                                 self.custom_homework_types, self.all_homework_session_types, # Homework session types (Yes/No mode)
-                                self.password_manager, self.theme_style_using, self.custom_canvas_color)
+                                self.password_manager, self.theme_style_using, self.custom_canvas_color, self.styles, self.type_theme)
         if dialog.settings_changed_flag: # Check if dialog indicated changes
             # Settings are applied directly by the dialog for most parts
             self.save_data_wrapper(source="settings_dialog") # Save all data as settings are part of it
@@ -5744,26 +5713,19 @@ class SeatingChartApp:
                 if dialog.result == "save_quit":
                     self.save_data_wrapper(source="exit_protocol")
                     self.root.destroy()
-                    try:os.remove(os.path.abspath(IMAGENAMEW))
-                    except FileNotFoundError: pass
                     sys.exit(0) # Ensure clean exit
                 elif dialog.result == "no_save_quit":
                     #if self.file_lock_manager: self.file_lock_manager.release_lock()
                     self.update_status("Exited without saving.")
                     self.root.destroy()
-                    try:os.remove(os.path.abspath(IMAGENAMEW))
-                    except FileNotFoundError: pass
+                    
                     sys.exit(0) # Ensure clean exit
             else: # Force quit (e.g. after save_and_quit or if lock fails)
                 self.root.destroy()
-                try:os.remove(os.path.abspath(IMAGENAMEW))
-                except FileNotFoundError: pass
                 sys.exit(0) # Ensure clean exit # Data should have been saved by save_and_quit if called from there
         except Exception as e:
             print(f"Error during exit procedure: {e}") # Log error but proceed with exit
             self.root.destroy()
-            try:os.remove(os.path.abspath(IMAGENAMEW))
-            except FileNotFoundError: pass
             sys.exit(0) # Ensure clean exit
         #finally:
         #    
