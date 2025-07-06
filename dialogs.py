@@ -1294,7 +1294,95 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
 
         # Initialize condition frame based on current/default rule type
         self.on_rule_type_change(None)
+
+        # --- Enable/Disable Rule Checkbox ---
+        self.enabled_var = tk.BooleanVar(value=self.rule.get("enabled", True))
+        ttk.Checkbutton(frame, text="Rule Enabled", variable=self.enabled_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,0))
+
+        # --- Active Times Frame ---
+        times_frame = ttk.LabelFrame(frame, text="Active Times (Optional - if none, active all times)");
+        times_frame.grid(row=4, column=0, columnspan=3, pady=5, sticky=tk.NSEW)
+
+        # Entry for new time slot
+        new_time_slot_frame = ttk.Frame(times_frame)
+        new_time_slot_frame.pack(fill=tk.X, padx=5, pady=5)
+        ttk.Label(new_time_slot_frame, text="Start (HH:MM):").pack(side=tk.LEFT)
+        self.start_time_var = tk.StringVar()
+        ttk.Entry(new_time_slot_frame, textvariable=self.start_time_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Label(new_time_slot_frame, text="End (HH:MM):").pack(side=tk.LEFT, padx=2)
+        self.end_time_var = tk.StringVar()
+        ttk.Entry(new_time_slot_frame, textvariable=self.end_time_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        self.days_vars = [tk.BooleanVar(value=True) for _ in range(7)] # Mon-Sun
+        days_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        days_frame = ttk.Frame(new_time_slot_frame)
+        days_frame.pack(side=tk.LEFT, padx=5)
+        for i, day_name in enumerate(days_names):
+            ttk.Checkbutton(days_frame, text=day_name, variable=self.days_vars[i]).pack(side=tk.LEFT)
+
+        ttk.Button(new_time_slot_frame, text="Add Time Slot", command=self.add_time_slot).pack(side=tk.LEFT, padx=5)
+
+        # Listbox for existing time slots
+        self.times_listbox = tk.Listbox(times_frame, height=3, exportselection=False)
+        self.times_listbox.pack(fill=tk.X, expand=True, padx=5, pady=2)
+        ttk.Button(times_frame, text="Remove Selected Slot", command=self.remove_time_slot).pack(pady=2, padx=5, anchor=tk.W)
+        self._populate_times_listbox()
+
+
+        # --- Active Modes Frame ---
+        modes_frame = ttk.LabelFrame(frame, text="Active Modes (Optional - if none, active in all modes)");
+        modes_frame.grid(row=5, column=0, columnspan=3, pady=5, sticky=tk.NSEW)
+        self.available_modes = ["behavior", "quiz", "homework", "quiz_session", "homework_session"]
+        self.mode_vars = {mode_name: tk.BooleanVar(value=(mode_name in self.rule.get("active_modes", []))) for mode_name in self.available_modes}
+
+        modes_checkbox_frame = ttk.Frame(modes_frame)
+        modes_checkbox_frame.pack(fill=tk.X, padx=5, pady=5)
+        for i, mode_name in enumerate(self.available_modes):
+            ttk.Checkbutton(modes_checkbox_frame, text=mode_name.replace("_", " ").capitalize(), variable=self.mode_vars[mode_name]).grid(row=i//3, column=i%3, sticky=tk.W, padx=5, pady=2)
+
+
         return self.type_combo
+
+    def _populate_times_listbox(self):
+        self.times_listbox.delete(0, tk.END)
+        days_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for slot in self.rule.get("active_times", []):
+            days_str = ", ".join([days_names[i] for i in slot.get("days_of_week", [])])
+            self.times_listbox.insert(tk.END, f"{slot['start_time']} - {slot['end_time']} ({days_str if days_str else 'All Days'})")
+
+    def add_time_slot(self):
+        start_time = self.start_time_var.get().strip()
+        end_time = self.end_time_var.get().strip()
+        try:
+            datetime.strptime(start_time, "%H:%M")
+            datetime.strptime(end_time, "%H:%M")
+            if start_time >= end_time:
+                messagebox.showerror("Invalid Time", "Start time must be before end time.", parent=self)
+                return
+        except ValueError:
+            messagebox.showerror("Invalid Time Format", "Please use HH:MM format for times (e.g., 09:00, 14:30).", parent=self)
+            return
+
+        selected_days = [i for i, var in enumerate(self.days_vars) if var.get()]
+        if not selected_days: # Default to all days if none explicitly selected by user for this new slot
+            selected_days = list(range(7))
+
+        new_slot = {"start_time": start_time, "end_time": end_time, "days_of_week": selected_days}
+
+        if "active_times" not in self.rule: self.rule["active_times"] = []
+        self.rule["active_times"].append(new_slot)
+        self._populate_times_listbox()
+        self.start_time_var.set("")
+        self.end_time_var.set("")
+        for var in self.days_vars: var.set(True) # Reset day checkboxes
+
+    def remove_time_slot(self):
+        selected_indices = self.times_listbox.curselection()
+        if not selected_indices: return
+        # Iterate reversed to avoid index issues when removing multiple
+        for i in reversed(selected_indices):
+            del self.rule["active_times"][i]
+        self._populate_times_listbox()
 
     def choose_color_for_var(self, color_var):
         initial = color_var.get() if color_var.get() else None
@@ -1307,13 +1395,26 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
 
         if rule_type == "group":
             ttk.Label(self.condition_frame, text="Select Group:").pack(side=tk.LEFT, padx=5)
-            self.group_var = tk.StringVar(value=self.rule.get("group_id", ""))
-            group_names = {gid: gdata["name"] for gid, gdata in self.app.student_groups.items()}
-            self.group_id_map_cond = {name: gid for gid, name in group_names.items()} # name to id
-            self.group_combo_cond = ttk.Combobox(self.condition_frame, textvariable=self.group_var,
-                                            values=[""] + sorted(group_names.values()), state="readonly", width=20)
-            if self.rule.get("group_id") and self.rule["group_id"] in self.app.student_groups:
-                 self.group_var.set(self.app.student_groups[self.rule["group_id"]]["name"])
+            self.group_id_selection_var = tk.StringVar() # Stores the group ID
+
+            group_options_display = {"": "Select Group..."} # Display name -> ID
+            for gid, gdata in sorted(self.app.student_groups.items(), key=lambda item: item[1]['name']):
+                group_options_display[gdata['name']] = gid
+
+            self.group_combo_cond = ttk.Combobox(self.condition_frame, textvariable=self.group_id_selection_var,
+                                                 values=list(group_options_display.keys()), state="readonly", width=20)
+
+            # Set initial value for combobox (display name)
+            current_group_id_in_rule = self.rule.get("group_id")
+            display_name_to_set = "Select Group..."
+            for name, gid_map in group_options_display.items():
+                if gid_map == current_group_id_in_rule:
+                    display_name_to_set = name
+                    break
+            self.group_id_selection_var.set(display_name_to_set) # Set the display name
+
+            # Store the map for apply method
+            self.group_display_to_id_map = group_options_display
             self.group_combo_cond.pack(side=tk.LEFT, padx=5)
 
         elif rule_type == "behavior_count":
@@ -1705,7 +1806,192 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
         # Changes were made directly to self.all_students (app.students)
         # The self.assignments_changed flag will be checked by the parent dialog
         pass
-    
+
+class BulkEditConditionalRulesDialog(simpledialog.Dialog):
+    def __init__(self, parent, app, rules_being_edited_copies, original_indices):
+        self.app = app
+        self.rules_copies = rules_being_edited_copies # These are copies
+        self.original_indices = original_indices     # Indices into app.settings["conditional_formatting_rules"]
+        self.changes_applied_flag = False
+
+        # Vars for UI choices
+        self.enabled_action_var = tk.StringVar(value="no_change") # no_change, set_enabled, set_disabled
+
+        self.times_action_var = tk.StringVar(value="no_change") # no_change, replace, add, clear
+        self.new_active_times_for_bulk = [] # List of time slots defined in this dialog
+        self.bulk_start_time_var = tk.StringVar()
+        self.bulk_end_time_var = tk.StringVar()
+        self.bulk_days_vars = [tk.BooleanVar(value=True) for _ in range(7)]
+
+        self.modes_action_var = tk.StringVar(value="no_change") # no_change, replace, add_selected, remove_selected, clear
+        self.available_modes_for_bulk = ["behavior", "quiz", "homework", "quiz_session", "homework_session"]
+        self.bulk_mode_vars = {mode_name: tk.BooleanVar(value=False) for mode_name in self.available_modes_for_bulk}
+
+        super().__init__(parent, f"Bulk Edit {len(self.rules_copies)} Conditional Rules")
+
+    def body(self, master):
+        main_frame = ttk.Frame(master); main_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        notebook = ttk.Notebook(main_frame); notebook.pack(fill=tk.BOTH, expand=True)
+
+        # --- Enabled Tab ---
+        enabled_tab = ttk.Frame(notebook); notebook.add(enabled_tab, text="Enabled Status")
+        ttk.Radiobutton(enabled_tab, text="Make no change to 'Enabled' status", variable=self.enabled_action_var, value="no_change").pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(enabled_tab, text="Set ALL selected rules to ENABLED", variable=self.enabled_action_var, value="set_enabled").pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(enabled_tab, text="Set ALL selected rules to DISABLED", variable=self.enabled_action_var, value="set_disabled").pack(anchor=tk.W, pady=2)
+
+        # --- Active Times Tab ---
+        times_tab = ttk.Frame(notebook); notebook.add(times_tab, text="Active Times")
+        ttk.Radiobutton(times_tab, text="Make no change to 'Active Times'", variable=self.times_action_var, value="no_change", command=self._toggle_times_ui).pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(times_tab, text="REPLACE existing time slots with the new set below", variable=self.times_action_var, value="replace", command=self._toggle_times_ui).pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(times_tab, text="ADD the new set below to each rule's existing time slots", variable=self.times_action_var, value="add", command=self._toggle_times_ui).pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(times_tab, text="CLEAR all time slots from selected rules", variable=self.times_action_var, value="clear", command=self._toggle_times_ui).pack(anchor=tk.W, pady=2)
+
+        self.bulk_times_def_frame = ttk.LabelFrame(times_tab, text="Define New Time Slot(s) for Bulk Operation")
+        self.bulk_times_def_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        new_ts_frame_bulk = ttk.Frame(self.bulk_times_def_frame)
+        new_ts_frame_bulk.pack(fill=tk.X, padx=5, pady=5)
+        ttk.Label(new_ts_frame_bulk, text="Start (HH:MM):").pack(side=tk.LEFT)
+        ttk.Entry(new_ts_frame_bulk, textvariable=self.bulk_start_time_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Label(new_ts_frame_bulk, text="End (HH:MM):").pack(side=tk.LEFT, padx=2)
+        ttk.Entry(new_ts_frame_bulk, textvariable=self.bulk_end_time_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        bulk_days_frame = ttk.Frame(new_ts_frame_bulk)
+        bulk_days_frame.pack(side=tk.LEFT, padx=5)
+        days_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for i, day_name in enumerate(days_names):
+            ttk.Checkbutton(bulk_days_frame, text=day_name, variable=self.bulk_days_vars[i]).pack(side=tk.LEFT)
+        ttk.Button(new_ts_frame_bulk, text="Add to New Set", command=self._bulk_add_time_slot_to_list).pack(side=tk.LEFT, padx=5)
+
+        self.bulk_times_listbox = tk.Listbox(self.bulk_times_def_frame, height=3, exportselection=False)
+        self.bulk_times_listbox.pack(fill=tk.X, expand=True, padx=5, pady=2)
+        ttk.Button(self.bulk_times_def_frame, text="Remove from New Set", command=self._bulk_remove_time_slot_from_list).pack(pady=2, padx=5, anchor=tk.W)
+
+        # --- Active Modes Tab ---
+        modes_tab = ttk.Frame(notebook); notebook.add(modes_tab, text="Active Modes")
+        ttk.Radiobutton(modes_tab, text="Make no change to 'Active Modes'", variable=self.modes_action_var, value="no_change", command=self._toggle_modes_ui).pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(modes_tab, text="REPLACE existing active modes with the selection below", variable=self.modes_action_var, value="replace", command=self._toggle_modes_ui).pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(modes_tab, text="ADD selected modes to each rule's existing active modes", variable=self.modes_action_var, value="add_selected", command=self._toggle_modes_ui).pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(modes_tab, text="REMOVE selected modes from each rule's existing active modes", variable=self.modes_action_var, value="remove_selected", command=self._toggle_modes_ui).pack(anchor=tk.W, pady=2)
+        ttk.Radiobutton(modes_tab, text="CLEAR all active modes from selected rules", variable=self.modes_action_var, value="clear", command=self._toggle_modes_ui).pack(anchor=tk.W, pady=2)
+
+        self.bulk_modes_selection_frame = ttk.LabelFrame(modes_tab, text="Select Modes for Bulk Operation")
+        self.bulk_modes_selection_frame.pack(fill=tk.X, padx=5, pady=5)
+        bulk_modes_cb_frame = ttk.Frame(self.bulk_modes_selection_frame)
+        bulk_modes_cb_frame.pack(fill=tk.X, padx=5, pady=5)
+        for i, mode_name in enumerate(self.available_modes_for_bulk):
+            ttk.Checkbutton(bulk_modes_cb_frame, text=mode_name.replace("_", " ").capitalize(), variable=self.bulk_mode_vars[mode_name]).grid(row=i//3, column=i%3, sticky=tk.W, padx=5, pady=2)
+
+        self._toggle_times_ui() # Initial UI state
+        self._toggle_modes_ui() # Initial UI state
+        return main_frame
+
+    def _toggle_times_ui(self):
+        action = self.times_action_var.get()
+        state = tk.NORMAL if action in ["replace", "add"] else tk.DISABLED
+        for child in self.bulk_times_def_frame.winfo_children():
+            try: child.config(state=state)
+            except tk.TclError: pass # Some widgets like LabelFrame itself might not have state
+        if state == tk.DISABLED:
+            self.bulk_times_listbox.config(state=tk.DISABLED)
+        else:
+            self.bulk_times_listbox.config(state=tk.NORMAL)
+
+
+    def _toggle_modes_ui(self):
+        action = self.modes_action_var.get()
+        state = tk.NORMAL if action in ["replace", "add_selected", "remove_selected"] else tk.DISABLED
+        for child in self.bulk_modes_selection_frame.winfo_children():
+            # Iterate through checkboxes inside the checkbox frame
+            if isinstance(child, ttk.Frame): # This is bulk_modes_cb_frame
+                for cb in child.winfo_children():
+                    try: cb.config(state=state)
+                    except tk.TclError: pass
+            else: # Other direct children like the LabelFrame title (which has no state)
+                pass
+
+
+    def _bulk_add_time_slot_to_list(self):
+        start_time = self.bulk_start_time_var.get().strip()
+        end_time = self.bulk_end_time_var.get().strip()
+        try:
+            datetime.strptime(start_time, "%H:%M"); datetime.strptime(end_time, "%H:%M")
+            if start_time >= end_time: messagebox.showerror("Invalid Time", "Start time must be before end time.", parent=self); return
+        except ValueError: messagebox.showerror("Invalid Time Format", "Use HH:MM.", parent=self); return
+
+        selected_days = [i for i, var in enumerate(self.bulk_days_vars) if var.get()]
+        if not selected_days: selected_days = list(range(7))
+
+        new_slot = {"start_time": start_time, "end_time": end_time, "days_of_week": selected_days}
+        self.new_active_times_for_bulk.append(new_slot)
+        self._refresh_bulk_times_listbox()
+        self.bulk_start_time_var.set(""); self.bulk_end_time_var.set("")
+        for var in self.bulk_days_vars: var.set(True)
+
+    def _bulk_remove_time_slot_from_list(self):
+        sel = self.bulk_times_listbox.curselection()
+        if not sel: return
+        for i in reversed(sel): del self.new_active_times_for_bulk[i]
+        self._refresh_bulk_times_listbox()
+
+    def _refresh_bulk_times_listbox(self):
+        self.bulk_times_listbox.delete(0, tk.END)
+        days_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for slot in self.new_active_times_for_bulk:
+            days_str = ", ".join([days_names[i] for i in slot.get("days_of_week", [])])
+            self.bulk_times_listbox.insert(tk.END, f"{slot['start_time']} - {slot['end_time']} ({days_str})")
+
+    def apply(self):
+        # Apply changes to the original rules in app.settings
+        # The self.rules_copies were just for initial display/safety, not directly modified.
+
+        enabled_action = self.enabled_action_var.get()
+        times_action = self.times_action_var.get()
+        modes_action = self.modes_action_var.get()
+
+        selected_modes_for_op = [mode for mode, var in self.bulk_mode_vars.items() if var.get()]
+
+        for rule_idx in self.original_indices:
+            rule_in_settings = self.app.settings["conditional_formatting_rules"][rule_idx]
+            self.changes_applied_flag = True # Assume a change is made if apply is called from OK
+
+            # Enabled status
+            if enabled_action == "set_enabled": rule_in_settings["enabled"] = True
+            elif enabled_action == "set_disabled": rule_in_settings["enabled"] = False
+            # else "no_change"
+
+            # Active Times
+            if times_action == "replace":
+                rule_in_settings["active_times"] = [ts.copy() for ts in self.new_active_times_for_bulk]
+            elif times_action == "add":
+                if "active_times" not in rule_in_settings: rule_in_settings["active_times"] = []
+                for new_slot in self.new_active_times_for_bulk:
+                    if new_slot not in rule_in_settings["active_times"]: # Avoid duplicates if desired
+                        rule_in_settings["active_times"].append(new_slot.copy())
+            elif times_action == "clear":
+                rule_in_settings["active_times"] = []
+            # else "no_change"
+
+            # Active Modes
+            current_rule_modes = set(rule_in_settings.get("active_modes", []))
+            if modes_action == "replace":
+                rule_in_settings["active_modes"] = selected_modes_for_op.copy()
+            elif modes_action == "add_selected":
+                current_rule_modes.update(selected_modes_for_op)
+                rule_in_settings["active_modes"] = list(current_rule_modes)
+            elif modes_action == "remove_selected":
+                current_rule_modes.difference_update(selected_modes_for_op)
+                rule_in_settings["active_modes"] = list(current_rule_modes)
+            elif modes_action == "clear":
+                rule_in_settings["active_modes"] = []
+            # else "no_change"
+
+        # If no actual changes were made by any of the operations,
+        # the self.changes_applied_flag might be set too eagerly.
+        # A more robust check would compare original rules with final state.
+        # For now, if user clicks OK, we assume intent to change if actions were selected.
+
+
 # --- Main Execution ---
 if __name__ == "__main__":
     root = tk.Tk()

@@ -158,6 +158,20 @@ class Command:
     def undo(self): raise NotImplementedError
     def to_dict(self): return {'type': self.__class__.__name__, 'timestamp': self.timestamp, 'data': self._get_data_for_serialization()}
     def _get_data_for_serialization(self): raise NotImplementedError
+
+    def get_description(self):
+        """Returns a user-friendly description of the command."""
+        # Attempt to format timestamp for better readability if it's a valid ISO string
+        try:
+            dt_obj = datetime.fromisoformat(self.timestamp)
+            # Example: "MoveItemsCommand (01/25 14:35:02)"
+            # You can customize the strftime format as needed
+            time_str = dt_obj.strftime("%m/%d %H:%M:%S")
+            return f"{self.__class__.__name__} ({time_str})"
+        except (ValueError, TypeError): # Fallback if timestamp is not a valid ISO string
+            return f"{self.__class__.__name__} (Timestamp: {self.timestamp})"
+
+
     @classmethod
     def from_dict(cls, app, data_dict):
         command_type_name = data_dict['type']
@@ -201,6 +215,8 @@ class MoveItemsCommand(Command):
     def _get_data_for_serialization(self): return {'items_moves': self.items_moves}
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp): return cls(app, data['items_moves'], timestamp)
+    def get_description(self):
+        return f"Move {len(self.items_moves)} item(s)"
 
 class AddItemCommand(Command):
     def __init__(self, app, item_id, item_type, item_data, old_next_id_num, timestamp=None):
@@ -239,6 +255,9 @@ class AddItemCommand(Command):
     def _get_data_for_serialization(self): return {'item_id': self.item_id, 'item_type': self.item_type, 'item_data': self.item_data, 'old_next_id_num': self.old_next_id_num}
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp): return cls(app, data['item_id'], data['item_type'], data['item_data'], data['old_next_id_num'], timestamp)
+    def get_description(self):
+        item_name = self.item_data.get('full_name', self.item_data.get('name', self.item_id))
+        return f"Add {self.item_type}: {item_name}"
 
 class DeleteItemCommand(Command):
     def __init__(self, app, item_id, item_type, item_data, associated_logs=None, timestamp=None):
@@ -305,6 +324,9 @@ class DeleteItemCommand(Command):
         cmd = cls(app, data['item_id'], data['item_type'], data['item_data'], data.get('associated_logs'), timestamp)
         cmd.associated_homework_logs = data.get('associated_homework_logs', []) # Deserialize homework logs
         return cmd
+    def get_description(self):
+        item_name = self.item_data.get('full_name', self.item_data.get('name', self.item_id))
+        return f"Delete {self.item_type}: {item_name}"
 
 class LogEntryCommand(Command): # For Behavior and Quiz logs
     def __init__(self, app, log_entry, student_id, timestamp=None):
@@ -341,6 +363,11 @@ class LogEntryCommand(Command): # For Behavior and Quiz logs
     def _get_data_for_serialization(self): return {'log_entry': self.log_entry, 'student_id': self.student_id}
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp): return cls(app, data['log_entry'], data['student_id'], timestamp)
+    def get_description(self):
+        student_name = self.log_entry.get('student_first_name', 'Unknown')
+        log_type = self.log_entry.get("type", "log").capitalize()
+        behavior = self.log_entry.get("behavior", "entry")
+        return f"Log {log_type}: '{behavior}' for {student_name}"
 
 class LogHomeworkEntryCommand(Command): # New for Homework logs
     def __init__(self, app, log_entry, student_id, timestamp=None):
@@ -376,7 +403,10 @@ class LogHomeworkEntryCommand(Command): # New for Homework logs
     def _get_data_for_serialization(self): return {'log_entry': self.log_entry, 'student_id': self.student_id}
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp): return cls(app, data['log_entry'], data['student_id'], timestamp)
-
+    def get_description(self):
+        student_name = self.log_entry.get('student_first_name', 'Unknown')
+        hw_type = self.log_entry.get("homework_type", self.log_entry.get("behavior", "entry"))
+        return f"Log Homework: '{hw_type}' for {student_name}"
 
 class EditItemCommand(Command):
     def __init__(self, app, item_id, item_type, old_item_data, new_item_data_changes, timestamp=None):
@@ -418,6 +448,10 @@ class EditItemCommand(Command):
     def _from_serializable_data(cls, app, data, timestamp):
         return cls(app, data['item_id'], data['item_type'],
                    data['old_item_data_snapshot'], data['new_item_data_changes'], timestamp)
+    def get_description(self):
+        item_name = self.old_item_data_snapshot.get('full_name', self.old_item_data_snapshot.get('name', self.item_id))
+        changed_keys = ", ".join(self.new_item_data_changes.keys())
+        return f"Edit {self.item_type}: {item_name} (Fields: {changed_keys})"
 
 class ChangeItemsSizeCommand(Command):
     def __init__(self, app, items_sizes_changes, timestamp=None):
@@ -457,6 +491,8 @@ class ChangeItemsSizeCommand(Command):
     def _get_data_for_serialization(self): return {'items_sizes_changes': self.items_sizes_changes}
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp): return cls(app, data['items_sizes_changes'], timestamp)
+    def get_description(self):
+        return f"Resize {len(self.items_sizes_changes)} item(s)"
 
 class MarkLiveQuizQuestionCommand(Command):
     def __init__(self, app, student_id, action_taken, timestamp=None):
@@ -499,6 +535,9 @@ class MarkLiveQuizQuestionCommand(Command):
         cmd = cls(app, data['student_id'], data['action_taken'], timestamp)
         cmd.previous_student_score_state = data.get('previous_student_score_state')
         return cmd
+    def get_description(self):
+        student_name = self.app.students.get(self.student_id, {}).get('first_name', 'Unknown')
+        return f"Mark Quiz: {self.action_taken} for {student_name}"
 
 class MarkLiveHomeworkCommand(Command): # New for Live Homework
     def __init__(self, app, student_id, homework_actions, session_mode, timestamp=None):
@@ -551,7 +590,14 @@ class MarkLiveHomeworkCommand(Command): # New for Live Homework
         cmd = cls(app, data['student_id'], data['homework_actions'], data['session_mode'], timestamp)
         cmd.previous_homework_state = data.get('previous_homework_state')
         return cmd
-
+    def get_description(self):
+        student_name = self.app.students.get(self.student_id, {}).get('first_name', 'Unknown')
+        action_summary = ""
+        if self.session_mode == "Yes/No":
+            action_summary = ", ".join(f"{k}:{v}" for k,v in self.homework_actions.items())
+        elif self.session_mode == "Select":
+            action_summary = ", ".join(self.homework_actions)
+        return f"Mark HW ({self.session_mode}): {action_summary} for {student_name}"
 
 class ChangeStudentStyleCommand(Command):
     def __init__(self, app, student_id, style_property, old_value, new_value, timestamp=None):
@@ -589,6 +635,9 @@ class ChangeStudentStyleCommand(Command):
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp):
         return cls(app, data['student_id'], data['style_property'], data['old_value'], data['new_value'], timestamp)
+    def get_description(self):
+        student_name = self.app.students.get(self.student_id, {}).get('first_name', 'Unknown')
+        return f"Style Change: {self.style_property} for {student_name}"
 
 class ManageStudentGroupCommand(Command):
     def __init__(self, app, old_groups_snapshot, new_groups_snapshot,
@@ -639,6 +688,8 @@ class ManageStudentGroupCommand(Command):
         return cls(app, data['old_groups_snapshot'], data['new_groups_snapshot'],
                    data['old_student_group_assignments'], data['new_student_group_assignments'],
                    data['old_next_group_id_num'], data['new_next_group_id_num'], timestamp)
+    def get_description(self):
+        return "Manage Student Groups"
 
 # --- Main Execution ---
 if __name__ == "__main__":

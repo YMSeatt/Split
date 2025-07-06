@@ -194,6 +194,31 @@ MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 MASTER_RECOVERY_PASSWORD_HASH = "d3c01af653d8940fc36ea1e1f33a8dc03f47dd864d2cd0d8814e2643fa37e70de0a2228e58d7d591eb2f124e2f4f9ff7c98686f4f5da3de6bbfc0267db3c1a0e" # SHA256 of "RecoverMyData123!"
 #Recovery1Master2Password!Jaffe1
 
+def levenshtein_distance(s1, s2):
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+def name_similarity_ratio(s1, s2):
+    """Calculates similarity ratio between 0 and 1 based on Levenshtein distance."""
+    if not s1 and not s2: return 1.0 # Both empty
+    if not s1 or not s2: return 0.0   # One empty
+    distance = levenshtein_distance(s1.lower(), s2.lower())
+    max_len = max(len(s1), len(s2))
+    if max_len == 0: return 1.0 # Should be caught by above, but defensive
+    return 1.0 - (distance / max_len)
+
 # --- Main Application Class ---
 class SeatingChartApp:
     def __init__(self, root_window):
@@ -432,7 +457,18 @@ class SeatingChartApp:
             "homework_initial_overrides": {}, # New for homework display initials
             "current_mode": "behavior", # "behavior", "quiz", or "homework"
             "max_undo_history_days": MAX_UNDO_HISTORY_DAYS,
-            "conditional_formatting_rules": [],
+            "conditional_formatting_rules": [], # Each rule will be a dict. See ConditionalFormattingRuleDialog
+            # Example rule:
+            # {
+            #  "type": "group", "group_id": "group_1", "color": "#FF0000", "outline": "#AA0000",
+            #  "enabled": True, "active_times": [], "active_modes": []
+            # }
+            # {
+            #  "type": "behavior_count", "behavior_name": "Talking", "count_threshold": 3, "time_window_hours": 2,
+            #  "color": "#FFFF00", "outline": null,
+            #  "enabled": True, "active_times": [{"start_time": "09:00", "end_time": "10:30", "days_of_week": [0,1,2,3,4]}],
+            #  "active_modes": ["behavior"]
+            # }
             "student_groups_enabled": True,
             "show_zoom_level_display": True,
             "available_fonts": sorted(list(tkfont.families())),
@@ -710,6 +746,17 @@ class SeatingChartApp:
         self.root.bind_all("<Control-Q>", lambda event: self.save_and_quit_app())
         self.root.bind_all("<Control-z>", lambda event: self.undo_last_action())
         self.root.bind_all("<Control-y>", lambda event: self.redo_last_action())
+        self.root.bind_all("<Control-Shift-Z>", lambda event: self.redo_last_action()) # Common alternative for redo
+
+        # Edit Menu (for Undo History)
+        self.edit_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Edit")
+        self.edit_menu = tk.Menu(self.edit_menu_btn, tearoff=0)
+        self.edit_menu.add_command(label="Undo", command=self.undo_last_action, accelerator="Ctrl+Z")
+        self.edit_menu.add_command(label="Redo", command=self.redo_last_action, accelerator="Ctrl+Y")
+        self.edit_menu.add_separator()
+        self.edit_menu.add_command(label="Show Undo History...", command=self.show_undo_history_dialog)
+        self.edit_menu_btn["menu"] = self.edit_menu
+        self.edit_menu_btn.pack(side=tk.LEFT, padx=2)
 
         self.export_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Export Log"); self.export_menu = tk.Menu(self.export_menu_btn, tearoff=0)
         self.export_menu.add_command(label="To Excel (.xlsx)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsx"))
@@ -1282,6 +1329,46 @@ class SeatingChartApp:
         student_data = self.students.get(student_id)
         if not student_data: return False # Student data is essential
 
+        # Preliminary checks based on new rule fields
+        if not rule.get("enabled", True): # Default to enabled if key is missing (should be set by load_data)
+            return False
+
+        # Check active_modes
+        active_modes = rule.get("active_modes", [])
+        if active_modes: # If list is not empty, mode must match
+            current_app_mode = self.mode_var.get() # "behavior", "quiz", "homework"
+            effective_mode = current_app_mode # Base mode
+
+            # Determine more specific "session" modes
+            if current_app_mode == "quiz" and self.is_live_quiz_active:
+                effective_mode = "quiz_session"
+            elif current_app_mode == "homework" and self.is_live_homework_active:
+                effective_mode = "homework_session"
+
+            if effective_mode not in active_modes:
+                return False
+
+        # Check active_times
+        active_times = rule.get("active_times", [])
+        if active_times: # If list is not empty, time must match
+            now = datetime.now()
+            current_time_str = now.strftime("%H:%M")
+            current_day_of_week = now.weekday() # Monday is 0 and Sunday is 6
+
+            time_match_found = False
+            for time_slot in active_times:
+                slot_days = time_slot.get("days_of_week", list(range(7))) # Default to all days if not specified
+                if current_day_of_week in slot_days:
+                    start_time_str = time_slot.get("start_time")
+                    end_time_str = time_slot.get("end_time")
+                    if start_time_str and end_time_str:
+                        if start_time_str <= current_time_str < end_time_str:
+                            time_match_found = True
+                            break
+            if not time_match_found:
+                return False
+
+        # If all preliminary checks passed, proceed to rule-specific logic
         rule_type = rule.get("type")
 
         # --- Live Session Conditional Formatting Rules ---
@@ -1289,55 +1376,39 @@ class SeatingChartApp:
             if not self.is_live_quiz_active or student_id not in self.live_quiz_scores:
                 return False
             student_live_score = self.live_quiz_scores[student_id]
-            # MarkLiveQuizQuestionCommand stores the mark_id in 'last_response_details'
-            last_response_mark_id = student_live_score.get("last_response_details")
+            last_response_mark_id = student_live_score.get("last_response_details") # Assuming this is set by MarkLiveQuizQuestionCommand
             if not last_response_mark_id: return False
 
-            # Map mark_id to "Correct" or "Incorrect" based on quiz_mark_types settings
-            # This assumes 'Correct'/'Incorrect' are the values stored in the rule by the dialog.
             effective_response_type = ""
             for mt in self.settings.get("quiz_mark_types", []):
                 if mt["id"] == last_response_mark_id:
-                    # Heuristic: if "correct" or "bonus" in ID or name, it's "Correct"
-                    # if "incorrect" in ID or name, it's "Incorrect"
-                    # This might need refinement if mark types are very custom.
                     if "correct" in mt["name"].lower() or "bonus" in mt["name"].lower() or \
                        (mt.get("default_points", 0) > 0 and not mt.get("is_extra_credit", False)) or \
-                       (mt.get("default_points", 0) > 0 and mt.get("is_extra_credit", True)): # Treat bonus as correct for coloring
+                       (mt.get("default_points", 0) > 0 and mt.get("is_extra_credit", True)):
                         effective_response_type = "Correct"
-                    elif "incorrect" in mt["name"].lower() or mt.get("default_points", 0) == 0 : # Treat 0 points as incorrect
+                    elif "incorrect" in mt["name"].lower() or mt.get("default_points", 0) == 0:
                          effective_response_type = "Incorrect"
                     break
 
-            rule_quiz_response = rule.get("quiz_response") # "Correct" or "Incorrect"
-            if effective_response_type and rule_quiz_response and effective_response_type == rule_quiz_response:
-                return True
-            return False
+            rule_quiz_response = rule.get("quiz_response")
+            return bool(effective_response_type and rule_quiz_response and effective_response_type == rule_quiz_response)
 
         elif rule_type == "live_homework_yes_no":
             if not self.is_live_homework_active or self.settings.get("live_homework_session_mode") != "Yes/No" or \
                student_id not in self.live_homework_scores:
                 return False
-
-            student_hw_data = self.live_homework_scores.get(student_id, {}) # e.g., {hw_type_id: "yes"}
+            student_hw_data = self.live_homework_scores.get(student_id, {})
             rule_hw_type_id = rule.get("homework_type_id")
-            rule_hw_response = rule.get("homework_response") # "yes" or "no"
-
-            if rule_hw_type_id in student_hw_data and student_hw_data[rule_hw_type_id] == rule_hw_response:
-                return True
-            return False
+            rule_hw_response = rule.get("homework_response")
+            return bool(rule_hw_type_id in student_hw_data and student_hw_data[rule_hw_type_id] == rule_hw_response)
 
         elif rule_type == "live_homework_select":
             if not self.is_live_homework_active or self.settings.get("live_homework_session_mode") != "Select" or \
                student_id not in self.live_homework_scores:
                 return False
-
-            student_hw_data = self.live_homework_scores.get(student_id, {}) # e.g., {"selected_options": ["Done", "Signed"]}
+            student_hw_data = self.live_homework_scores.get(student_id, {})
             rule_option_name = rule.get("homework_option_name")
-
-            if "selected_options" in student_hw_data and rule_option_name in student_hw_data["selected_options"]:
-                return True
-            return False
+            return bool("selected_options" in student_hw_data and rule_option_name in student_hw_data["selected_options"])
 
         # --- Standard Conditional Formatting Rules (Non-Live Session) ---
         if rule_type == "behavior_count":
@@ -3346,6 +3417,13 @@ class SeatingChartApp:
         # Ensure essential settings are present if a very old or corrupted file was loaded
         for key, value in default_settings_copy.items():
             if key not in self.settings: self.settings[key] = value
+
+        # Specifically ensure new conditional formatting rule fields have defaults
+        if "conditional_formatting_rules" in self.settings:
+            for rule in self.settings["conditional_formatting_rules"]:
+                rule.setdefault("enabled", True)
+                rule.setdefault("active_times", [])
+                rule.setdefault("active_modes", [])
         
         # Ensure next ID counters are robustly initialized/updated after data load
         self._ensure_next_ids()
@@ -4899,11 +4977,23 @@ class SeatingChartApp:
             filename = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in template_name.strip()) + ".json"
             file_path = os.path.join(LAYOUT_TEMPLATES_DIR, filename)
             layout_data = {
-                "students": {sid: {"x": s["x"], "y": s["y"], "width": s.get("width"), "height": s.get("height"),
-                                   "style_overrides": s.get("style_overrides",{}).copy()}
-                             for sid, s in self.students.items()},
-                "furniture": {fid: {"x": f["x"], "y": f["y"], "width": f.get("width"), "height": f.get("height")}
-                              for fid, f in self.furniture.items()}
+                "students": {
+                    sid: {
+                        "x": s["x"], "y": s["y"],
+                        "width": s.get("width"), "height": s.get("height"),
+                        "style_overrides": s.get("style_overrides",{}).copy(),
+                        # Add name details for robust loading
+                        "first_name": s.get("first_name", ""),
+                        "last_name": s.get("last_name", ""),
+                        "nickname": s.get("nickname", "")
+                    } for sid, s in self.students.items()
+                },
+                "furniture": {
+                    fid: {
+                        "x": f["x"], "y": f["y"],
+                        "width": f.get("width"), "height": f.get("height")
+                    } for fid, f in self.furniture.items()
+                }
             }
             try:
                 with open(file_path, 'w', encoding='utf-8') as f: json.dump(layout_data, f, indent=4)
@@ -4930,55 +5020,161 @@ class SeatingChartApp:
                     template_students = template_data.get("students", {})
                     template_furniture = template_data.get("furniture", {})
 
-                    for item_id, t_data in template_students.items():
-                        if item_id in self.students:
-                            s_current = self.students[item_id]
+                    applied_count = 0
+                    skipped_count = 0
+                    name_match_log = []
+
+                    for template_student_id, t_stud_data in template_students.items():
+                        target_student_id = None
+                        s_current = None
+
+                        # 1. Primary Match: ID
+                        if template_student_id in self.students:
+                            target_student_id = template_student_id
+                            s_current = self.students[target_student_id]
+                        else:
+                            # 2. Secondary Match: Name (first, last, then nickname for disambiguation)
+                            t_first = t_stud_data.get("first_name", "").lower()
+                            t_last = t_stud_data.get("last_name", "").lower()
+                            t_nick = t_stud_data.get("nickname", "").lower()
+
+                            if not t_first or not t_last: # Cannot match by name if essential parts are missing
+                                name_match_log.append(f"Skipped template student (ID: {template_student_id}, Name: {t_stud_data.get('full_name', 'N/A')}) due to missing name components in template.")
+                                skipped_count +=1
+                                continue
+
+                            potential_matches = []
+                            for c_sid, c_sdata in self.students.items():
+                                if c_sdata.get("first_name", "").lower() == t_first and \
+                                   c_sdata.get("last_name", "").lower() == t_last:
+                                    potential_matches.append(c_sid)
+
+                            if len(potential_matches) == 1:
+                                target_student_id = potential_matches[0]
+                                s_current = self.students[target_student_id]
+                                name_match_log.append(f"Matched template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} to classroom's {s_current['full_name']} by name.")
+                            elif len(potential_matches) > 1:
+                                # Attempt disambiguation with nickname
+                                if t_nick:
+                                    final_matches = [pid for pid in potential_matches if self.students[pid].get("nickname","").lower() == t_nick]
+                                    if len(final_matches) == 1:
+                                        target_student_id = final_matches[0]
+                                        s_current = self.students[target_student_id]
+                                        name_match_log.append(f"Matched template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} ({t_nick}) to classroom's {s_current['full_name']} by exact name & nickname.")
+                                    else: # No exact nickname match, or multiple after filtering by nickname
+                                        name_match_log.append(f"Ambiguous exact name match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} (Nickname: {t_nick}). Found {len(potential_matches)} with same first/last, {len(final_matches)} after nickname filter. Trying fuzzy match.")
+                                        # Proceed to fuzzy matching for these potential_matches if final_matches was not unique
+                                        potential_matches_for_fuzzy = final_matches if t_nick and final_matches else potential_matches
+                                        # Fall through to fuzzy matching logic below if no unique exact match yet
+                                else: # No nickname in template to disambiguate exact first/last name matches
+                                    name_match_log.append(f"Ambiguous exact name match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')}. Found {len(potential_matches)} classroom students. Trying fuzzy match.")
+                                    # Fall through to fuzzy matching logic below
+
+                            # Fuzzy Matching Stage (if no unique exact match by ID or full name + nickname)
+                            if not target_student_id: # Only if we haven't found a target yet
+                                fuzzy_matches = []
+                                # If potential_matches had some exact first/last name hits, fuzzy match within that subset first
+                                students_to_search_fuzzy = [self.students[pid] for pid in potential_matches] if potential_matches else list(self.students.values())
+
+                                for c_sdata_fuzzy in students_to_search_fuzzy:
+                                    # Construct full names for comparison
+                                    template_full_name_for_fuzzy = f"{t_first} {t_last}"
+                                    classroom_full_name_for_fuzzy = f"{c_sdata_fuzzy.get('first_name','').lower()} {c_sdata_fuzzy.get('last_name','').lower()}"
+
+                                    similarity = name_similarity_ratio(template_full_name_for_fuzzy, classroom_full_name_for_fuzzy)
+
+                                    if similarity >= 0.85: # Similarity threshold
+                                        fuzzy_matches.append({"id": c_sdata_fuzzy["id"], "similarity": similarity, "data": c_sdata_fuzzy})
+
+                                if fuzzy_matches:
+                                    fuzzy_matches.sort(key=lambda x: x["similarity"], reverse=True) # Sort by best match
+
+                                    if len(fuzzy_matches) == 1 or fuzzy_matches[0]["similarity"] > fuzzy_matches[1]["similarity"] + 0.05: # Unique best fuzzy match or significantly better
+                                        best_fuzzy_match = fuzzy_matches[0]
+                                        target_student_id = best_fuzzy_match["id"]
+                                        s_current = self.students[target_student_id]
+                                        name_match_log.append(f"Fuzzy matched template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} to classroom's {s_current['full_name']} (Similarity: {best_fuzzy_match['similarity']:.2f}).")
+                                    else: # Multiple good fuzzy matches, try nickname disambiguation again
+                                        if t_nick:
+                                            final_fuzzy_nick_matches = [fm for fm in fuzzy_matches if fm["data"].get("nickname","").lower() == t_nick and fm["similarity"] >=0.85]
+                                            if len(final_fuzzy_nick_matches) == 1:
+                                                target_student_id = final_fuzzy_nick_matches[0]["id"]
+                                                s_current = self.students[target_student_id]
+                                                name_match_log.append(f"Fuzzy matched (with nickname) template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} ({t_nick}) to classroom's {s_current['full_name']} (Similarity: {final_fuzzy_nick_matches[0]['similarity']:.2f}).")
+                                            else:
+                                                name_match_log.append(f"Ambiguous fuzzy match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} ({t_nick}) after nickname. Skipped.")
+                                                skipped_count += 1
+                                        else:
+                                            name_match_log.append(f"Ambiguous fuzzy match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')}. Skipped.")
+                                            skipped_count += 1
+                                elif not potential_matches : # Only log "no match" if there were no exact first/last name potential_matches initially
+                                    name_match_log.append(f"No ID, exact name, or close fuzzy match for template student {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} (ID: {template_student_id}). Skipped.")
+                                    skipped_count += 1
+
+                            # If after all matching attempts, still no target_student_id
+                            if not target_student_id and not potential_matches : # Redundant check for skipped_count already done by fuzzy logic.
+                                # This log might be duplicated if fuzzy also logged a skip.
+                                # name_match_log.append(f"Final skip for template student {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} (ID: {template_student_id}).")
+                                # skipped_count +=1 # This might double count skips if fuzzy already counted it.
+                                pass
+
+
+                        # If a student was found (either by ID, exact name, or fuzzy name)
+                        if target_student_id and s_current:
+                            applied_count +=1
+                            # Position
                             old_x, old_y = s_current["x"], s_current["y"]
-                            new_x, new_y = t_data["x"], t_data["y"]
-                            if old_x != new_x or old_y != new_y : move_commands_data.append({'id':item_id, 'type':'student', 'old_x':old_x, 'old_y':old_y, 'new_x':new_x, 'new_y':new_y})
+                            new_x, new_y = t_stud_data.get("x", old_x), t_stud_data.get("y", old_y)
+                            if old_x != new_x or old_y != new_y:
+                                move_commands_data.append({'id':target_student_id, 'type':'student', 'old_x':old_x, 'old_y':old_y, 'new_x':new_x, 'new_y':new_y})
                             
-                            old_w = s_current.get("style_overrides",{}).get("width", s_current.get("width"))
-                            old_h = s_current.get("style_overrides",{}).get("height", s_current.get("height"))
-                            new_w = t_data.get("width", old_w)
-                            new_h = t_data.get("height", old_h)
-                            if old_w != new_w or old_h != new_h: size_commands_data.append({'id':item_id, 'type':'student', 'old_w':old_w, 'old_h':old_h, 'new_w':new_w, 'new_h':new_h})
+                            # Size
+                            old_w = s_current.get("style_overrides",{}).get("width", s_current.get("width", DEFAULT_STUDENT_BOX_WIDTH))
+                            old_h = s_current.get("style_overrides",{}).get("height", s_current.get("height", DEFAULT_STUDENT_BOX_HEIGHT))
+                            new_w = t_stud_data.get("width", old_w)
+                            new_h = t_stud_data.get("height", old_h)
+                            if old_w != new_w or old_h != new_h:
+                                size_commands_data.append({'id':target_student_id, 'type':'student', 'old_w':old_w, 'old_h':old_h, 'new_w':new_w, 'new_h':new_h})
                             
-                            # Apply style overrides (color, font size etc.) from template
-                            # This is more complex for undo, might need a dedicated StyleApplyCommand or enhance EditItemCommand
-                            t_style_overrides = t_data.get("style_overrides", {})
-                            if t_style_overrides:
-                                old_style_snapshot = s_current.get("style_overrides", {}).copy()
-                                # Create a set of specific changes for EditItemCommand-like application for styles
-                                style_changes_for_cmd = {}
-                                for k,v_new in t_style_overrides.items():
-                                    v_old = old_style_snapshot.get(k)
-                                    if v_old != v_new: style_changes_for_cmd[k] = v_new
-                                # Need to handle removal of keys present in old but not new if template dictates reset
-                                for k_old in old_style_snapshot:
-                                    if k_old not in t_style_overrides: style_changes_for_cmd[k_old] = None # Sentinel for removal
+                            # Style Overrides
+                            t_style_overrides = t_stud_data.get("style_overrides", {})
+                            if t_style_overrides or (not t_style_overrides and s_current.get("style_overrides")): # Apply if template has styles OR if current has styles that need clearing
+                                current_style_snapshot = s_current.get("style_overrides", {}).copy()
 
-                                if style_changes_for_cmd:
-                                    # Create snapshot of full student data for EditItemCommand
-                                    full_old_student_data = s_current.copy()
-                                    full_old_student_data["style_overrides"] = old_style_snapshot
-                                    self.execute_command(EditItemCommand(self,item_id,"student",full_old_student_data, {"style_overrides": t_style_overrides}))
+                                # Create a snapshot of the full student data before style change for EditItemCommand
+                                full_old_student_data_for_style_cmd = s_current.copy()
+                                full_old_student_data_for_style_cmd["style_overrides"] = current_style_snapshot
+
+                                # The new_item_data_changes for EditItemCommand needs to be just the changes.
+                                # Here, we are replacing the entire style_overrides dict from the template.
+                                if current_style_snapshot != t_style_overrides:
+                                     self.execute_command(EditItemCommand(self, target_student_id, "student", full_old_student_data_for_style_cmd, {"style_overrides": t_style_overrides.copy()}))
 
 
+                    # Furniture (still by ID)
                     for item_id, t_data in template_furniture.items():
                          if item_id in self.furniture:
                             f_current = self.furniture[item_id]
                             old_x, old_y = f_current["x"], f_current["y"]
-                            new_x, new_y = t_data["x"], t_data["y"]
+                            new_x, new_y = t_data.get("x", old_x), t_data.get("y", old_y)
                             if old_x != new_x or old_y != new_y : move_commands_data.append({'id':item_id, 'type':'furniture', 'old_x':old_x, 'old_y':old_y, 'new_x':new_x, 'new_y':new_y})
 
-                            old_w = f_current.get("width") ; old_h = f_current.get("height")
+                            old_w = f_current.get("width", REBBI_DESK_WIDTH) ; old_h = f_current.get("height", REBBI_DESK_HEIGHT)
                             new_w = t_data.get("width", old_w); new_h = t_data.get("height", old_h)
                             if old_w != new_w or old_h != new_h: size_commands_data.append({'id':item_id, 'type':'furniture', 'old_w':old_w, 'old_h':old_h, 'new_w':new_w, 'new_h':new_h})
 
                     if move_commands_data: self.execute_command(MoveItemsCommand(self, move_commands_data))
                     if size_commands_data: self.execute_command(ChangeItemsSizeCommand(self, size_commands_data))
 
-                    self.update_status(f"Layout template '{os.path.basename(file_path)}' loaded.")
+                    status_message = f"Layout '{os.path.basename(file_path)}' loaded. Applied to {applied_count} students."
+                    if skipped_count > 0:
+                        status_message += f" Skipped {skipped_count} template students (see console log for details)."
+                    if name_match_log:
+                        print("--- Layout Load Name Matching Log ---")
+                        for log_line in name_match_log: print(log_line)
+                        print("------------------------------------")
+
+                    self.update_status(status_message)
                     self.draw_all_items(check_collisions_on_redraw=True)
                     self.save_data_wrapper(source="load_template")
             except (json.JSONDecodeError, IOError) as e: messagebox.showerror("Load Error", f"Could not load layout template: {e}", parent=self.root)
@@ -5691,6 +5887,96 @@ class SeatingChartApp:
 
     def show_help_dialog(self):
         HelpDialog(self.root, APP_VERSION)
+
+    def show_undo_history_dialog(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to View History", "Enter password to view undo history:"): return
+        # Ensure dialogs module is available where UndoHistoryDialog is defined
+        from dialogs import UndoHistoryDialog
+        # Check if a dialog is already open, if so, bring to front or recreate
+        if hasattr(self, '_undo_history_dialog_instance') and self._undo_history_dialog_instance.winfo_exists():
+            self._undo_history_dialog_instance.lift()
+            self._undo_history_dialog_instance.populate_history() # Refresh content
+        else:
+            self._undo_history_dialog_instance = UndoHistoryDialog(self.root, self)
+        self.password_manager.record_activity()
+
+    def selective_redo_action(self, target_command_index_in_undo_stack):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Redo Action", "Enter password to perform this redo action:"):
+                return
+
+        if not (0 <= target_command_index_in_undo_stack < len(self.undo_stack)):
+            messagebox.showerror("Error", "Invalid action selected for redo.", parent=self.root)
+            return
+
+        # Commands to be undone to reach the target command (these come after the target in execution order)
+        commands_to_undo_count = len(self.undo_stack) - 1 - target_command_index_in_undo_stack
+
+        temp_undone_for_redo_stack = []
+
+        # 1. Undo actions that occurred *after* the target command
+        for _ in range(commands_to_undo_count):
+            if not self.undo_stack: break # Should not happen if logic is correct
+            command_to_temporarily_undo = self.undo_stack.pop()
+            try:
+                command_to_temporarily_undo.undo()
+                temp_undone_for_redo_stack.append(command_to_temporarily_undo) # Keep them in order of undoin
+            except Exception as e:
+                messagebox.showerror("Selective Redo Error", f"Error undoing a subsequent action: {e}", parent=self.root)
+                # Attempt to restore state might be complex; for now, stop and alert user.
+                # Re-push commands that were successfully undone before error?
+                # Or, more simply, acknowledge that the state might be partially changed.
+                self.undo_stack.append(command_to_temporarily_undo) # Put it back if undo failed
+                for cmd_to_re_push in reversed(temp_undone_for_redo_stack): # Re-push successfully undone ones
+                    self.undo_stack.append(cmd_to_re_push)
+                self.draw_all_items(check_collisions_on_redraw=True)
+                return
+
+        # 2. The target command is now at the top of the undo_stack. Pop it.
+        if not self.undo_stack or len(self.undo_stack) -1 != target_command_index_in_undo_stack :
+             messagebox.showerror("Error", "Undo stack state error during selective redo.", parent=self.root)
+             # Restore temp_undone_for_redo_stack to undo_stack before returning
+             for cmd_to_re_push in reversed(temp_undone_for_redo_stack): self.undo_stack.append(cmd_to_re_push)
+             return
+
+        target_command = self.undo_stack.pop()
+
+        # 3. Undo the target command itself (to get its original pre-state for redo, and add to redo_stack)
+        try:
+            target_command.undo()
+            # self.redo_stack.append(target_command) # Standard undo would do this.
+                                                  # For selective redo, we are immediately re-executing it.
+                                                  # The key is that subsequent history is invalidated.
+        except Exception as e:
+            messagebox.showerror("Selective Redo Error", f"Error undoing the target action: {e}", parent=self.root)
+            self.undo_stack.append(target_command) # Put target back
+            for cmd_to_re_push in reversed(temp_undone_for_redo_stack): self.undo_stack.append(cmd_to_re_push) # Put subsequent back
+            self.draw_all_items(check_collisions_on_redraw=True)
+            return
+
+        # 4. Re-execute the target command
+        try:
+            target_command.execute()
+            self.undo_stack.append(target_command) # Add it back to the undo_stack as the new latest action
+        except Exception as e:
+            messagebox.showerror("Selective Redo Error", f"Error re-executing the target action: {e}", parent=self.root)
+            # State might be inconsistent. Try to restore the target command to its "undone" state.
+            # This is tricky. Simplest is to inform user.
+            # For now, we'll leave it as executed on the undo_stack and let user manually undo if needed.
+            self.draw_all_items(check_collisions_on_redraw=True)
+            return
+
+        # 5. Invalidate subsequent history: Clear the redo_stack and the temp_undone_for_redo_stack is discarded.
+        self.redo_stack.clear()
+        # temp_undone_for_redo_stack is naturally discarded as it's a local variable.
+        # These actions are now "lost" as a new history branch has been created.
+
+        self.update_status(f"Redid action: {target_command.get_description()}. Subsequent history cleared.")
+        self.draw_all_items(check_collisions_on_redraw=True)
+        self.save_data_wrapper(source="selective_redo")
+        self.password_manager.record_activity()
+        # The UndoHistoryDialog should refresh itself.
 
     def on_exit_protocol(self, force_quit=False):
 

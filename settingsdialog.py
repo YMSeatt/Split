@@ -367,12 +367,13 @@ class SettingsDialog(simpledialog.Dialog):
         lf_cond_format.grid(sticky="nse", pady=5, padx=5, column=1, columnspan=3, row=0)
         lf_cond_format.grid_anchor("e")
         ttk.Button(lf_cond_format, text="Add Rule...", command=self.add_conditional_rule).pack(pady=3, anchor=tk.W)
-        self.rules_listbox = tk.Listbox(lf_cond_format, height=7, exportselection=False, width=75)
+        self.rules_listbox = tk.Listbox(lf_cond_format, height=7, exportselection=False, width=75, selectmode=tk.EXTENDED)
         self.rules_listbox.pack(fill=tk.X, expand=True, pady=2)
         self.populate_conditional_rules_listbox()
         rule_btns_frame = ttk.Frame(lf_cond_format); rule_btns_frame.pack(fill=tk.X)
         ttk.Button(rule_btns_frame, text="Edit Selected", command=self.edit_selected_conditional_rule).pack(side=tk.LEFT, padx=2)
         ttk.Button(rule_btns_frame, text="Remove Selected", command=self.remove_selected_conditional_rule).pack(side=tk.LEFT, padx=2)
+        ttk.Button(rule_btns_frame, text="Bulk Edit Selected...", command=self.bulk_edit_selected_rules).pack(side=tk.LEFT, padx=10)
 
 
     def create_behavior_log_tab(self, tab_frame):
@@ -880,13 +881,54 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings["conditional_formatting_rules"][idx_to_edit] = dialog.result
             self.settings_changed_flag = True
             self.populate_conditional_rules_listbox()
+
     def remove_selected_conditional_rule(self):
-        selected_idx = self.rules_listbox.curselection()
-        if not selected_idx: messagebox.showinfo("No Selection", "Please select a rule to remove.", parent=self); return
-        if messagebox.askyesno("Confirm Remove", "Remove selected conditional formatting rule?", parent=self):
-            del self.settings["conditional_formatting_rules"][selected_idx[0]]
+        selected_indices = self.rules_listbox.curselection() # Will be tuple of indices
+        if not selected_indices:
+            messagebox.showinfo("No Selection", "Please select rule(s) to remove.", parent=self)
+            return
+
+        confirm_msg = f"Are you sure you want to remove {len(selected_indices)} selected conditional formatting rule(s)?"
+        if messagebox.askyesno("Confirm Remove", confirm_msg, parent=self):
+            # Iterate reversed to avoid index shifting issues when deleting multiple items
+            for idx in sorted(selected_indices, reverse=True):
+                del self.settings["conditional_formatting_rules"][idx]
             self.settings_changed_flag = True
             self.populate_conditional_rules_listbox()
+
+    def bulk_edit_selected_rules(self):
+        selected_indices = self.rules_listbox.curselection()
+        if not selected_indices:
+            messagebox.showinfo("No Selection", "Please select at least one rule to bulk edit.", parent=self)
+            return
+
+        # Pass a list of rule *copies* to the dialog to avoid direct modification before confirmation
+        # Or pass indices and let dialog fetch/modify. For now, let's pass copies of rule dicts.
+        # However, the dialog will modify the actual rules in self.settings["conditional_formatting_rules"]
+        # if changes are applied.
+
+        # The dialog will need access to the main 'app' instance for things like available modes,
+        # and it will modify self.settings["conditional_formatting_rules"] directly or via a callback.
+        # Let's design it to modify a temporary copy and then apply changes back.
+
+        rules_to_edit_copies = [self.settings["conditional_formatting_rules"][i].copy() for i in selected_indices]
+
+        # Placeholder for the new dialog - will be created in dialogs.py
+        from dialogs import BulkEditConditionalRulesDialog # Assuming it will be in dialogs.py
+
+        bulk_dialog = BulkEditConditionalRulesDialog(self, self.app, rules_to_edit_copies, selected_indices) # Pass self (SettingsDialog) as parent
+
+        if bulk_dialog.changes_applied_flag: # If the dialog successfully applied changes
+            # The bulk_dialog should have modified the original rules in self.settings
+            # or returned the modified rules to be applied here.
+            # Assuming the dialog modifies the rules in place for now.
+            self.settings_changed_flag = True # Mark that settings have changed overall
+            self.populate_conditional_rules_listbox() # Refresh the listbox
+            messagebox.showinfo("Bulk Edit Complete", f"{len(selected_indices)} rules updated.", parent=self)
+        else:
+            # self.update_status("Bulk edit cancelled or no changes made.") # No status bar here
+            pass
+
 
     def force_canvas_border_visi(self):
         self.force_canvas_border_btn.configure(state="normal" if self.canvas_border_var.get() == True else 'disabled')
