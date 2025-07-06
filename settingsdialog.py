@@ -249,13 +249,14 @@ class SettingsDialog(simpledialog.Dialog):
         
         ttk.Label(lf, text = "Theme: ").grid(row=12,column=0,sticky='W', padx=0, pady=3)
         
-        style_combo = ttk.Combobox(lf, values= list(self.styles), textvariable=self.style, width=14, state='readonly')
-        style_combo.grid(row=12, column=0, sticky=tk.E)
+        style_combo = ttk.Combobox(lf, values= list(self.styles), textvariable=self.style, width=17, state='readonly')
+        style_combo.grid(row=12, column=0, sticky=tk.E, columnspan=2, padx=(0,105))
+        style_combo.grid_anchor("w")
         style_combo.bind("<<ComboboxSelected>>", self.style_set)
         style_combo.set(self.style.get())
         
-        self.theme_combo = ttk.Combobox(lf, values = THEME_LIST, textvariable= self.theme, state='readonly')
-        self.theme_combo.grid(row=12, column=1, sticky="W", padx=(5,0), pady=3)
+        self.theme_combo = ttk.Combobox(lf, values = THEME_LIST, textvariable= self.theme, state='readonly', width=7)
+        self.theme_combo.grid(row=12, column=1, sticky=tk.E, padx=(5,0), pady=3)
         self.theme_combo.bind("<<ComboboxSelected>>", self.theme_set)
         self.theme_combo.set(self.theme.get())
 
@@ -1098,12 +1099,12 @@ class SettingsDialog(simpledialog.Dialog):
         # Student Display Tab
         self.settings["default_student_box_width"]=self.def_stud_w_var.get()
         self.settings["default_student_box_height"]=self.def_stud_h_var.get()
-        #self.settings["student_box_fill_color"]=self.student_box_fill_color_var.get()
-        #self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
-        #self.settings["student_font_family"]=self.student_font_family_var.get()
-        #self.settings["student_font_size"]=self.student_font_size_var.get()
-        #self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
-        #self.settings["student_font_color"]=self.student_font_color_var.get()
+        self.settings["student_box_fill_color"]=self.student_box_fill_color_var.get()
+        self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
+        self.settings["student_font_family"]=self.student_font_family_var.get()
+        self.settings["student_font_size"]=self.student_font_size_var.get()
+        self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
+        self.settings["student_font_color"]=self.student_font_color_var.get()
         
         self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
         self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()

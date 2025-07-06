@@ -238,6 +238,8 @@ class SeatingChartApp:
             self.root.destroy()
             sys.exit(1)
 
+        self.is_beginning = True
+        
         self.students = {}
         self.furniture = {}
         self.behavior_log = []
@@ -325,7 +327,7 @@ class SeatingChartApp:
         self.add_guide_mode: Optional[str] = None # 'vertical', 'horizontal', or None
         self.active_guide_button: Optional[ttk.Button] = None # To manage button visual state
 
-        self.ruler_thickness = 25  # pixels
+        self.ruler_thickness = 15  # pixels
         self.ruler_bg_color = "#f0f0f0"
         self.ruler_line_color = "#555555"
         self.ruler_text_color = "#333333"
@@ -355,12 +357,11 @@ class SeatingChartApp:
         self.draw_all_items()
         self.update_status(f"Application started. Data loaded from: {os.path.dirname(DATA_FILE)}")
         self.update_undo_redo_buttons_state()
-        self.toggle_mode() # Apply initial mode
-
+        self.toggle_mode(initial=True) # Apply initial mode
         self.root.after(30000, self.periodic_checks)
         self.root.after(self.settings.get("autosave_interval_ms", 30000), self.autosave_data_wrapper)
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit_protocol)
-
+        
         if self.password_manager.is_password_set() and self.settings.get("password_on_open", False):
             self.root.withdraw()
             if not self.prompt_for_password("Application Locked", "Enter password to open:"):
@@ -747,7 +748,18 @@ class SeatingChartApp:
         self.root.bind_all("<Control-z>", lambda event: self.undo_last_action())
         self.root.bind_all("<Control-y>", lambda event: self.redo_last_action())
         self.root.bind_all("<Control-Shift-Z>", lambda event: self.redo_last_action()) # Common alternative for redo
-
+        self.root.bind_all("<Control-r>", lambda event: self.reload_canvas())
+        self.root.bind_all("<Control-R>", lambda event: self.reload_canvas())
+        self.root.bind_all("<S>", lambda event: self.open_settings_dialog())
+        self.root.bind_all("<p>", lambda event: self.show_help_dialog())
+        self.root.bind_all("<I>", lambda event: self.zoom_canvas(1.1))
+        self.root.bind_all("<O>", lambda event: self.zoom_canvas(.9))
+        self.root.bind_all("<R>", lambda event: self.zoom_canvas(0))
+        self.root.bind_all("<E>", lambda event: self.toggle_edit_mode_shortcut())
+        self.root.bind_all("<B>", lambda event: self.toggle_mode_("behavior"))
+        self.root.bind_all("<Q>", lambda event: self.toggle_mode_("quiz"))
+        self.root.bind_all("<H>", lambda event: self.toggle_mode_("homework"))
+        
         # Edit Menu (for Undo History)
         self.edit_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Edit")
         self.edit_menu = tk.Menu(self.edit_menu_btn, tearoff=0)
@@ -766,12 +778,12 @@ class SeatingChartApp:
         self.export_menu.add_command(label="Export Layout as Image (see Help)...", command=self.export_layout_as_image) #self.export_layout_as_image)
         self.export_menu.add_command(label="Generate Attendance Report...", command=self.generate_attendance_report_dialog)
         self.export_menu_btn["menu"] = self.export_menu; self.export_menu_btn.pack(side=tk.LEFT, padx=2)
-        ttk.Button(top_controls_frame_row1, text="Settings", command=self.open_settings_dialog).pack(side=tk.LEFT, padx=2)
+        ttk.Button(top_controls_frame_row1, text="Settings", underline=0, command=self.open_settings_dialog).pack(side=tk.LEFT, padx=2)
         
         self.mode_frame = ttk.LabelFrame(top_controls_frame_row1, text="Mode", padding=2); self.mode_frame.pack(side=tk.LEFT, padx=3); self.mode_frame.pack_propagate(True)
-        ttk.Radiobutton(self.mode_frame, text="Behavior", variable=self.mode_var, value="behavior", command=self.toggle_mode).pack(side=tk.LEFT)
-        ttk.Radiobutton(self.mode_frame, text="Quiz", variable=self.mode_var, value="quiz", command=self.toggle_mode).pack(side=tk.LEFT)
-        ttk.Radiobutton(self.mode_frame, text="Homework", variable=self.mode_var, value="homework", command=self.toggle_mode).pack(side=tk.LEFT) # New Homework mode
+        ttk.Radiobutton(self.mode_frame, text="Behavior", underline=0, variable=self.mode_var, value="behavior", command=self.toggle_mode).pack(side=tk.LEFT)
+        ttk.Radiobutton(self.mode_frame, text="Quiz", underline=0, variable=self.mode_var, value="quiz", command=self.toggle_mode).pack(side=tk.LEFT)
+        ttk.Radiobutton(self.mode_frame, text="Homework", underline=0, variable=self.mode_var, value="homework", command=self.toggle_mode).pack(side=tk.LEFT) # New Homework mode
 
         self.live_quiz_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Class Quiz")
         self.start_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="Start Session", command=self.start_live_quiz_session_dialog); self.start_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
@@ -787,12 +799,12 @@ class SeatingChartApp:
         
         self.zoom_var = tk.StringVar(value=str(float(self.current_zoom_level)*100))
         view_controls_frame = ttk.LabelFrame(top_controls_frame_row1, text="View & Edit", padding=2); view_controls_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Button(view_controls_frame, text="Zoom In", command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(view_controls_frame, text="Zoom In", underline=5, command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
         self.zoom_display_label = ttk.Entry(view_controls_frame, textvariable=self.zoom_var, width=5)
         if self.settings.get("show_zoom_level_display", True): self.zoom_display_label.pack(side=tk.LEFT, padx=1)
-        ttk.Button(view_controls_frame, text="Zoom Out", command=lambda: self.zoom_canvas(0.9)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(view_controls_frame, text="Reset Zoom", command=lambda: self.zoom_canvas(0)).pack(side=tk.LEFT, padx=2)
-        self.edit_mode_checkbutton = ttk.Checkbutton(view_controls_frame, text="Edit Mode (Resize)", variable=self.edit_mode_var, command=self.toggle_edit_mode); self.edit_mode_checkbutton.pack(side=tk.LEFT, padx=5)
+        ttk.Button(view_controls_frame, text="Zoom Out", underline=5, command=lambda: self.zoom_canvas(0.9)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(view_controls_frame, text="Reset Zoom", underline=0, command=lambda: self.zoom_canvas(0)).pack(side=tk.LEFT, padx=2)
+        self.edit_mode_checkbutton = ttk.Checkbutton(view_controls_frame, text="Edit Mode (Resize)", underline=0, variable=self.edit_mode_var, command=self.toggle_edit_mode); self.edit_mode_checkbutton.pack(side=tk.LEFT, padx=5)
         self.toggle_incidents_btn = ttk.Button(view_controls_frame, text="Hide Recent Logs", command=self.toggle_global_recent_logs_visibility); self.toggle_incidents_btn.pack(side=tk.LEFT, padx=2) # Renamed
         self.update_toggle_incidents_button_text()
 
@@ -829,7 +841,7 @@ class SeatingChartApp:
         self.lock_app_btn = ttk.Button(top_controls_frame_row1, text="Lock", command=self.lock_application_ui_triggered); self.lock_app_btn.pack(side=tk.RIGHT, padx=5)
         self.update_lock_button_state()
         self.root.bind_all("<Control-l>", lambda e: self.lock_application_ui_triggered())
-        ttk.Button(top_controls_frame_row1, text="Help", command=self.show_help_dialog).pack(side=tk.RIGHT, padx=2)
+        ttk.Button(top_controls_frame_row1, text="Help", underline=3, command=self.show_help_dialog).pack(side=tk.RIGHT, padx=2)
         
         self.zoom_display_label.bind("<FocusOut>", lambda e: self.update_zoom_display2())
         self.zoom_display_label.bind("<Return>", lambda e: self.update_zoom_display2())
@@ -930,7 +942,11 @@ class SeatingChartApp:
             else: return False # Cancel
         return True # No active session of this type
 
-    def toggle_mode(self):
+    def toggle_mode_(self, mode):
+        self.mode_var.set(mode)
+        self.toggle_mode()
+
+    def toggle_mode(self, initial=False):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Change Mode", "Enter password to change mode:"):
                 self.mode_var.set(self.settings["current_mode"]); return
@@ -945,7 +961,8 @@ class SeatingChartApp:
 
 
         self.settings["current_mode"] = new_mode
-        self.update_status(f"Mode switched to {new_mode.capitalize()}.")
+        if not initial:
+            self.update_status(f"Mode switched to {new_mode.capitalize()}.")
 
         if hasattr(self, 'live_quiz_button_frame'):
             if new_mode == "quiz":
@@ -965,6 +982,10 @@ class SeatingChartApp:
         self.save_data_wrapper(source="toggle_mode")
         self.password_manager.record_activity()
 
+    def toggle_edit_mode_shortcut(self):
+        self.edit_mode_var.set(value=True if self.edit_mode_var.get() != True else False)
+        self.toggle_edit_mode()
+        
     def toggle_edit_mode(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Toggle Edit Mode", "Enter password to change edit mode:"):
@@ -1877,7 +1898,7 @@ class SeatingChartApp:
             self.draw_rulers()
 
         # Draw temporary guides first, so they are under items if needed (though typically on top)
-        # self.draw_temporary_guides() # Guides will be drawn after items for better visibility
+        #self.draw_temporary_guides() # Guides will be drawn after items for better visibility
         # The new self.draw_guides() is called after items.
 
         all_items_data = list(self.students.values()) + list(self.furniture.values())
@@ -1947,6 +1968,10 @@ class SeatingChartApp:
         self.draw_all_items()
         self.update_toggle_grid_button_text()
         self.update_status(f"Grid {'shown' if self.settings['show_grid'] else 'hidden'}.")
+
+    def reload_canvas(self, event=None):
+        self.draw_all_items()
+        self.update_status("Reloaded")
 
     def update_toggle_grid_button_text(self):
         if hasattr(self, 'toggle_grid_btn'):
@@ -2039,10 +2064,12 @@ class SeatingChartApp:
         if not self.canvas: return
         # Horizontal Ruler (Top)
         self.canvas.create_rectangle(0, 0, self.canvas.winfo_width(), self.ruler_thickness,
-                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
+                                    #  fill=self.ruler_bg_color,
+                                     outline=self.ruler_line_color, tags="ruler_bg")
         # Vertical Ruler (Left)
         self.canvas.create_rectangle(0, self.ruler_thickness, self.ruler_thickness, self.canvas.winfo_height(),
-                                     fill=self.ruler_bg_color, outline=self.ruler_line_color, tags="ruler_bg")
+                                    #  fill=self.ruler_bg_color, 
+                                     outline=self.ruler_line_color, tags="ruler_bg")
 
         # Markings
         canvas_width = self.canvas.winfo_width()
@@ -2226,6 +2253,15 @@ class SeatingChartApp:
         canvas_y = (world_y * self.current_zoom_level) + self.pan_y
         return canvas_x, canvas_y
     
+    def world_to_canvas_coords_guides(self, world_x, world_y):
+        """
+        Converts world coordinates to the "infinite" virtual canvas coordinates
+        for drawing. This is the forward transformation.
+        """
+        canvas_x = (world_x * self.current_zoom_level) + self.pan_x
+        canvas_y = (world_y * self.current_zoom_level) + self.pan_y
+        return canvas_x, canvas_y
+    
     """
     def canvas_to_world_coords(self, canvas_x_on_screen, canvas_y_on_screen):
         
@@ -2263,6 +2299,23 @@ class SeatingChartApp:
         # This is the crucial step you were missing.
         world_x = (true_canvas_x - self.pan_x) / self.zoom_level
         world_y = (true_canvas_y - self.pan_y) / self.zoom_level
+
+        return world_x, world_y
+    
+    def canvas_to_world_coords_guides(self, screen_x, screen_y):
+        """
+        Converts screen coordinates to world coordinates, accounting for
+        pan, zoom, and canvas scrolling.
+        """
+        # Step 1: Account for canvas scrolling (if any)
+        # This gives the coordinate on the "infinite" virtual canvas
+        true_canvas_x = self.canvas.canvasx(screen_x)
+        true_canvas_y = self.canvas.canvasy(screen_y)
+
+        # Step 2: Account for panning and zooming (the inverse of drawing)
+        # This is the crucial step you were missing.
+        world_x = (true_canvas_x) / self.current_zoom_level - self.pan_x
+        world_y = (true_canvas_y) / self.current_zoom_level - self.pan_y
 
         return world_x, world_y
     
@@ -2447,12 +2500,14 @@ class SeatingChartApp:
             if world_event_y < self.ruler_thickness and world_event_x > self.ruler_thickness: # Horizontal ruler
                 self.active_ruler_guide_coord_x, _ = self.canvas_to_world_coords(event.x, event.y)
                 self.active_ruler_guide_coord_y = None
+                self.toggle_add_guide_mode("vertical", self.add_v_guide_btn)
                 self.update_status(f"Click on canvas to place vertical guide at x={self.active_ruler_guide_coord_x:.0f}")
                 return # Consume click
             # Vertical ruler area (left)
             elif world_event_x < self.ruler_thickness and world_event_y > self.ruler_thickness:
                 _, self.active_ruler_guide_coord_y = self.canvas_to_world_coords(event.x, event.y)
                 self.active_ruler_guide_coord_x = None
+                self.toggle_add_guide_mode("horizontal", self.add_h_guide_btn)
                 self.update_status(f"Click on canvas to place horizontal guide at y={self.active_ruler_guide_coord_y:.0f}")
                 return # Consume click
 
@@ -2481,7 +2536,7 @@ class SeatingChartApp:
             self.active_ruler_guide_coord_y = None
             return # Consume click
 
-        # Check for guide dragging # I think this is unnecessary
+        # Check for guide dragging # This is unnecessary - I replaced this thing, so it can't be called
         HIT_TOLERANCE = 5 # Pixels
         for guide_info in reversed(self.temporary_guides): # Check topmost first
             if guide_info.get('canvas_id') is None:
@@ -2523,6 +2578,9 @@ class SeatingChartApp:
                 self.update_status(f"Dragging guide {guide_info['id']}")
                 self.password_manager.record_activity()
                 return # Consume event
+
+        # End Unnecessary
+
 
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
         self.drag_data = {"x": world_event_x, "y": world_event_y, "item_id": None, "item_type": None,
@@ -2589,7 +2647,7 @@ class SeatingChartApp:
             if not guide_info or guide_info.get('canvas_item_id') is None:
                 return # Guide not found or not drawn
 
-            current_event_world_x, current_event_world_y = self.canvas_to_world_coords(event.x, event.y)
+            current_event_world_x, current_event_world_y = self.canvas_to_world_coords_guides(event.x, event.y)
 
             original_guide_world_coord = self.drag_data['original_world_coord']
             start_drag_world_x = self.drag_data['start_drag_world_x']
@@ -2601,14 +2659,14 @@ class SeatingChartApp:
                 delta_world_y = current_event_world_y - start_drag_world_y
                 new_world_coord = original_guide_world_coord + delta_world_y
                 guide_info['world_coord'] = new_world_coord
-                _, screen_y = self.world_to_canvas_coords(0, new_world_coord)
+                _, screen_y = self.world_to_canvas_coords_guides(0, new_world_coord)
                 self.canvas.coords(guide_info['canvas_item_id'], 0, screen_y, self.canvas.winfo_width(), screen_y) # type: ignore
 
             elif guide_info['type'] == 'v': # Vertical guide, update X world_coord
                 delta_world_x = current_event_world_x - start_drag_world_x
                 new_world_coord = original_guide_world_coord + delta_world_x
                 guide_info['world_coord'] = new_world_coord
-                screen_x, _ = self.world_to_canvas_coords(new_world_coord, 0)
+                screen_x, _ = self.world_to_canvas_coords_guides(new_world_coord, 0)
                 self.canvas.coords(guide_info['canvas_item_id'], screen_x, 0, screen_x, self.canvas.winfo_height()) # type: ignore
 
             self.password_manager.record_activity()
@@ -2764,7 +2822,6 @@ class SeatingChartApp:
             tags = self.canvas.gettags(item_c_id); temp_id, temp_type, is_main_rect = None, None, False
             i=0
             for tag in tags:
-                
                 if tag.startswith("student_") and tag in self.students: temp_id, temp_type = tag, "student"
                 elif tag.startswith("furniture_") and tag in self.furniture: temp_id, temp_type = tag, "furniture"
                 elif tag.startswith("guide") and self.is_in_guides(tag): temp_id, temp_type = tag, "guide"; context_item_id = "guide"
@@ -4664,7 +4721,7 @@ class SeatingChartApp:
             output_dpi = int(self.settings.get("output_dpi", 600))
             
             try:
-                img = Image.open("export_layout_as_image_helper2")#os.path.abspath(timestamp))
+                img = Image.open(os.path.abspath(timestamp))
                 ps_file = ps_io
                 output_image_file = file_path
                 #output_dpi = 600 
@@ -5785,7 +5842,7 @@ class SeatingChartApp:
                 
                 # List of all possible data file names across versions to check against
                 possible_main_data_files = [f"classroom_data_v{i}.json" for i in range(1,11)] + ["classroom_data.json"] # Make sure to make the range one above the current data version tag, so that it catches itself
-                
+
                 found_compatible_main_file = False
                 for name_in_zip in zf.namelist():
                     if os.path.basename(name_in_zip) in possible_main_data_files:

@@ -1268,7 +1268,7 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         self.condition_frame.grid(row=1, column=0, columnspan=3, pady=5, sticky=tk.NSEW)
 
         # Formatting Options
-        format_frame = ttk.LabelFrame(frame, text="Formatting Actions");
+        format_frame = ttk.LabelFrame(frame, text="Formatting Actions")
         format_frame.grid(row=2, column=0, columnspan=3, pady=10, sticky=tk.EW)
 
         ttk.Label(format_frame, text="Set Box Fill Color:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
@@ -1353,6 +1353,10 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
     def add_time_slot(self):
         start_time = self.start_time_var.get().strip()
         end_time = self.end_time_var.get().strip()
+        if ":" not in start_time:
+            start_time = start_time[:2] + ":" + start_time[2:]
+        if ":" not in end_time:
+            end_time = end_time[:2] + ":" + end_time[2:]
         try:
             datetime.strptime(start_time, "%H:%M")
             datetime.strptime(end_time, "%H:%M")
@@ -1524,7 +1528,14 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         final_rule = {"type": self.rule_type_var.get()}
         final_rule["application_style"] = self.application_style_var.get() # Common to all
         rule_type = final_rule["type"]
-
+        
+        active_modes = []
+        for mode in self.mode_vars:
+            if self.mode_vars[mode].get() != False:
+                active_modes.append(mode)
+        final_rule["active_modes"] = active_modes # type: ignore
+        final_rule["active_times"] = self.rule["active_times"]
+        
         fill = self.fill_color_var.get().strip()
         outline = self.outline_color_var.get().strip()
         if not fill and not outline:
