@@ -5023,16 +5023,11 @@ class SeatingChartApp:
                     applied_count = 0
                     skipped_count = 0
                     name_match_log = []
-
+                    match_by_name = messagebox.askyesno("Layout Loading Options", "Load layout template by names of students (doesn't need to be exact) or by ID (not preferred-doesn't preserve student positions correctly)?\nYes is by names, no is by ID.")
                     for template_student_id, t_stud_data in template_students.items():
                         target_student_id = None
                         s_current = None
-
-                        # 1. Primary Match: ID
-                        if template_student_id in self.students:
-                            target_student_id = template_student_id
-                            s_current = self.students[target_student_id]
-                        else:
+                        if match_by_name:
                             # 2. Secondary Match: Name (first, last, then nickname for disambiguation)
                             t_first = t_stud_data.get("first_name", "").lower()
                             t_last = t_stud_data.get("last_name", "").lower()
@@ -5117,7 +5112,10 @@ class SeatingChartApp:
                                 # name_match_log.append(f"Final skip for template student {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} (ID: {template_student_id}).")
                                 # skipped_count +=1 # This might double count skips if fuzzy already counted it.
                                 pass
-
+                        else:   # 2. ID Match
+                            if template_student_id in self.students:
+                                target_student_id = template_student_id
+                                s_current = self.students[target_student_id]
 
                         # If a student was found (either by ID, exact name, or fuzzy name)
                         if target_student_id and s_current:
@@ -5666,7 +5664,7 @@ class SeatingChartApp:
             self.settings = self._get_default_settings() # Reset to defaults
             self._ensure_next_ids() # Reset ID counters based on default settings
             self.password_manager = PasswordManager(self.settings) # Reset password manager with fresh settings
-
+            self.guides.clear()
             # Delete data files
             files_to_delete = [
                 DATA_FILE, CUSTOM_BEHAVIORS_FILE, 
@@ -5786,7 +5784,7 @@ class SeatingChartApp:
                 expected_main_data_filename = os.path.basename(DATA_FILE) # e.g. classroom_data_v9.json
                 
                 # List of all possible data file names across versions to check against
-                possible_main_data_files = [f"classroom_data_v{i}.json" for i in range(1,10)] + ["classroom_data.json"]
+                possible_main_data_files = [f"classroom_data_v{i}.json" for i in range(1,11)] + ["classroom_data.json"] # Make sure to make the range one above the current data version tag, so that it catches itself
                 
                 found_compatible_main_file = False
                 for name_in_zip in zf.namelist():
