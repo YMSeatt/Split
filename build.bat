@@ -12,9 +12,9 @@ set "ICON_PATH=C:\Users\Yaakov M\OneDrive\Pictures\Logo\Variations\LightningChoc
 REM It's also best to use a relative path to your main script.
 REM For example, if this script is in your project root and your main file is
 REM in a 'Split' subfolder, you could use "Split\__main__.py".
-set "SCRIPT_PATH=C:\Users\Yaakov M\Jaffe Project\Split\__main__.py"
+set "SCRIPT_PATH=C:\Users\Yaakov M\Jaffe Project\Split\seatingchartmain.py"
 
-set "APP_NAME=BehaviorLogger v54"
+set "APP_NAME=BehaviorLogger v55"
 
 REM --- PyInstaller Command ---
 echo Running PyInstaller...

@@ -25,6 +25,8 @@ from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialo
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
 from data_locker import unlock_file, DATA_FILE
+import json
+from data_encryption import encrypt_data, decrypt_data
 # Replace with your actual path to gswinXXc.exe
 #EpsImagePlugin.gs_windows_binary = "C:\\Program Files\\gs\\gs10.05.1\bin\\gswin64c.exe" 
 # Only use this ^ if something really doesn't work. Otherwise, it works even with just installing Ghostscript regularly, without any additional steps.
@@ -47,7 +49,8 @@ except ImportError:
     win32gui = None # Explicitly set to None if import fails
     print("Warning: win32gui/win32ui/win32con not found. Full window screenshot (deprecated) might not work if called.")
 
-
+base_path = os.path.dirname(os.path.abspath(__file__))
+print(base_path)
 # def listener(callback: typing.Callable[[str], None]) -> None: ...
 # TODO: make conditional formatting work by quizzes. add thing for homework also.
 
@@ -3317,7 +3320,7 @@ class SeatingChartApp:
             self.settings["_last_used_q_num_for_session"] = self.initial_num_questions
             self.password_manager.record_activity()
             self.draw_all_items()
-
+    """
     def save_data_wrapper(self, event=None, source="manual"):
         self._ensure_next_ids()
         serializable_undo_stack = [cmd.to_dict() for cmd in self.undo_stack]
@@ -3362,7 +3365,64 @@ class SeatingChartApp:
         self.save_custom_homework_statuses() # RENAMED
         self.save_quiz_templates()
         self.save_homework_templates()
+    """
+    
+    def save_data_wrapper(self, event=None, source="manual"):
+        self._ensure_next_ids()
+        serializable_undo_stack = [cmd.to_dict() for cmd in self.undo_stack]
+        serializable_redo_stack = [cmd.to_dict() for cmd in self.redo_stack]
 
+        data_to_save = {
+            "students": self.students,
+            "furniture": self.furniture,
+            "behavior_log": self.behavior_log,
+            "homework_log": self.homework_log,
+            "settings": self.settings,
+            "last_excel_export_path": self.last_excel_export_path,
+            "_per_student_last_cleared": self._per_student_last_cleared,
+            "undo_stack": serializable_undo_stack,
+            "redo_stack": serializable_redo_stack,
+            "guides": [], 
+            "next_guide_id_num": self.next_guide_id_num
+        }
+
+        guides_to_save = []
+        for guide_info in self.guides:
+            guides_to_save.append({
+                'id': guide_info.get('id'),
+                'type': guide_info.get('type'),
+                'world_coord': guide_info.get('world_coord')
+            })
+        data_to_save["guides"] = guides_to_save
+
+        try:
+            # Encrypt the data
+            json_data_string = json.dumps(data_to_save, indent=4)
+            encrypted_data = encrypt_data(json_data_string)
+
+            with open(DATA_FILE, 'wb') as f: # Open in binary write mode
+                f.write(encrypted_data)
+
+            verbose_save = source not in ["autosave", "command_execution", "undo_command", "redo_command", "toggle_mode", "end_live_quiz", "end_live_homework_session", "reset", "assign_group_menu", "load_template", "save_and_quit"]
+            if verbose_save:
+                self.update_status(f"Data saved to {os.path.basename(DATA_FILE)}")
+            elif source == "autosave":
+                self.update_status(f"Autosaved data at {datetime.now().strftime('%H:%M:%S')}")
+
+        except IOError as e:
+            self.update_status(f"Error saving data: {e}")
+            messagebox.showerror("Save Error", f"Could not save data to {DATA_FILE}: {e}", parent=self.root)
+        except Exception as e:
+            print(e)
+            
+        # Call all individual config savers
+        self.save_student_groups()
+        self.save_custom_behaviors()
+        self.save_custom_homework_types()
+        self.save_custom_homework_statuses()
+        self.save_quiz_templates()
+        self.save_homework_templates()
+    
     def load_data(self, file_path=None, is_restore=False):
         # ... (updated migration chain)
         target_file = file_path or DATA_FILE
@@ -3371,9 +3431,15 @@ class SeatingChartApp:
 
         if os.path.exists(target_file):
             try:
-                with open(target_file, 'r', encoding='utf-8') as f: data = json.load(f)
-                file_basename = os.path.basename(target_file)
+                with open(target_file, 'rb') as f: # Open in binary read mode
+                    encrypted_data = f.read()
+                
+                decrypted_data_string = decrypt_data(encrypted_data)
+                data = json.loads(decrypted_data_string)
+                """try:
+                    with open(target_file, 'r', encoding='utf-8') as f: data = json.load(f)"""
                 data_version_from_filename = None
+                file_basename = os.path.basename(target_file)
                 if "_v3" in file_basename or "_v4" in file_basename or file_basename == f"classroom_data.json": data_version_from_filename = 3
                 elif "_v5" in file_basename: data_version_from_filename = 5
                 elif "_v6" in file_basename: data_version_from_filename = 6
@@ -5947,7 +6013,7 @@ class SeatingChartApp:
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to View History", "Enter password to view undo history:"): return
         # Ensure dialogs module is available where UndoHistoryDialog is defined
-        from dialogs import UndoHistoryDialog
+        from undohistorydialog import UndoHistoryDialog
         # Check if a dialog is already open, if so, bring to front or recreate
         if hasattr(self, '_undo_history_dialog_instance') and self._undo_history_dialog_instance.winfo_exists():
             self._undo_history_dialog_instance.lift()
