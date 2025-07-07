@@ -3,12 +3,14 @@ from tkinter import ttk, simpledialog, messagebox, colorchooser
 
 import os
 import sys
+from turtle import color
 #from datetime import datetime, timedelta, date as datetime_date
 #from openpyxl import Workbook, load_workbook
 #from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
 #from openpyxl.utils import get_column_letter
 
 from dialogs import PasswordPromptDialog, ConditionalFormattingRuleDialog
+import other
 from quizhomework import ManageInitialsDialog, ManageMarkTypesDialog, ManageLiveSelectOptionsDialog 
 #from seatingchartmain import SeatingChartApp
 
@@ -209,6 +211,10 @@ class SettingsDialog(simpledialog.Dialog):
         data_export_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(data_export_tab, text="Data & Export")
         self.create_data_export_tab(data_export_tab)
 
+        # --- Other Settings Tab ---
+        other_settings_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(other_settings_tab, text="Other Settings")
+        self.create_other_settings_tab(other_settings_tab)
+        
         # --- Security Tab ---
         security_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(security_tab, text="Security")
         self.create_security_tab(security_tab)
@@ -284,7 +290,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.custom2 = tk.StringVar(value=self.custom_canvas_color.get())
         
         ttk.Button(cmf, text="Choose...", command=lambda v=self.custom_canvas_color: self.choose_color_for_canvas(v)).grid(row=13,column=2,sticky=tk.W,padx=2,pady=3)
-        ttk.Button(cmf, text="Default", command=lambda v=self.custom_canvas_color: self.reset_canvas_color(v)).grid(row=13,column=3, sticky='W', padx=5, pady=3)
+        ttk.Button(cmf, text="Default", command=lambda v=self.custom_canvas_color: self.reset_color_for_var(v, "Default")).grid(row=13,column=3, sticky='W', padx=5, pady=3)
         
         # Grid snap
         self.grid_snap_var = tk.BooleanVar(value=self.settings.get("grid_snap_enabled", False))
@@ -308,10 +314,10 @@ class SettingsDialog(simpledialog.Dialog):
         lf_view_options.pack(fill=tk.BOTH, padx=5, pady=10)
 
         self.show_rulers_var = tk.BooleanVar(value=self.settings.get("show_rulers", False))
-        ttk.Checkbutton(lf_view_options, text="Show Rulers by Default", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+        ttk.Checkbutton(lf_view_options, text="Show Rulers", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
 
         self.show_grid_var = tk.BooleanVar(value=self.settings.get("show_grid", False))
-        ttk.Checkbutton(lf_view_options, text="Show Grid by Default", variable=self.show_grid_var).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
+        ttk.Checkbutton(lf_view_options, text="Show Grid", variable=self.show_grid_var).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
 
         ttk.Label(lf_view_options, text="Grid Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
         self.grid_color_var = tk.StringVar(value=self.settings.get("grid_color", "#d3d3d3"))
@@ -325,7 +331,14 @@ class SettingsDialog(simpledialog.Dialog):
         self.persist_guides_toggle_var = tk.BooleanVar(value=self.settings.get("guides_stay_when_rulers_hidden", True))
         ttk.Checkbutton(lf_view_options, text="Keep Guides in Memory when 'Toggle Rulers' is Off", variable=self.persist_guides_toggle_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
 
-
+        # Guide Color Settings
+        self.guides_color_var = tk.StringVar(value=self.settings.get("guides_color", "blue"))
+        ttk.Label(lf_view_options, text="Guide Color:").grid(row=0, column=3, sticky=tk.W, padx=5, pady=3)
+        ttk.Entry(lf_view_options, textvariable=self.guides_color_var, width=12).grid(row=0, padx=3, column=4)
+        ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.guides_color_var: self.choose_color_for_var(v)).grid(row=0, column=5, sticky=tk.W, padx=2, pady=3)
+        ttk.Button(lf_view_options, text="Default", command=lambda v=self.guides_color_var: self.reset_color_for_var(v, "blue")).grid(row=0, column=6, sticky=tk.W, padx=2, pady=3)
+        
+        
     def create_student_display_tab(self, tab_frame):
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
         lf_defaults.grid(sticky="nsew", column=0,row=0, pady=5)
@@ -709,6 +722,23 @@ class SettingsDialog(simpledialog.Dialog):
 
         ttk.Label(lf_pw_options, text="For the Master Recovery Password, ask Yaakov Maimon (see Help)", foreground="blue", wraplength=420).pack(anchor=tk.W, padx=5, pady=5)
 
+    def create_other_settings_tab(self, tab_frame):
+        # Create content for the Other Settings tab
+        lf_other_options = ttk.LabelFrame(tab_frame, text="Other Options", padding=10)
+        lf_other_options.pack(fill=tk.X, pady=5)
+        
+        ttk.Button(lf_other_options, text="Reset All Settings to Default", command=self.reset_all_settings, style="Warning.TButton").pack(anchor=tk.W, padx=5, pady=5)
+        
+    def reset_all_settings(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Confirm Reset", "Enter password to confirm reset of all settings to default. This cannot be undone.", for_editing=True):
+                return
+        if messagebox.askyesno("Reset Settings", "Are you sure you want to reset all settings to default? This cannot be undone.", parent=self):
+            self.app.reset_all_settings()
+            self.settings_changed_flag = True
+            messagebox.showinfo("Settings Reset", "All settings have been reset to default.", parent=self)
+            self.settings = self.app._get_default_settings()
+            self.ok()# Reload settings
 
     def theme_set(self, event):
         #print(self.app.theme_style_using, "old")
@@ -801,13 +831,16 @@ class SettingsDialog(simpledialog.Dialog):
         setattr(self, f"{font_color_key}_var", font_color_var)
         ttk.Entry(parent_frame, textvariable=font_color_var, width=12).grid(row=start_row+4,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Button(parent_frame, text="Choose...", command=lambda v=font_color_var: self.choose_color_for_var(v)).grid(row=start_row+4,column=2,sticky=tk.W,padx=2,pady=3)
-
+        ttk.Button(parent_frame, text="Reset", command=lambda v=font_color_var: self.reset_color_for_var(v, DEFAULT_FONT_COLOR)).grid(row=start_row+4,column=3,sticky=tk.W,padx=2,pady=3)
+        
         # Behaviors Font Size
         ttk.Label(parent_frame, text="Behaviors Font Size (pts):").grid(row=start_row+5,column=0,sticky=tk.W,padx=5,pady=3)
         behavior_font_size_var = tk.IntVar(value=self.settings.get('behavior_font_size', DEFAULT_FONT_SIZE))
         setattr(self, 'behavior_font_size_var', behavior_font_size_var)
         ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=behavior_font_size_var, width=5).grid(row=start_row+5,column=1,sticky=tk.W,padx=5,pady=3)
 
+    def reset_color_for_var(self, color_var, default): # Helper for color reset buttons in settings
+        color_var.set(default) # Reset to empty string
 
     def choose_color_for_var(self, color_var): # Helper for color choosers in settings
         initial_color = color_var.get()
@@ -830,8 +863,8 @@ class SettingsDialog(simpledialog.Dialog):
         color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
         if color_code and color_code[1]: color_var.set(color_code[1])
         
-    def reset_canvas_color(self, button):
-        button.set("Default")
+    """def reset_canvas_color(self, button):
+        button.set("Default")"""
 
     # --- Methods for managing custom lists ---
     def populate_conditional_rules_listbox(self):
@@ -1093,6 +1126,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings["grid_color"] = self.grid_color_var.get()
         self.settings["save_guides_to_file"] = self.save_guides_var.get()
         self.settings["guides_stay_when_rulers_hidden"] = self.persist_guides_toggle_var.get()
+        self.settings["guides_color"] = self.guides_color_var.get()
 
         #print("Theme2", self.theme2)
         #print(self.theme.get(), "Get")

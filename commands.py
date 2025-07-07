@@ -691,6 +691,44 @@ class ManageStudentGroupCommand(Command):
     def get_description(self):
         return "Manage Student Groups"
 
+class ResetSettingsCommand(Command):
+    def __init__(self, app, timestamp=None):
+        super().__init__(app, timestamp)
+        self.old_settings = None
+        self.new_settings = None
+
+    def execute(self):
+        if self.old_settings is None:
+            self.old_settings = {k: v.copy() if isinstance(v, (dict, list)) else v for k, v in self.app.settings.items()}
+        
+        self.app.reset_settings_to_default()
+        self.new_settings = {k: v.copy() if isinstance(v, (dict, list)) else v for k, v in self.app.settings.items()}
+        
+        self.app.update_status("Settings reset to default.")
+        self.app.draw_all_items(check_collisions_on_redraw=True)
+
+    def undo(self):
+        if self.old_settings is not None:
+            self.app.settings = self.old_settings.copy()
+            self.app.update_status("Undo settings reset.")
+            self.app.draw_all_items(check_collisions_on_redraw=True)
+
+    def _get_data_for_serialization(self):
+        return {
+            'old_settings': self.old_settings,
+            'new_settings': self.new_settings
+        }
+
+    @classmethod
+    def _from_serializable_data(cls, app, data, timestamp):
+        cmd = cls(app, timestamp)
+        cmd.old_settings = data.get('old_settings')
+        cmd.new_settings = data.get('new_settings')
+        return cmd
+
+    def get_description(self):
+        return "Reset All Settings"
+
 # --- Main Execution ---
 if __name__ == "__main__":
     root = tk.Tk()

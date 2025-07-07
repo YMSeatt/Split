@@ -17,7 +17,7 @@ from PIL import Image
 from settingsdialog import SettingsDialog
 from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
-        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand
+        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, ResetSettingsCommand
 from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDialog, BehaviorDialog, \
     ManualHomeworkLogDialog, QuizScoreDialog, LiveQuizMarkDialog, LiveHomeworkMarkDialog, ExitConfirmationDialog, \
         ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, ManageStudentGroupsDialog
@@ -334,7 +334,6 @@ class SeatingChartApp:
         self.ruler_bg_color = "#f0f0f0"
         self.ruler_line_color = "#555555"
         self.ruler_text_color = "#333333"
-        self.guide_line_color = "blue"
         self.active_ruler_guide_coord_x: Optional[float] = None
         self.active_ruler_guide_coord_y: Optional[float] = None
         self.temporary_guides: List[Dict[str, Any]] = [] # List of {'type': 'h'/'v', 'world_coord': float, 'canvas_id': int}
@@ -356,6 +355,7 @@ class SeatingChartApp:
         self._ensure_next_ids()
         self.theme_auto(init=True)
 
+        self.guide_line_color = self.settings.get("guides_color", "blue")
         self.setup_ui()
         self.draw_all_items()
         self.update_status(f"Application started. Data loaded from: {os.path.dirname(DATA_FILE)}")
@@ -529,10 +529,11 @@ class SeatingChartApp:
             "enable_text_background_panel": True, # Default for the new setting
             "show_rulers": False, # Default for rulers
             "show_grid": False, # Default for grid visibility
-            "grid_color": "#d3d3d3", # Default light gray for grid lines
+            "grid_color": "#000000", # Default light gray for grid lines
             "save_guides_to_file": True, # New setting for guides
             "guides_stay_when_rulers_hidden": True, # New setting for guides
             "next_guide_id_num": 1, # Added in migration, also good here
+            "guides_color": "blue", # Default color for guides
         }
 
    
@@ -802,12 +803,12 @@ class SeatingChartApp:
         
         self.zoom_var = tk.StringVar(value=str(float(self.current_zoom_level)*100))
         view_controls_frame = ttk.LabelFrame(top_controls_frame_row1, text="View & Edit", padding=2); view_controls_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Button(view_controls_frame, text="Zoom In", underline=5, command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(view_controls_frame, text="In", underline=0, command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
         self.zoom_display_label = ttk.Entry(view_controls_frame, textvariable=self.zoom_var, width=5)
         if self.settings.get("show_zoom_level_display", True): self.zoom_display_label.pack(side=tk.LEFT, padx=1)
-        ttk.Button(view_controls_frame, text="Zoom Out", underline=5, command=lambda: self.zoom_canvas(0.9)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(view_controls_frame, text="Reset Zoom", underline=0, command=lambda: self.zoom_canvas(0)).pack(side=tk.LEFT, padx=2)
-        self.edit_mode_checkbutton = ttk.Checkbutton(view_controls_frame, text="Edit Mode (Resize)", underline=0, variable=self.edit_mode_var, command=self.toggle_edit_mode); self.edit_mode_checkbutton.pack(side=tk.LEFT, padx=5)
+        ttk.Button(view_controls_frame, text="Out", underline=0, command=lambda: self.zoom_canvas(0.9)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(view_controls_frame, text="Reset", underline=0, command=lambda: self.zoom_canvas(0)).pack(side=tk.LEFT, padx=2)
+        self.edit_mode_checkbutton = ttk.Checkbutton(view_controls_frame, text="Edit Mode", underline=0, variable=self.edit_mode_var, command=self.toggle_edit_mode); self.edit_mode_checkbutton.pack(side=tk.LEFT, padx=5)
         self.toggle_incidents_btn = ttk.Button(view_controls_frame, text="Hide Recent Logs", command=self.toggle_global_recent_logs_visibility); self.toggle_incidents_btn.pack(side=tk.LEFT, padx=2) # Renamed
         self.update_toggle_incidents_button_text()
 
@@ -2540,7 +2541,7 @@ class SeatingChartApp:
             return # Consume click
 
         # Check for guide dragging # This is unnecessary - I replaced this thing, so it can't be called
-        HIT_TOLERANCE = 5 # Pixels
+        """HIT_TOLERANCE = 5 # Pixels
         for guide_info in reversed(self.temporary_guides): # Check topmost first
             if guide_info.get('canvas_id') is None:
                 continue
@@ -2582,7 +2583,7 @@ class SeatingChartApp:
                 self.password_manager.record_activity()
                 return # Consume event
 
-        # End Unnecessary
+        """        # End Unnecessary
 
 
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
@@ -5741,6 +5742,7 @@ class SeatingChartApp:
             # Settings are applied directly by the dialog for most parts
             self.save_data_wrapper(source="settings_dialog") # Save all data as settings are part of it
             self.update_all_behaviors(); self.update_all_homework_log_behaviors(); self.update_all_homework_session_types()
+            self.guide_line_color = self.settings.get("guides_color", "blue")
             self.draw_all_items(check_collisions_on_redraw=True)
             self.update_status("Settings updated.")
             self.update_zoom_display()
@@ -5748,6 +5750,7 @@ class SeatingChartApp:
             self.toggle_student_groups_ui_visibility()
             self.set_theme(self.theme_style_using, self.custom_canvas_color)
             self.toggle_manage_boxes_visibility()
+            
             # Re-schedule autosave if interval changed
             self.root.after_cancel(self.autosave_data_wrapper) # Cancel existing if any (might need to store the after_id)
             self.root.after(self.settings.get("autosave_interval_ms", 30000), self.autosave_data_wrapper)
