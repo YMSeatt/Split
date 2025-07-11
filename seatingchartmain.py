@@ -2447,7 +2447,7 @@ class SeatingChartApp:
         self.canvas.focus_set()
 
         # Check if dragging is allowed
-        if not self.settings.get("allow_box_dragging", True):
+        if False:#not self.settings.get("allow_box_dragging", True):
             # If dragging is disabled, still allow selection clicks but not drag initiation for items.
             # Guide interaction and ruler interaction might still be allowed or handled separately.
             world_event_x_no_drag, world_event_y_no_drag = self.canvas_to_world_coords(event.x, event.y)
@@ -2699,9 +2699,9 @@ class SeatingChartApp:
         if self.password_manager.is_locked: return
 
         # Prevent item drag if setting is off
-        if not self.settings.get("allow_box_dragging", True) and self.drag_data.get("item_id") and not self.drag_data.get('is_dragging_guide'):
-            # If dragging items is disabled, but a guide drag might have been initiated, allow guide drag.
-            return # Do not process item drag
+        #if not self.settings.get("allow_box_dragging", True) and self.drag_data.get("item_id") and not self.drag_data.get('is_dragging_guide'):
+        #    # If dragging items is disabled, but a guide drag might have been initiated, allow guide drag.
+        #    return # Do not process item drag
 
         if self.drag_data.get('is_dragging_guide'):
             dragged_guide_id = self.drag_data.get('dragged_guide_id')
@@ -2789,7 +2789,8 @@ class SeatingChartApp:
             dy_world_move = world_event_y - self.drag_data["y"]
             dx_canvas_move = dx_world_move * self.current_zoom_level
             dy_canvas_move = dy_world_move * self.current_zoom_level
-            for selected_id in self.selected_items: self.canvas.move(selected_id, dx_canvas_move, dy_canvas_move)
+            if self.settings.get("allow_box_dragging", True):
+                for selected_id in self.selected_items: self.canvas.move(selected_id, dx_canvas_move, dy_canvas_move)
 
         self.drag_data["x"] = world_event_x # Update last world position for next delta
         self.drag_data["y"] = world_event_y
@@ -2859,26 +2860,28 @@ class SeatingChartApp:
         elif actual_drag_initiated and dragged_item_id and not was_resizing:
             grid_size_world = self.settings.get("grid_size", DEFAULT_GRID_SIZE); snap_to_grid = self.settings.get("grid_snap_enabled", False)
             items_moves_for_command = []
-            for item_id_moved in self.selected_items:
-                original_pos_info = self.drag_data.get("original_positions", {}).get(item_id_moved)
-                if not original_pos_info: continue
-                current_item_type = original_pos_info["type"]
-                # Use total delta from drag_start_world for accurate final position
-                total_dx_world = world_event_x - self.drag_data["start_x_world"]
-                total_dy_world = world_event_y - self.drag_data["start_y_world"]
-                new_world_x = original_pos_info["x"] + total_dx_world
-                new_world_y = original_pos_info["y"] + total_dy_world
-                final_x_world, final_y_world = new_world_x, new_world_y
-                if snap_to_grid and grid_size_world > 0:
-                    final_x_world = round(new_world_x / grid_size_world) * grid_size_world
-                    final_y_world = round(new_world_y / grid_size_world) * grid_size_world
-                if abs(final_x_world - original_pos_info["x"]) > 0.01 or abs(final_y_world - original_pos_info["y"]) > 0.01:
-                    items_moves_for_command.append({'id': item_id_moved, 'type': current_item_type, 'old_x': original_pos_info["x"], 'old_y': original_pos_info["y"], 'new_x': final_x_world, 'new_y': final_y_world})
-                else: # No change after snap, ensure it's redrawn to its original spot
-                    data_s = self.students if current_item_type == "student" else self.furniture
-                    data_s[item_id_moved]['x'] = original_pos_info["x"]; data_s[item_id_moved]['y'] = original_pos_info["y"]
-            if items_moves_for_command: self.execute_command(MoveItemsCommand(self, items_moves_for_command))
-            else: self.draw_all_items(check_collisions_on_redraw=True)
+            if self.settings.get("allow_box_dragging", True):
+                for item_id_moved in self.selected_items:
+                    original_pos_info = self.drag_data.get("original_positions", {}).get(item_id_moved)
+                    if not original_pos_info: continue
+                    current_item_type = original_pos_info["type"]
+                    # Use total delta from drag_start_world for accurate final position
+                    total_dx_world = world_event_x - self.drag_data["start_x_world"]
+                    total_dy_world = world_event_y - self.drag_data["start_y_world"]
+                    new_world_x = original_pos_info["x"] + total_dx_world
+                    new_world_y = original_pos_info["y"] + total_dy_world
+                    final_x_world, final_y_world = new_world_x, new_world_y
+                    if snap_to_grid and grid_size_world > 0:
+                        final_x_world = round(new_world_x / grid_size_world) * grid_size_world
+                        final_y_world = round(new_world_y / grid_size_world) * grid_size_world
+                    if abs(final_x_world - original_pos_info["x"]) > 0.01 or abs(final_y_world - original_pos_info["y"]) > 0.01:
+                        items_moves_for_command.append({'id': item_id_moved, 'type': current_item_type, 'old_x': original_pos_info["x"], 'old_y': original_pos_info["y"], 'new_x': final_x_world, 'new_y': final_y_world})
+                    else: # No change after snap, ensure it's redrawn to its original spot
+                        data_s = self.students if current_item_type == "student" else self.furniture
+                        data_s[item_id_moved]['x'] = original_pos_info["x"]; data_s[item_id_moved]['y'] = original_pos_info["y"]
+                if items_moves_for_command: self.execute_command(MoveItemsCommand(self, items_moves_for_command))
+                else: self.draw_all_items(check_collisions_on_redraw=True)
+            
         self.drag_data.clear(); self._potential_click_target = None; self._drag_started_on_item = False; self.password_manager.record_activity()
 
     def on_canvas_right_press(self, event):
