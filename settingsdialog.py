@@ -309,6 +309,10 @@ class SettingsDialog(simpledialog.Dialog):
         
         self.force_canvas_border_visi()
 
+        # Allow Box Dragging
+        self.allow_box_dragging_var = tk.BooleanVar(value=self.settings.get("allow_box_dragging", True))
+        ttk.Checkbutton(cmf, text="Allow dragging of student/furniture boxes", variable=self.allow_box_dragging_var).grid(row=16, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+
         # Canvas View Options (Rulers, Grid)
         lf_view_options = ttk.LabelFrame(tab_frame, text="Canvas View Options", padding=10)
         lf_view_options.pack(fill=tk.BOTH, padx=5, pady=10)
@@ -830,6 +834,7 @@ class SettingsDialog(simpledialog.Dialog):
             "guides_stay_when_rulers_hidden": True, # New setting for guides
             "next_guide_id_num": 1, # Added in migration, also good here
             "guides_color": "blue", # Default color for guides
+            "allow_box_dragging": True, # New setting for box dragging
         }
 
    
@@ -1215,6 +1220,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings["check_for_collisions"] = self.check_for_collisions_var.get()
             self.settings["show_canvas_border_lines"] = self.canvas_border_var.get()
             self.settings["force_canvas_border_lines"] = self.force_canvas_border_var.get()
+            self.settings["allow_box_dragging"] = self.allow_box_dragging_var.get()
 
             # Canvas View Options from General Tab
             self.settings["show_rulers"] = self.show_rulers_var.get()

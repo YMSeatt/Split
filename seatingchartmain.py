@@ -824,6 +824,11 @@ class SeatingChartApp:
         self.add_h_guide_btn = ttk.Button(view_controls_frame, text="Add H Guide", command=lambda: self.toggle_add_guide_mode("horizontal", self.add_h_guide_btn))
         self.add_h_guide_btn.pack(side=tk.LEFT, padx=2)
 
+        # Toggle Dragging Button
+        self.toggle_dragging_btn = ttk.Button(view_controls_frame, text="Disable Dragging", command=self.toggle_dragging_allowed)
+        self.toggle_dragging_btn.pack(side=tk.LEFT, padx=5)
+        self._update_toggle_dragging_button_text() # Initialize button text
+
         self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=3)
         layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=0)
         ttk.Button(layout_tools_frame, text="Align Top", command=lambda: self.align_selected_items("top")).pack(side=tk.LEFT,pady=1, padx=1)
@@ -2441,6 +2446,46 @@ class SeatingChartApp:
             if not self.prompt_for_password("Unlock to Interact", "Enter password to interact with canvas:"): return
         self.canvas.focus_set()
 
+        # Check if dragging is allowed
+        if not self.settings.get("allow_box_dragging", True):
+            # If dragging is disabled, still allow selection clicks but not drag initiation for items.
+            # Guide interaction and ruler interaction might still be allowed or handled separately.
+            world_event_x_no_drag, world_event_y_no_drag = self.canvas_to_world_coords(event.x, event.y)
+            item_canvas_ids_no_drag = self.canvas.find_overlapping(world_event_x_no_drag -1, world_event_y_no_drag -1, world_event_x_no_drag +1, world_event_y_no_drag +1)
+            clicked_item_id_no_drag, clicked_item_type_no_drag = None, None
+            for item_c_id_nd in reversed(item_canvas_ids_no_drag):
+                tags_nd = self.canvas.gettags(item_c_id_nd); temp_id_nd, temp_type_nd, is_main_rect_nd = None, None, False
+                for tag_nd in tags_nd:
+                    if tag_nd.startswith("student_") and tag_nd in self.students: temp_id_nd, temp_type_nd = tag_nd, "student"
+                    elif tag_nd.startswith("furniture_") and tag_nd in self.furniture: temp_id_nd, temp_type_nd = tag_nd, "furniture"
+                    if "rect" in tag_nd: is_main_rect_nd = True
+                if temp_id_nd and is_main_rect_nd: clicked_item_id_no_drag, clicked_item_type_no_drag = temp_id_nd, temp_type_nd; break
+
+            if clicked_item_id_no_drag: # An item was clicked
+                if not (event.state & 0x0004): # Ctrl NOT pressed
+                    if clicked_item_id_no_drag not in self.selected_items:
+                        self.deselect_all_items()
+                        self.selected_items.add(clicked_item_id_no_drag)
+                    # If it's already selected and Ctrl is not pressed, it remains selected (standard behavior)
+                else: # Ctrl IS pressed
+                    if clicked_item_id_no_drag in self.selected_items:
+                        self.selected_items.remove(clicked_item_id_no_drag)
+                    else:
+                        self.selected_items.add(clicked_item_id_no_drag)
+
+                # Redraw the clicked item to show selection state
+                if clicked_item_type_no_drag == "student": self.draw_single_student(clicked_item_id_no_drag)
+                elif clicked_item_type_no_drag == "furniture": self.draw_single_furniture(clicked_item_id_no_drag)
+                self.update_status(f"{len(self.selected_items)} items selected. Dragging disabled.")
+                return # Consume event, no drag initiation
+
+            # If click was not on an item, and dragging is disabled, do nothing more for left press.
+            # General context menu (right click) is handled by on_canvas_right_press.
+            # Guide/Ruler interactions might still proceed if their logic is before this check or separate.
+            # For now, let's assume if dragging is off, item interaction is limited to selection.
+            # self.update_status("Dragging is disabled.") # Optional status update
+            # return # Consume the event to prevent other bindings if any
+
         x_coords = event.x; y_coords = event.y
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
         # Guide Creation via Add Guide Mode
@@ -2645,6 +2690,11 @@ class SeatingChartApp:
     def on_canvas_drag(self, event):
         if self.password_manager.is_locked: return
 
+        # Prevent item drag if setting is off
+        if not self.settings.get("allow_box_dragging", True) and self.drag_data.get("item_id") and not self.drag_data.get('is_dragging_guide'):
+            # If dragging items is disabled, but a guide drag might have been initiated, allow guide drag.
+            return # Do not process item drag
+
         if self.drag_data.get('is_dragging_guide'):
             dragged_guide_id = self.drag_data.get('dragged_guide_id')
             guide_info = next((g for g in self.guides if g['id'] == dragged_guide_id), None)
@@ -2681,6 +2731,15 @@ class SeatingChartApp:
         world_event_x, world_event_y = self.canvas_to_world_coords(event.x, event.y)
 
         if self.drag_data.get("is_resizing"):
+            # Check if dragging (which includes resizing) is allowed
+            if not self.settings.get("allow_box_dragging", True):
+                # If resizing is part of dragging and dragging is off, clear drag_data and return
+                self.drag_data.clear() # Clear drag data to prevent further processing in on_canvas_release
+                self._drag_started_on_item = False
+                self.update_status("Resizing disabled.")
+                self.draw_all_items(check_collisions_on_redraw=True) # Redraw to remove any visual cues of resize start
+                return
+
             item_id, item_type = self.drag_data["item_id"], self.drag_data["item_type"]
             data_src = self.students if item_type == "student" else self.furniture
             item_data = data_src[item_id]
@@ -3423,6 +3482,25 @@ class SeatingChartApp:
         self.save_custom_homework_statuses()
         self.save_quiz_templates()
         self.save_homework_templates()
+
+    def _update_toggle_dragging_button_text(self):
+        if hasattr(self, 'toggle_dragging_btn'):
+            if self.settings.get("allow_box_dragging", True):
+                self.toggle_dragging_btn.config(text="Disable Dragging")
+            else:
+                self.toggle_dragging_btn.config(text="Enable Dragging")
+
+    def toggle_dragging_allowed(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Toggle Dragging", "Enter password to toggle dragging:"): return
+
+        current_setting = self.settings.get("allow_box_dragging", True)
+        self.settings["allow_box_dragging"] = not current_setting
+        self._update_toggle_dragging_button_text()
+        self.update_status(f"Box dragging {'enabled' if self.settings['allow_box_dragging'] else 'disabled'}.")
+        self.save_data_wrapper(source="toggle_dragging_button") # Save settings immediately
+        # No redraw needed unless there's a visual cue for draggable state on items themselves
+        self.password_manager.record_activity()
     
     def load_data(self, file_path=None, is_restore=False):
         # ... (updated migration chain)
