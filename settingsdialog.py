@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, simpledialog, messagebox, colorchooser 
+from tkinter import ttk, simpledialog, messagebox, colorchooser, font as tkfont
 
 import os
 import sys
@@ -163,7 +163,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.settings = current_settings
         self.custom_behaviors_ref = custom_behaviors
         self.all_behaviors_ref = all_behaviors
-        
+        self.reset = False # Flag to indicate if reset button was pressed
         # NEW/RENAMED: References to the main app's lists
         self.custom_homework_statuses_ref = custom_homework_statuses
         self.all_homework_statuses_ref = all_homework_statuses
@@ -734,11 +734,106 @@ class SettingsDialog(simpledialog.Dialog):
             if not self.prompt_for_password("Confirm Reset", "Enter password to confirm reset of all settings to default. This cannot be undone.", for_editing=True):
                 return
         if messagebox.askyesno("Reset Settings", "Are you sure you want to reset all settings to default? This cannot be undone.", parent=self):
-            self.app.reset_all_settings()
+            self.reset = True
             self.settings_changed_flag = True
             messagebox.showinfo("Settings Reset", "All settings have been reset to default.", parent=self)
-            self.settings = self.app._get_default_settings()
+            self.settings = self._get_default_settings()
             self.ok()# Reload settings
+
+    def _get_default_settings(self):
+        return {
+            "show_recent_incidents_on_boxes": True,
+            "num_recent_incidents_to_show": 2,
+            "recent_incident_time_window_hours": 24,
+            "show_full_recent_incidents": False,
+            "reverse_incident_order": True,
+            "selected_recent_behaviors_filter": None, # List of behavior names, or None for all
+
+            "show_recent_homeworks_on_boxes": True, # New
+            "num_recent_homeworks_to_show": 2, # New
+            "recent_homework_time_window_hours": 24, # New
+            "show_full_recent_homeworks": False, # New
+            "reverse_homework_order": True, # New
+            "selected_recent_homeworks_filter": None, # New
+
+            "autosave_interval_ms": 30000,
+            "default_student_box_width": DEFAULT_STUDENT_BOX_WIDTH,
+            "default_student_box_height": DEFAULT_STUDENT_BOX_HEIGHT,
+            "student_box_fill_color": DEFAULT_BOX_FILL_COLOR,
+            "student_box_outline_color": DEFAULT_BOX_OUTLINE_COLOR,
+            "student_font_family": DEFAULT_FONT_FAMILY,
+            "student_font_size": DEFAULT_FONT_SIZE,
+            "student_font_color": DEFAULT_FONT_COLOR,
+            "grid_snap_enabled": False,
+            "grid_size": DEFAULT_GRID_SIZE,
+            "current_mode": "behavior", # "behavior", "quiz", or "homework"
+            "max_undo_history_days": MAX_UNDO_HISTORY_DAYS,
+            "student_groups_enabled": True,
+            "show_zoom_level_display": True,
+            "available_fonts": sorted(list(tkfont.families())),
+
+            # Quiz specific
+            "default_quiz_name": "Pop Quiz",
+            "last_used_quiz_name_timeout_minutes": 60, # Timeout for remembering quiz name
+            "show_recent_incidents_during_quiz": True,
+            "live_quiz_score_font_color": DEFAULT_QUIZ_SCORE_FONT_COLOR,
+            "live_quiz_score_font_style_bold": DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD,
+            "quiz_mark_types": DEFAULT_QUIZ_MARK_TYPES.copy(),
+            "default_quiz_questions": 10,
+            "quiz_score_calculation": "percentage",
+            "combine_marks_for_display": True,
+
+            # Homework specific (New)
+            "default_homework_name": "Homework Check", # Default name for manual log & live session
+            "last_used_homework_name_timeout_minutes": 60, # Timeout for remembering homework name (manual log)
+            "behavior_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for behavior log text
+            "quiz_log_font_size": DEFAULT_FONT_SIZE,       # Specific font size for quiz log text
+            "homework_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for homework log text
+            "live_homework_session_mode": "Yes/No", # "Yes/No" or "Select"
+            "log_homework_marks_enabled": True, # Enable/disable detailed marks for manual log
+            "homework_mark_types": DEFAULT_HOMEWORK_MARK_TYPES.copy(),
+            "default_homework_items_for_yes_no_mode": 5, # For live session "Yes/No"
+            "live_homework_score_font_color": DEFAULT_HOMEWORK_SCORE_FONT_COLOR,
+            "live_homework_score_font_style_bold": DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD,
+
+
+            # Password settings
+            "app_password_hash": None,
+            "password_on_open": False,
+            "password_on_edit_action": False,
+            "password_auto_lock_enabled": False,
+            "password_auto_lock_timeout_minutes": 15,
+
+            # Next ID counters (managed by _ensure_next_ids but good to have defaults)
+            "next_student_id_num": 1,
+            "next_furniture_id_num": 1,
+            "next_group_id_num": 1,
+            "next_quiz_template_id_num": 1,
+            "next_homework_template_id_num": 1, # New
+            "next_custom_homework_type_id_num": 1, # For custom homework types in Yes/No mode
+
+            # Internal state storage (prefixed with underscore)
+            "_last_used_quiz_name_for_session": "", # Stores last used quiz name for manual log
+            "_last_used_quiz_name_timestamp_for_session": None, # Timestamp for quiz name timeout
+            "_last_used_q_num_for_session": 10, # Stores last used num questions for manual quiz log
+
+            "_last_used_homework_name_for_session": "", # Stores last used homework name for manual log
+            "_last_used_homework_name_timestamp_for_session": None, # Timestamp for homework name timeout
+            "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
+            "theme": "System", # Newer
+            "type_theme": "sun-valley-light", # Newer
+            "enable_text_background_panel": True, # Default for the new setting
+            "show_rulers": False, # Default for rulers
+            "show_grid": False, # Default for grid visibility
+            "grid_color": "#000000", # Default light gray for grid lines
+            "save_guides_to_file": True, # New setting for guides
+            "guides_stay_when_rulers_hidden": True, # New setting for guides
+            "next_guide_id_num": 1, # Added in migration, also good here
+            "guides_color": "blue", # Default color for guides
+        }
+
+   
+
 
     def theme_set(self, event):
         #print(self.app.theme_style_using, "old")
@@ -1102,79 +1197,82 @@ class SettingsDialog(simpledialog.Dialog):
     
     
     def apply(self): # OK button of SettingsDialog
-        # General Tab
-        self.settings["autosave_interval_ms"] = self.autosave_interval_var.get() * 1000
-        self.settings["grid_snap_enabled"] = self.grid_snap_var.get()
-        self.settings["grid_size"] = self.grid_size_var.get()
-        self.settings["student_groups_enabled"] = self.groups_enabled_var.get()
-        self.settings["show_zoom_level_display"] = self.show_zoom_var.get()
-        self.settings["max_undo_history_days"] = self.max_undo_days_var.get()
-        self.settings["theme"] = self.theme.get()
-        self.settings["canvas_color"] = self.custom_canvas_color.get()
-        self.app.theme_style_using = self.theme2
-        self.settings["type_theme"] = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
-        self.app.type_theme = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
-        self.app.custom_canvas_color = self.custom_canvas_color.get()
-        self.settings["always_show_box_management"] = self.show_management_var.get()
-        self.settings["check_for_collisions"] = self.check_for_collisions_var.get()
-        self.settings["show_canvas_border_lines"] = self.canvas_border_var.get()
-        self.settings["force_canvas_border_lines"] = self.force_canvas_border_var.get()
+        if self.reset == False: # If reset button was pressed
+            # General Tab
+            self.settings["autosave_interval_ms"] = self.autosave_interval_var.get() * 1000
+            self.settings["grid_snap_enabled"] = self.grid_snap_var.get()
+            self.settings["grid_size"] = self.grid_size_var.get()
+            self.settings["student_groups_enabled"] = self.groups_enabled_var.get()
+            self.settings["show_zoom_level_display"] = self.show_zoom_var.get()
+            self.settings["max_undo_history_days"] = self.max_undo_days_var.get()
+            self.settings["theme"] = self.theme.get()
+            self.settings["canvas_color"] = self.custom_canvas_color.get()
+            self.app.theme_style_using = self.theme2
+            self.settings["type_theme"] = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
+            self.app.type_theme = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
+            self.app.custom_canvas_color = self.custom_canvas_color.get()
+            self.settings["always_show_box_management"] = self.show_management_var.get()
+            self.settings["check_for_collisions"] = self.check_for_collisions_var.get()
+            self.settings["show_canvas_border_lines"] = self.canvas_border_var.get()
+            self.settings["force_canvas_border_lines"] = self.force_canvas_border_var.get()
 
-        # Canvas View Options from General Tab
-        self.settings["show_rulers"] = self.show_rulers_var.get()
-        self.settings["show_grid"] = self.show_grid_var.get()
-        self.settings["grid_color"] = self.grid_color_var.get()
-        self.settings["save_guides_to_file"] = self.save_guides_var.get()
-        self.settings["guides_stay_when_rulers_hidden"] = self.persist_guides_toggle_var.get()
-        self.settings["guides_color"] = self.guides_color_var.get()
+            # Canvas View Options from General Tab
+            self.settings["show_rulers"] = self.show_rulers_var.get()
+            self.settings["show_grid"] = self.show_grid_var.get()
+            self.settings["grid_color"] = self.grid_color_var.get()
+            self.settings["save_guides_to_file"] = self.save_guides_var.get()
+            self.settings["guides_stay_when_rulers_hidden"] = self.persist_guides_toggle_var.get()
+            self.settings["guides_color"] = self.guides_color_var.get()
 
-        #print("Theme2", self.theme2)
-        #print(self.theme.get(), "Get")
-        # Student Display Tab
-        self.settings["default_student_box_width"]=self.def_stud_w_var.get()
-        self.settings["default_student_box_height"]=self.def_stud_h_var.get()
-        self.settings["student_box_fill_color"]=self.student_box_fill_color_var.get()
-        self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
-        self.settings["student_font_family"]=self.student_font_family_var.get()
-        self.settings["student_font_size"]=self.student_font_size_var.get()
-        self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
-        self.settings["student_font_color"]=self.student_font_color_var.get()
-        
-        self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
-        self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()
-        self.settings["enable_text_background_panel"] = self.enable_text_panel_var.get() # New setting
-        self.settings["always_show_text_background_panel"] = self.enable_text_panel_always_var.get()
-        # Behavior/Quiz Log Tab
-        self.settings["show_recent_incidents_on_boxes"] = self.show_recent_var.get()
-        self.settings["num_recent_incidents_to_show"] = self.num_recent_var.get()
-        self.settings["recent_incident_time_window_hours"] = self.time_window_var.get()
-        self.settings["show_full_recent_incidents"] = self.show_full_recent_var.get()
-        self.settings["reverse_incident_order"] = self.reverse_order_var.get()
-        self.settings["default_quiz_name"] = self.def_quiz_name_var.get()
-        self.settings["default_quiz_questions"] = self.def_quiz_q_var.get()
-        self.settings["last_used_quiz_name_timeout_minutes"] = self.quiz_timeout_var.get()
-        self.settings["show_recent_incidents_during_quiz"] = self.show_inc_quiz_var.get()
-        # self.settings["combine_marks_for_display"] = self.combine_marks_display_var.get()
-        # Homework Log Tab
-        self.settings["show_recent_homeworks_on_boxes"] = self.show_recent_hw_var.get()
-        self.settings["num_recent_homeworks_to_show"] = self.num_recent_hw_var.get()
-        self.settings["recent_homework_time_window_hours"] = self.time_window_hw_var.get()
-        self.settings["show_full_recent_homeworks"] = self.show_full_recent_hw_var.get()
-        self.settings["reverse_homework_order"] = self.reverse_hw_order_var.get()
-        self.settings["default_homework_name"] = self.def_hw_session_name_var.get()
-        self.settings["live_homework_session_mode"] = self.live_hw_mode_var.get()
-        self.settings["log_homework_marks_enabled"] = self.log_hw_marks_var.get()
-        # Data & Export Tab
-        self.settings["excel_export_separate_sheets_by_default"] = self.excel_sep_sheets_var.get()
-        self.settings["excel_export_include_summaries_by_default"] = self.excel_inc_summary_var.get()
-        self.settings["enable_excel_autosave"] = self.enable_excel_autosave_var.get()
-        self.settings["output_dpi"] = self.export_image_spin.get()
-        # Security Tab
-        self.settings["password_on_open"] = self.pw_on_open_var.get()
-        self.settings["password_on_edit_action"] = self.pw_on_edit_var.get()
-        self.settings["password_auto_lock_enabled"] = self.pw_auto_lock_var.get()
-        self.settings["password_auto_lock_timeout_minutes"] = self.pw_auto_lock_timeout_var.get()
-
+            #print("Theme2", self.theme2)
+            #print(self.theme.get(), "Get")
+            # Student Display Tab
+            self.settings["default_student_box_width"]=self.def_stud_w_var.get()
+            self.settings["default_student_box_height"]=self.def_stud_h_var.get()
+            self.settings["student_box_fill_color"]=self.student_box_fill_color_var.get()
+            self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
+            self.settings["student_font_family"]=self.student_font_family_var.get()
+            self.settings["student_font_size"]=self.student_font_size_var.get()
+            self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
+            self.settings["student_font_color"]=self.student_font_color_var.get()
+            
+            self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
+            self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()
+            self.settings["enable_text_background_panel"] = self.enable_text_panel_var.get() # New setting
+            self.settings["always_show_text_background_panel"] = self.enable_text_panel_always_var.get()
+            # Behavior/Quiz Log Tab
+            self.settings["show_recent_incidents_on_boxes"] = self.show_recent_var.get()
+            self.settings["num_recent_incidents_to_show"] = self.num_recent_var.get()
+            self.settings["recent_incident_time_window_hours"] = self.time_window_var.get()
+            self.settings["show_full_recent_incidents"] = self.show_full_recent_var.get()
+            self.settings["reverse_incident_order"] = self.reverse_order_var.get()
+            self.settings["default_quiz_name"] = self.def_quiz_name_var.get()
+            self.settings["default_quiz_questions"] = self.def_quiz_q_var.get()
+            self.settings["last_used_quiz_name_timeout_minutes"] = self.quiz_timeout_var.get()
+            self.settings["show_recent_incidents_during_quiz"] = self.show_inc_quiz_var.get()
+            # self.settings["combine_marks_for_display"] = self.combine_marks_display_var.get()
+            # Homework Log Tab
+            self.settings["show_recent_homeworks_on_boxes"] = self.show_recent_hw_var.get()
+            self.settings["num_recent_homeworks_to_show"] = self.num_recent_hw_var.get()
+            self.settings["recent_homework_time_window_hours"] = self.time_window_hw_var.get()
+            self.settings["show_full_recent_homeworks"] = self.show_full_recent_hw_var.get()
+            self.settings["reverse_homework_order"] = self.reverse_hw_order_var.get()
+            self.settings["default_homework_name"] = self.def_hw_session_name_var.get()
+            self.settings["live_homework_session_mode"] = self.live_hw_mode_var.get()
+            self.settings["log_homework_marks_enabled"] = self.log_hw_marks_var.get()
+            # Data & Export Tab
+            self.settings["excel_export_separate_sheets_by_default"] = self.excel_sep_sheets_var.get()
+            self.settings["excel_export_include_summaries_by_default"] = self.excel_inc_summary_var.get()
+            self.settings["enable_excel_autosave"] = self.enable_excel_autosave_var.get()
+            self.settings["output_dpi"] = self.export_image_spin.get()
+            # Security Tab
+            self.settings["password_on_open"] = self.pw_on_open_var.get()
+            self.settings["password_on_edit_action"] = self.pw_on_edit_var.get()
+            self.settings["password_auto_lock_enabled"] = self.pw_auto_lock_var.get()
+            self.settings["password_auto_lock_timeout_minutes"] = self.pw_auto_lock_timeout_var.get()
+        else:
+            self.app.type_theme = "sun-valley-light" # Reset to default theme
+            
         # Check if any significant setting actually changed by comparing with snapshot
         for key, initial_val in self.initial_settings_snapshot.items():
             current_val = self.settings.get(key)

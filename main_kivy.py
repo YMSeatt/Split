@@ -41,11 +41,12 @@ import csv
 import PIL
 from PIL import Image
 import webbrowser
-
-from plyer import filechooser
-# from plyer import storagepath
-# from plyer import uniqueid
-# from plyer import vibrator
+try:
+    from plyer import filechooser
+    # from plyer import storagepath
+    # from plyer import uniqueid
+    # from plyer import vibrator
+except ImportError: pass
 
 
 import threading
@@ -67,9 +68,9 @@ REBBI_DESK_WIDTH = 200
 REBBI_DESK_HEIGHT = 100
 DEFAULT_FONT_FAMILY = "Roboto"
 DEFAULT_FONT_SIZE = 10
-DEFAULT_FONT_COLOR = "black"
-DEFAULT_BOX_FILL_COLOR = "skyblue"
-DEFAULT_BOX_OUTLINE_COLOR = "blue"
+DEFAULT_FONT_COLOR = "#000000"
+DEFAULT_BOX_FILL_COLOR = "#87CEEB"
+DEFAULT_BOX_OUTLINE_COLOR = "#0000FF"
 DEFAULT_QUIZ_SCORE_FONT_COLOR = "darkgreen"
 DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD = True
 DEFAULT_HOMEWORK_SCORE_FONT_COLOR = "purple"
@@ -141,6 +142,8 @@ DEFAULT_HOMEWORK_MARK_TYPES = [
 ]
 MAX_CUSTOM_TYPES = 90
 MASTER_RECOVERY_PASSWORD_HASH = "d3c01af653d8940fc36ea1e1f33a8dc03f47dd864d2cd0d8814e2643fa37e70de0a2228e58d7d591eb2f124e2f4f9ff7c98686f4f5da3de6bbfc0267db3c1a0e"
+
+print(get_app_data_path(DATA_FILE))
 
 # --- Kivy Command Classes ---
 class Command:
@@ -1170,28 +1173,33 @@ class SeatingChartAppLogic:
     def _ensure_next_ids(self):
         max_s_id = 0; max_f_id = 0; max_g_id = 0; max_qt_id = 0; max_ht_id = 0; max_chwt_id = 0
         for sid in self.students:
-            if sid.startswith("student_"): try: max_s_id = max(max_s_id, int(sid.split("_")[1]))
-            except: pass
+            if sid.startswith("student_"): 
+                try: max_s_id = max(max_s_id, int(sid.split("_")[1]))
+                except: pass
         self.settings["next_student_id_num"] = max(self.settings.get("next_student_id_num", 1), max_s_id + 1)
         self.next_student_id_num = self.settings["next_student_id_num"]
         for fid in self.furniture:
-            if fid.startswith("furniture_"): try: max_f_id = max(max_f_id, int(fid.split("_")[1]))
-            except: pass
+            if fid.startswith("furniture_"): 
+                try: max_f_id = max(max_f_id, int(fid.split("_")[1]))
+                except: pass
         self.settings["next_furniture_id_num"] = max(self.settings.get("next_furniture_id_num", 1), max_f_id + 1)
         self.next_furniture_id_num = self.settings["next_furniture_id_num"]
         for gid in self.student_groups:
-            if gid.startswith("group_"): try: max_g_id = max(max_g_id, int(gid.split("_")[1]))
-            except: pass
+            if gid.startswith("group_"): 
+                try: max_g_id = max(max_g_id, int(gid.split("_")[1]))
+                except: pass
         self.settings["next_group_id_num"] = max(self.settings.get("next_group_id_num", 1), max_g_id + 1)
         self.next_group_id_num = self.settings["next_group_id_num"]
         for qtid in self.quiz_templates:
-            if qtid.startswith("quiztemplate_"): try: max_qt_id = max(max_qt_id, int(qtid.split("_")[1]))
-            except: pass
+            if qtid.startswith("quiztemplate_"): 
+                try: max_qt_id = max(max_qt_id, int(qtid.split("_")[1]))
+                except: pass
         self.settings["next_quiz_template_id_num"] = max(self.settings.get("next_quiz_template_id_num", 1), max_qt_id + 1)
         self.next_quiz_template_id_num = self.settings["next_quiz_template_id_num"]
         for htid in self.homework_templates:
-            if htid.startswith("hwtemplate_"): try: max_ht_id = max(max_ht_id, int(htid.split("_")[1]))
-            except: pass
+            if htid.startswith("hwtemplate_"): 
+                try: max_ht_id = max(max_ht_id, int(htid.split("_")[1]))
+                except: pass
         self.settings["next_homework_template_id_num"] = max(self.settings.get("next_homework_template_id_num", 1), max_ht_id + 1)
         self.next_homework_template_id_num = self.settings["next_homework_template_id_num"]
         for chwt in self.custom_homework_types:
@@ -1422,7 +1430,7 @@ class AddEditStudentPopup(Popup): # ... (as before)
         self.title = "Edit Student" if student_data else "Add Student"
         self.size_hint = (0.9, 0.8)
         content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        grid = GridLayout(cols=2, spacing=10, size_hint_y=None)
+        grid = GridLayout(cols=2, spacing=10, size_hint_y=None, row_default_height=40)
         grid.bind(minimum_height=grid.setter('height'))
         grid.add_widget(Label(text="First Name:"))
         self.first_name_input = TextInput(text=student_data.get('first_name', '') if student_data else '', multiline=False)
@@ -1487,7 +1495,7 @@ class AddFurniturePopup(Popup): # ... (as before) ...
         self.title = "Add Furniture Item"
         self.size_hint = (0.9, 0.7)
         content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        grid = GridLayout(cols=2, spacing=10, size_hint_y=None)
+        grid = GridLayout(cols=2, spacing=10, size_hint_y=None, row_default_height=30)
         grid.bind(minimum_height=grid.setter('height'))
         grid.add_widget(Label(text="Item Name:"))
         self.name_input = TextInput(multiline=False)
@@ -1537,7 +1545,7 @@ class BehaviorLogPopup(Popup): # ... (as before) ...
         self.size_hint = (0.9, 0.7)
 
         content = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        grid = GridLayout(cols=2, spacing=10, size_hint_y=None)
+        grid = GridLayout(cols=2, spacing=10, size_hint_y=None, row_default_height=30)
         grid.bind(minimum_height=grid.setter('height'))
 
         grid.add_widget(Label(text="Behavior:"))
@@ -1593,7 +1601,7 @@ class SettingsPopup(Popup): # ... (as before) ...
 
         main_content = BoxLayout(orientation='vertical', padding=10, spacing=10)
         scroll_view = ScrollView(size_hint=(1, 1))
-        settings_grid = GridLayout(cols=2, spacing=10, size_hint_y=None)
+        settings_grid = GridLayout(cols=2, spacing=10, size_hint_y=None, row_default_height=30)
         settings_grid.bind(minimum_height=settings_grid.setter('height'))
         self.setting_widgets = {}
 
@@ -1655,7 +1663,7 @@ class QuizScorePopup(Popup): # ... (as before) ...
 
         main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
         scroll_content = ScrollView()
-        form_layout = GridLayout(cols=2, spacing=10, size_hint_y=None)
+        form_layout = GridLayout(cols=2, spacing=10, size_hint_y=None, row_default_height=30)
         form_layout.bind(minimum_height=form_layout.setter('height'))
 
         form_layout.add_widget(Label(text="Quiz Name:"))
@@ -1672,7 +1680,7 @@ class QuizScorePopup(Popup): # ... (as before) ...
         self.num_questions_input = TextInput(text=str(self.logic.settings.get("default_quiz_questions", 10)), input_filter='int', multiline=False)
         form_layout.add_widget(self.num_questions_input)
 
-        self.marks_grid = GridLayout(cols=2, spacing=5, size_hint_y=None)
+        self.marks_grid = GridLayout(cols=2, spacing=5, size_hint_y=None, row_default_height=30)
         self.marks_grid.bind(minimum_height=self.marks_grid.setter('height'))
         self.populate_mark_inputs()
 
@@ -1770,7 +1778,7 @@ class ManualHomeworkLogPopup(Popup): # ... (as before) ...
 
         main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
         scroll_content = ScrollView()
-        form_layout = GridLayout(cols=2, spacing=10, size_hint_y=None)
+        form_layout = GridLayout(cols=2, spacing=10, size_hint_y=None, row_default_height=30)
         form_layout.bind(minimum_height=form_layout.setter('height'))
 
         if not self.log_marks_enabled:
@@ -1802,7 +1810,7 @@ class ManualHomeworkLogPopup(Popup): # ... (as before) ...
             self.num_hw_items_input = TextInput(text="1", input_filter='int', multiline=False)
             form_layout.add_widget(self.num_hw_items_input)
 
-            self.hw_marks_grid = GridLayout(cols=2, spacing=5, size_hint_y=None)
+            self.hw_marks_grid = GridLayout(cols=2, spacing=5, size_hint_y=None, row_default_height=30)
             self.hw_marks_grid.bind(minimum_height=self.hw_marks_grid.setter('height'))
             self.populate_hw_mark_inputs()
 
@@ -1915,8 +1923,8 @@ class ExportFilterPopup(Popup): # ... (as before) ...
         self.filter_widgets = {}
 
         main_layout = BoxLayout(orientation='vertical', padding="10dp", spacing="10dp")
-        scroll_view = ScrollView()
-        grid = GridLayout(cols=2, spacing="10dp", size_hint_y=None)
+        scroll_content = ScrollView()
+        grid = GridLayout(cols=2, spacing="10dp", size_hint_y=None, row_default_height=30)
         grid.bind(minimum_height=grid.setter('height'))
 
         grid.add_widget(Label(text="Start Date (YYYY-MM-DD):"))
@@ -2004,12 +2012,12 @@ class StudentWidget(Widget): # ... (as before, with on_size/on_pos redraw bindin
     student_data = ObjectProperty(None)
 
     def __init__(self, student_data, logic, item_id, **kwargs):
-        super().__init__(**kwargs)
         self.student_data = student_data
         self.logic = logic
         self.item_id = item_id
         self.size_hint = (None, None)
         self.bind(size=self.redraw, pos=self.redraw) # Redraw when Kivy changes size/pos
+        super().__init__(**kwargs)
 
     def on_student_data(self, instance, value): self.redraw()
     def on_is_selected(self, instance, value): self.redraw()
@@ -2022,7 +2030,7 @@ class StudentWidget(Widget): # ... (as before, with on_size/on_pos redraw bindin
             style_overrides = self.student_data.get("style_overrides", {})
 
             # Use self.size directly as ScatterLayout parent sets it in world units converted to screen pixels by its transform
-
+            #print(self.logic)
             fill_color_str = style_overrides.get("fill_color", self.logic.settings.get("student_box_fill_color", DEFAULT_BOX_FILL_COLOR))
             outline_color_str = style_overrides.get("outline_color", self.logic.settings.get("student_box_outline_color", DEFAULT_BOX_OUTLINE_COLOR))
 
@@ -2324,7 +2332,7 @@ class SeatingCanvasLayout(ScatterLayout):
 
     def get_widget_at_touch(self, touch_pos_screen):
         for widget in reversed(self.children): # Children are StudentWidget, FurnitureWidget
-            if widget.collide_point(*widget.to_local(*touch_pos_screen, relative_to=self)):
+            if widget.collide_point(*widget.to_local(*touch_pos_screen, relative=self)):
                 return widget
         return None
 
@@ -2385,20 +2393,21 @@ class SeatingCanvasLayout(ScatterLayout):
 
 
         touched_item_widget = self.get_widget_at_touch(touch.pos)
-
-        if touch.is_right_click: # Context Menu
-            if self.active_guide_placement: # Cancel guide placement on right click
-                self.active_guide_placement = None
-                app_logic.update_status("Guide placement cancelled.")
+        print(touch.type_id)
+        try:
+            if True:#touch.is_right_click: # Context Menu
+                if self.active_guide_placement: # Cancel guide placement on right click
+                    self.active_guide_placement = None
+                    app_logic.update_status("Guide placement cancelled.")
+                    return True
+                if touched_item_widget and hasattr(touched_item_widget, 'item_id'):
+                    app_logic.show_item_context_menu_kivy(touched_item_widget.item_id,
+                                                        "student" if isinstance(touched_item_widget, StudentWidget) else "furniture",
+                                                        touch.pos)
+                else:
+                    app_logic.show_canvas_context_menu_kivy(touch.pos)
                 return True
-            if touched_item_widget and hasattr(touched_item_widget, 'item_id'):
-                app_logic.show_item_context_menu_kivy(touched_item_widget.item_id,
-                                                     "student" if isinstance(touched_item_widget, StudentWidget) else "furniture",
-                                                     touch.pos)
-            else:
-                app_logic.show_canvas_context_menu_kivy(touch.pos)
-            return True
-
+        except AttributeError: pass
 
         if touched_item_widget and hasattr(touched_item_widget, 'item_id'):
             item_id = touched_item_widget.item_id

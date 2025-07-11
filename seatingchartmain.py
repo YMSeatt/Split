@@ -330,7 +330,7 @@ class SeatingChartApp:
         self.add_guide_mode: Optional[str] = None # 'vertical', 'horizontal', or None
         self.active_guide_button: Optional[ttk.Button] = None # To manage button visual state
 
-        self.ruler_thickness = 15  # pixels
+        self.ruler_thickness = 35  # pixels
         self.ruler_bg_color = "#f0f0f0"
         self.ruler_line_color = "#555555"
         self.ruler_text_color = "#333333"
