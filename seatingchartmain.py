@@ -2477,7 +2477,15 @@ class SeatingChartApp:
                 if clicked_item_type_no_drag == "student": self.draw_single_student(clicked_item_id_no_drag)
                 elif clicked_item_type_no_drag == "furniture": self.draw_single_furniture(clicked_item_id_no_drag)
                 self.update_status(f"{len(self.selected_items)} items selected. Dragging disabled.")
-                return # Consume event, no drag initiation
+                # Set _potential_click_target for on_canvas_release to handle logging
+                self._potential_click_target = clicked_item_id_no_drag
+                # Initialize drag_data minimally for on_canvas_release to correctly identify a click (not a drag)
+                self.drag_data = {"x": world_event_x_no_drag, "y": world_event_y_no_drag, "item_id": None,
+                                  "start_x_world": world_event_x_no_drag, "start_y_world": world_event_y_no_drag,
+                                  "original_positions": {}, "is_resizing": False,
+                                  "_actual_drag_initiated": False} # Ensure drag is not initiated
+                self._drag_started_on_item = False # Important for on_canvas_drag
+                return # Consume event, selection handled, drag explicitly not initiated
 
             # If click was not on an item, and dragging is disabled, do nothing more for left press.
             # General context menu (right click) is handled by on_canvas_right_press.
