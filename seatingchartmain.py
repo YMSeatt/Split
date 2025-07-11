@@ -2323,8 +2323,8 @@ class SeatingChartApp:
 
         # Step 2: Account for panning and zooming (the inverse of drawing)
         # This is the crucial step you were missing.
-        world_x = (true_canvas_x) / self.current_zoom_level - self.pan_x
-        world_y = (true_canvas_y) / self.current_zoom_level - self.pan_y
+        world_x = (true_canvas_x - self.pan_x) / self.current_zoom_level
+        world_y = (true_canvas_y - self.pan_y) / self.current_zoom_level
 
         return world_x, world_y
     
@@ -2503,9 +2503,9 @@ class SeatingChartApp:
             on_v_ruler = self.settings.get("show_rulers", False) and world_event_x < self.ruler_thickness and world_event_y > self.ruler_thickness
 
             if not on_h_ruler and not on_v_ruler:
-                world_x, world_y = self.canvas_to_world_coords(event.x, event.y)
+                world_x, world_y = self.canvas_to_world_coords_guides(event.x, event.y)
                 guide_type_to_add = self.add_guide_mode
-
+                
                 current_guide_id_num = self.next_guide_id_num
                 self.next_guide_id_num += 1
                 # self.settings["next_guide_id_num"] = self.next_guide_id_num # Will be saved with main data if guides are persistent
@@ -2709,7 +2709,7 @@ class SeatingChartApp:
             if not guide_info or guide_info.get('canvas_item_id') is None:
                 return # Guide not found or not drawn
 
-            current_event_world_x, current_event_world_y = self.canvas_to_world_coords_guides(event.x, event.y)
+            #current_event_world_x, current_event_world_y = self.canvas_to_world_coords_guides(event.x, event.y)
 
             original_guide_world_coord = self.drag_data['original_world_coord']
             start_drag_world_x = self.drag_data['start_drag_world_x']
@@ -2717,19 +2717,24 @@ class SeatingChartApp:
 
             new_world_coord = original_guide_world_coord
 
-            if guide_info['type'] == 'h': # Horizontal guide, update Y world_coord
-                delta_world_y = current_event_world_y - start_drag_world_y
-                new_world_coord = original_guide_world_coord + delta_world_y
-                guide_info['world_coord'] = new_world_coord
-                _, screen_y = self.world_to_canvas_coords_guides(0, new_world_coord)
-                self.canvas.coords(guide_info['canvas_item_id'], 0, screen_y, self.canvas.winfo_width(), screen_y) # type: ignore
+            # Get the change in mouse position in screen coordinates
+            dx_screen = event.x - self.drag_data["start_click_canvas_x"]
+            dy_screen = event.y - self.drag_data["start_click_canvas_y"]
 
-            elif guide_info['type'] == 'v': # Vertical guide, update X world_coord
-                delta_world_x = current_event_world_x - start_drag_world_x
-                new_world_coord = original_guide_world_coord + delta_world_x
+            # Convert the screen delta to a world delta by dividing by the zoom level
+            dx_world = dx_screen / self.current_zoom_level
+            dy_world = dy_screen / self.current_zoom_level
+
+            if guide_info['type'] == 'h':  # Horizontal guide
+                new_world_coord = self.drag_data['original_world_coord'] + dy_world
                 guide_info['world_coord'] = new_world_coord
-                screen_x, _ = self.world_to_canvas_coords_guides(new_world_coord, 0)
-                self.canvas.coords(guide_info['canvas_item_id'], screen_x, 0, screen_x, self.canvas.winfo_height()) # type: ignore
+                _, screen_y = self.world_to_canvas_coords(0, new_world_coord)
+                self.canvas.coords(guide_info['canvas_item_id'], 0, screen_y, self.canvas.winfo_width(), screen_y)
+            elif guide_info['type'] == 'v':  # Vertical guide
+                new_world_coord = self.drag_data['original_world_coord'] + dx_world
+                guide_info['world_coord'] = new_world_coord
+                screen_x, _ = self.world_to_canvas_coords(new_world_coord, 0)
+                self.canvas.coords(guide_info['canvas_item_id'], screen_x, 0, screen_x, self.canvas.winfo_height())
 
             self.password_manager.record_activity()
             return # Event handled, do not pass to student/furniture drag
