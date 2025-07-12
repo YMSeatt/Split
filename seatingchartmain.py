@@ -230,13 +230,8 @@ class SeatingChartApp:
         self.root = root_window
         self.root.title(f"Classroom Behavior Tracker - {APP_NAME} - {APP_VERSION}")
         v = self.root.wm_maxsize()
-        #print(v)
-        v1 = v[0]
-        v2 = v[1]-78
-        #print(v1)
         self.root.geometry("1400x980")
-        #self.root.geometry(f"{v1}x{v2}")
-        #self.root.po
+        self.root.state('zoomed') # Maximizes the window on Windows
         self.file_lock_manager = FileLockManager(LOCK_FILE_PATH)
         if not self.file_lock_manager.acquire_lock():
             self.root.destroy()
