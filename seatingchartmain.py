@@ -17,7 +17,7 @@ from PIL import Image
 from settingsdialog import SettingsDialog
 from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
-        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, ResetSettingsCommand
+        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand
 from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDialog, BehaviorDialog, \
     ManualHomeworkLogDialog, QuizScoreDialog, LiveQuizMarkDialog, LiveHomeworkMarkDialog, ExitConfirmationDialog, \
         ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, ManageStudentGroupsDialog
@@ -36,6 +36,7 @@ import darkdetect # For dark mode detection
 import threading
 import io
 import tempfile
+import cryptography.fernet # For making sure that the program can properly handle encrypted and non-encrypted data files
 try:
     if sys.platform == "win32":
         import win32gui
@@ -357,8 +358,8 @@ class SeatingChartApp:
 
         self.guide_line_color = self.settings.get("guides_color", "blue")
         self.setup_ui()
-        self.draw_all_items()
-        self.update_status(f"Application started. Data loaded from: {os.path.dirname(DATA_FILE)}")
+        # self.root.after_idle(self.draw_all_items) # Defer initial draw until window is mapped
+        self.update_status(f"Application started. Data loaded from: {os.path.dirname(DATA_FILE)}") # type: ignore
         self.update_undo_redo_buttons_state()
         self.toggle_mode(initial=True) # Apply initial mode
         self.root.after(30000, self.periodic_checks)
@@ -371,7 +372,14 @@ class SeatingChartApp:
                 self.on_exit_protocol(force_quit=True) # Ensure lock is released if exit fails here
             self.root.deiconify()
 
-
+    def on_canvas_configure(self, event):
+        """
+        Called when the canvas is first configured or resized.
+        We use this to trigger the very first draw_all_items() call,
+        ensuring the canvas has its final size.
+        """
+        self.draw_all_items()
+        
 
     def capture_tkinter_window(self, filename="tkinter_screenshot.png"):
         """
@@ -430,6 +438,55 @@ class SeatingChartApp:
         self.update_status(f"Screenshot saved to {file_path}")
         if messagebox.askyesno("Export Successful", f"Layout image saved to:\n{file_path}\n\nDo you want to open the file location?", parent=self.root): 
             self.open_specific_export_folder(file_path)
+
+
+
+    def _read_and_decrypt_file(self, file_path):
+        """Reads a file, attempts to decrypt it, and loads the JSON data."""
+        if not os.path.exists(file_path):
+            return None
+        try:
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+            
+            if not file_content: # File is empty
+                return None
+
+            try:
+                # Attempt to decrypt first
+                decrypted_data_string = decrypt_data(file_content)
+            except cryptography.fernet.InvalidToken:
+                # If decryption fails, it's likely plaintext (or corrupt)
+                # Assume it's a UTF-8 encoded string.
+                decrypted_data_string = file_content.decode('utf-8')
+
+            return json.loads(decrypted_data_string)
+
+        except (json.JSONDecodeError, IOError, UnicodeDecodeError) as e:
+            print(f"Error loading and decoding file {os.path.basename(file_path)}: {e}")
+            return None
+
+    def _encrypt_and_write_file(self, file_path, data_to_write):
+        """Encodes data to JSON, encrypts if enabled, and writes to a file."""
+        try:
+            json_data_string = json.dumps(data_to_write, indent=4)
+            
+            # Use the app's setting to decide whether to encrypt
+            if self.settings.get("encrypt_data_files", True):
+                data_to_write_bytes = encrypt_data(json_data_string)
+            else:
+                data_to_write_bytes = json_data_string.encode('utf-8')
+
+            with open(file_path, 'wb') as f:
+                f.write(data_to_write_bytes)
+
+        except IOError as e:
+            print(f"Error saving file {os.path.basename(file_path)}: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred while saving {os.path.basename(file_path)}: {e}")
+
+
+
 
     def _get_default_settings(self):
         return {
@@ -756,9 +813,10 @@ class SeatingChartApp:
         self.root.bind_all("<Control-R>", lambda event: self.reload_canvas())
         self.root.bind_all("<S>", lambda event: self.open_settings_dialog())
         self.root.bind_all("<p>", lambda event: self.show_help_dialog())
-        self.root.bind_all("<I>", lambda event: self.zoom_canvas(1.1))
-        self.root.bind_all("<O>", lambda event: self.zoom_canvas(.9))
-        self.root.bind_all("<R>", lambda event: self.zoom_canvas(0))
+        self.root.bind_all("<Control-plus>", lambda event: self.zoom_canvas(1.1))
+        self.root.bind_all("<Control-equal>", lambda event: self.zoom_canvas(1.1))
+        self.root.bind_all("<Control-minus>", lambda event: self.zoom_canvas(0.9))
+        self.root.bind_all("<Control-0>", lambda event: self.zoom_canvas(0))
         self.root.bind_all("<E>", lambda event: self.toggle_edit_mode_shortcut())
         self.root.bind_all("<B>", lambda event: self.toggle_mode_("behavior"))
         self.root.bind_all("<Q>", lambda event: self.toggle_mode_("quiz"))
@@ -803,11 +861,11 @@ class SeatingChartApp:
         
         self.zoom_var = tk.StringVar(value=str(float(self.current_zoom_level)*100))
         view_controls_frame = ttk.LabelFrame(top_controls_frame_row1, text="View & Edit", padding=2); view_controls_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Button(view_controls_frame, text="In", underline=0, command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(view_controls_frame, text="In", command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
         self.zoom_display_label = ttk.Entry(view_controls_frame, textvariable=self.zoom_var, width=5)
         if self.settings.get("show_zoom_level_display", True): self.zoom_display_label.pack(side=tk.LEFT, padx=1)
-        ttk.Button(view_controls_frame, text="Out", underline=0, command=lambda: self.zoom_canvas(0.9)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(view_controls_frame, text="Reset", underline=0, command=lambda: self.zoom_canvas(0)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(view_controls_frame, text="Out", command=lambda: self.zoom_canvas(0.9)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(view_controls_frame, text="Reset", command=lambda: self.zoom_canvas(0)).pack(side=tk.LEFT, padx=2)
         self.edit_mode_checkbutton = ttk.Checkbutton(view_controls_frame, text="Edit Mode", underline=0, variable=self.edit_mode_var, command=self.toggle_edit_mode); self.edit_mode_checkbutton.pack(side=tk.LEFT, padx=5)
         self.toggle_incidents_btn = ttk.Button(view_controls_frame, text="Hide Recent Logs", command=self.toggle_global_recent_logs_visibility); self.toggle_incidents_btn.pack(side=tk.LEFT, padx=2) # Renamed
         self.update_toggle_incidents_button_text()
@@ -863,6 +921,7 @@ class SeatingChartApp:
         self.h_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas_xview_custom)
         self.v_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.VERTICAL, command=self.canvas_yview_custom) #else "#1F1F1F"
         self.canvas = tk.Canvas(self.canvas_frame, bg=self.canvas_color, relief=tk.SUNKEN, borderwidth=1, xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set) # type: ignore
+        self.canvas.bind("<Configure>", self.on_canvas_configure)
         self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X); self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y); self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.canvas.config(scrollregion=(0, 0, self.canvas_orig_width * self.current_zoom_level, self.canvas_orig_height * self.current_zoom_level))
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_left_press); self.canvas.bind("<ButtonPress-3>", self.on_canvas_right_press)
@@ -3474,10 +3533,12 @@ class SeatingChartApp:
         try:
             # Encrypt the data
             json_data_string = json.dumps(data_to_save, indent=4)
-            encrypted_data = encrypt_data(json_data_string)
-
+            if self.settings.get("encrypt_data_files", True):
+                data = encrypt_data(json_data_string)
+            else:
+                data = json_data_string.encode('utf-8')
             with open(DATA_FILE, 'wb') as f: # Open in binary write mode
-                f.write(encrypted_data)
+                f.write(data)
 
             verbose_save = source not in ["autosave", "command_execution", "undo_command", "redo_command", "toggle_mode", "end_live_quiz", "end_live_homework_session", "reset", "assign_group_menu", "load_template", "save_and_quit"]
             if verbose_save:
@@ -3528,8 +3589,10 @@ class SeatingChartApp:
             try:
                 with open(target_file, 'rb') as f: # Open in binary read mode
                     encrypted_data = f.read()
-                
-                decrypted_data_string = decrypt_data(encrypted_data)
+                try:
+                    decrypted_data_string = decrypt_data(encrypted_data)
+                except cryptography.fernet.InvalidToken:
+                    decrypted_data_string = encrypted_data
                 data = json.loads(decrypted_data_string)
                 """try:
                     with open(target_file, 'r', encoding='utf-8') as f: data = json.load(f)"""
@@ -3970,7 +4033,15 @@ class SeatingChartApp:
             #except Exception as e:
             #    print(f"Error during Excel autosave: {e}")
             #   # self.update_status(f"Error during Excel autosave: {e}")
+    
+    def load_custom_behaviors(self):
+        loaded_data = self._read_and_decrypt_file(CUSTOM_BEHAVIORS_FILE)
+        self.custom_behaviors = loaded_data if isinstance(loaded_data, list) else []
 
+    def save_custom_behaviors(self):
+        self._encrypt_and_write_file(CUSTOM_BEHAVIORS_FILE, self.custom_behaviors)
+    
+    """
     def load_custom_behaviors(self):
         if os.path.exists(CUSTOM_BEHAVIORS_FILE):
             try:
@@ -3985,6 +4056,8 @@ class SeatingChartApp:
             with open(CUSTOM_BEHAVIORS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.custom_behaviors, f, indent=4)
         except IOError as e: print(f"Error saving custom behaviors: {e}")
+    """
+    
     """
     def load_custom_homework_log_behaviors(self): # New
         if os.path.exists(CUSTOM_HOMEWORKS_FILE): # Deprecated, now CUSTOM_HOMEWORK_LOG_BEHAVIORS_FILE
@@ -4010,8 +4083,10 @@ class SeatingChartApp:
         except IOError as e:
             print(f"Error saving custom homework log behaviors: {e}")
     """
+    
+    """
     def load_custom_homework_types(self): # NEW
-        """Loads customizable homework types (e.g., "Reading Assignment", "Worksheet")."""
+        #""Loads customizable homework types (e.g., "Reading Assignment", "Worksheet").""
         if os.path.exists(CUSTOM_HOMEWORK_TYPES_FILE):
             try:
                 with open(CUSTOM_HOMEWORK_TYPES_FILE, 'r', encoding='utf-8') as f:
@@ -4028,9 +4103,21 @@ class SeatingChartApp:
                 json.dump(self.custom_homework_types, f, indent=4)
         except IOError as e:
             print(f"Error saving custom homework types: {e}")
-            
+   """         
+    
+    
+    def load_custom_homework_types(self): # NEW
+        """Loads customizable homework types (e.g., "Reading Assignment", "Worksheet")."""
+        loaded_data = self._read_and_decrypt_file(CUSTOM_HOMEWORK_TYPES_FILE)
+        self.custom_homework_types = loaded_data if isinstance(loaded_data, list) else []
+
+    def save_custom_homework_types(self): # NEW
+        self._encrypt_and_write_file(CUSTOM_HOMEWORK_TYPES_FILE, self.custom_homework_types)
+    
+    
+    """
     def load_custom_homework_statuses(self): # RENAMED
-        """Loads customizable homework statuses (e.g., "Done", "Not Done", "Late")."""
+        #""Loads customizable homework statuses (e.g., "Done", "Not Done", "Late").""
         if os.path.exists(CUSTOM_HOMEWORK_STATUSES_FILE):
             try:
                 with open(CUSTOM_HOMEWORK_STATUSES_FILE, 'r', encoding='utf-8') as f:
@@ -4047,7 +4134,17 @@ class SeatingChartApp:
                 json.dump(self.custom_homework_statuses, f, indent=4)
         except IOError as e:
             print(f"Error saving custom homework statuses: {e}")
-       
+       """
+    
+    def load_custom_homework_statuses(self): # RENAMED
+        """Loads customizable homework statuses (e.g., "Done", "Not Done", "Late")."""
+        loaded_data = self._read_and_decrypt_file(CUSTOM_HOMEWORK_STATUSES_FILE)
+        self.custom_homework_statuses = loaded_data if isinstance(loaded_data, list) else []
+
+    def save_custom_homework_statuses(self): # RENAMED
+        self._encrypt_and_write_file(CUSTOM_HOMEWORK_STATUSES_FILE, self.custom_homework_statuses)
+    
+    
     # Remove the old load_custom_homework_session_types and save_custom_homework_session_types
     # as CUSTOM_HOMEWORK_TYPES_FILE now serves this purpose.
 
@@ -4069,7 +4166,7 @@ class SeatingChartApp:
         default_as_dicts = [{"id": f"default_{name.lower().replace(' ','_')}", "name": name} for name in DEFAULT_HOMEWORK_TYPES_LIST]
         # Custom ones already have IDs.
         self.all_homework_session_types = default_as_dicts + [ct for ct in self.custom_homework_types if isinstance(ct, dict)]
-
+    """
     def load_student_groups(self):
         if os.path.exists(STUDENT_GROUPS_FILE):
             try:
@@ -4085,6 +4182,9 @@ class SeatingChartApp:
             except (json.JSONDecodeError, IOError) as e:
                 print(f"Error loading student groups: {e}"); self.student_groups = {}
         else: self.student_groups = {}
+    
+    
+    
     def save_student_groups(self):
         try:
             with open(STUDENT_GROUPS_FILE, 'w', encoding='utf-8') as f: json.dump(self.student_groups, f, indent=4)
@@ -4109,6 +4209,56 @@ class SeatingChartApp:
             with open(QUIZ_TEMPLATES_FILE, 'w', encoding='utf-8') as f: json.dump(self.quiz_templates, f, indent=4)
         except IOError as e: print(f"Error saving quiz templates: {e}")
 
+    """
+
+    def load_student_groups(self):
+        loaded_data = self._read_and_decrypt_file(STUDENT_GROUPS_FILE)
+        self.student_groups = loaded_data if isinstance(loaded_data, dict) else {}
+        
+        if self.student_groups:
+            max_g_id = 0
+            for gid in self.student_groups:
+                if gid.startswith("group_"):
+                    try: max_g_id = max(max_g_id, int(gid.split("_")[1]))
+                    except (ValueError, IndexError): pass
+            self.next_group_id_num = max(self.settings.get("next_group_id_num",1), max_g_id + 1)
+            self.settings["next_group_id_num"] = self.next_group_id_num
+
+    def save_student_groups(self):
+        self._encrypt_and_write_file(STUDENT_GROUPS_FILE, self.student_groups)
+
+    def load_quiz_templates(self):
+        loaded_data = self._read_and_decrypt_file(QUIZ_TEMPLATES_FILE)
+        self.quiz_templates = loaded_data if isinstance(loaded_data, dict) else {}
+
+        if self.quiz_templates:
+            max_qt_id = 0
+            for qtid in self.quiz_templates:
+                if qtid.startswith("quiztemplate_"):
+                    try: max_qt_id = max(max_qt_id, int(qtid.split("_")[1]))
+                    except (ValueError, IndexError): pass
+            self.next_quiz_template_id_num = max(self.settings.get("next_quiz_template_id_num",1), max_qt_id + 1)
+            self.settings["next_quiz_template_id_num"] = self.next_quiz_template_id_num
+
+    def save_quiz_templates(self):
+        self._encrypt_and_write_file(QUIZ_TEMPLATES_FILE, self.quiz_templates)
+
+    def load_homework_templates(self): # New
+        loaded_data = self._read_and_decrypt_file(HOMEWORK_TEMPLATES_FILE)
+        self.homework_templates = loaded_data if isinstance(loaded_data, dict) else {}
+
+        if self.homework_templates:
+            max_ht_id = 0
+            for htid in self.homework_templates:
+                if htid.startswith("hwtemplate_"):
+                    try: max_ht_id = max(max_ht_id, int(htid.split("_")[1]))
+                    except (ValueError, IndexError): pass
+            self.next_homework_template_id_num = max(self.settings.get("next_homework_template_id_num",1), max_ht_id + 1)
+            self.settings["next_homework_template_id_num"] = self.next_homework_template_id_num
+
+    def save_homework_templates(self): # New
+        self._encrypt_and_write_file(HOMEWORK_TEMPLATES_FILE, self.homework_templates)
+    """
     def load_homework_templates(self): # New
         if os.path.exists(HOMEWORK_TEMPLATES_FILE):
             try:
@@ -4133,7 +4283,7 @@ class SeatingChartApp:
                 json.dump(self.homework_templates, f, indent=4)
         except IOError as e:
             print(f"Error saving homework templates: {e}")
-
+     """
     def update_all_homework_log_behaviors(self): # New
         self.all_homework_log_behaviors = DEFAULT_HOMEWORK_LOG_BEHAVIORS + [b["name"] for b in self.custom_homework_statuses if "name" in b]
    
@@ -5214,12 +5364,226 @@ class SeatingChartApp:
                 }
             }
             try:
+                self._encrypt_and_write_file(file_path, layout_data)
+                self.update_status(f"Layout template '{template_name}' saved.")
+            except Exception as e: messagebox.showerror("Save Error", f"Could not save layout template: {e}", parent=self.root)
+        else: self.update_status("Layout template save cancelled.")
+        self.password_manager.record_activity()
+
+    def load_layout_template_dialog(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Load Layout", "Enter password to load layout template:"): return
+        if not os.path.exists(LAYOUT_TEMPLATES_DIR) or not os.listdir(LAYOUT_TEMPLATES_DIR):
+            messagebox.showinfo("No Templates", "No layout templates found in default folder.", parent=self.root); 
+        file_path = filedialog.askopenfilename(initialdir=LAYOUT_TEMPLATES_DIR, title="Select Layout Template",
+                                               filetypes=[("JSON files", "*.json"), ("All files", "*.*")], parent=self.root)
+        if file_path:
+            try:
+                template_data = self._read_and_decrypt_file(file_path)
+                if not isinstance(template_data, dict):
+                    raise json.JSONDecodeError("Invalid template format.", "", 0)
+
+                if messagebox.askyesno("Confirm Load", "Loading this template will overwrite current item positions and sizes. Student data (names, logs) will be preserved. Continue?", parent=self.root):
+                    # ... (rest of the logic remains the same)
+                    move_commands_data = []
+                    size_commands_data = []
+                    template_students = template_data.get("students", {})
+                    template_furniture = template_data.get("furniture", {})
+
+                    applied_count = 0
+                    skipped_count = 0
+                    name_match_log = []
+                    match_by_name = messagebox.askyesno("Layout Loading Options", "Load layout template by names of students (doesn't need to be exact) or by ID (not preferred-doesn't preserve student positions correctly)?\nYes is by names, no is by ID.")
+                    for template_student_id, t_stud_data in template_students.items():
+                        target_student_id = None
+                        s_current = None
+                        if match_by_name:
+                            # 2. Secondary Match: Name (first, last, then nickname for disambiguation)
+                            t_first = t_stud_data.get("first_name", "").lower()
+                            t_last = t_stud_data.get("last_name", "").lower()
+                            t_nick = t_stud_data.get("nickname", "").lower()
+
+                            if not t_first or not t_last: # Cannot match by name if essential parts are missing
+                                name_match_log.append(f"Skipped template student (ID: {template_student_id}, Name: {t_stud_data.get('full_name', 'N/A')}) due to missing name components in template.")
+                                skipped_count +=1
+                                continue
+
+                            potential_matches = []
+                            for c_sid, c_sdata in self.students.items():
+                                if c_sdata.get("first_name", "").lower() == t_first and \
+                                   c_sdata.get("last_name", "").lower() == t_last:
+                                    potential_matches.append(c_sid)
+
+                            if len(potential_matches) == 1:
+                                target_student_id = potential_matches[0]
+                                s_current = self.students[target_student_id]
+                                name_match_log.append(f"Matched template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} to classroom's {s_current['full_name']} by name.")
+                            elif len(potential_matches) > 1:
+                                # Attempt disambiguation with nickname
+                                if t_nick:
+                                    final_matches = [pid for pid in potential_matches if self.students[pid].get("nickname","").lower() == t_nick]
+                                    if len(final_matches) == 1:
+                                        target_student_id = final_matches[0]
+                                        s_current = self.students[target_student_id]
+                                        name_match_log.append(f"Matched template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} ({t_nick}) to classroom's {s_current['full_name']} by exact name & nickname.")
+                                    else: # No exact nickname match, or multiple after filtering by nickname
+                                        name_match_log.append(f"Ambiguous exact name match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} (Nickname: {t_nick}). Found {len(potential_matches)} with same first/last, {len(final_matches)} after nickname filter. Trying fuzzy match.")
+                                        # Proceed to fuzzy matching for these potential_matches if final_matches was not unique
+                                        potential_matches_for_fuzzy = final_matches if t_nick and final_matches else potential_matches
+                                        # Fall through to fuzzy matching logic below if no unique exact match yet
+                                else: # No nickname in template to disambiguate exact first/last name matches
+                                    name_match_log.append(f"Ambiguous exact name match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')}. Found {len(potential_matches)} classroom students. Trying fuzzy match.")
+                                    # Fall through to fuzzy matching logic below
+
+                            # Fuzzy Matching Stage (if no unique exact match by ID or full name + nickname)
+                            if not target_student_id: # Only if we haven't found a target yet
+                                fuzzy_matches = []
+                                # If potential_matches had some exact first/last name hits, fuzzy match within that subset first
+                                students_to_search_fuzzy = [self.students[pid] for pid in potential_matches] if potential_matches else list(self.students.values())
+
+                                for c_sdata_fuzzy in students_to_search_fuzzy:
+                                    # Construct full names for comparison
+                                    template_full_name_for_fuzzy = f"{t_first} {t_last}"
+                                    classroom_full_name_for_fuzzy = f"{c_sdata_fuzzy.get('first_name','').lower()} {c_sdata_fuzzy.get('last_name','').lower()}"
+
+                                    similarity = name_similarity_ratio(template_full_name_for_fuzzy, classroom_full_name_for_fuzzy)
+
+                                    if similarity >= 0.85: # Similarity threshold
+                                        fuzzy_matches.append({"id": c_sdata_fuzzy["id"], "similarity": similarity, "data": c_sdata_fuzzy})
+
+                                if fuzzy_matches:
+                                    fuzzy_matches.sort(key=lambda x: x["similarity"], reverse=True) # Sort by best match
+
+                                    if len(fuzzy_matches) == 1 or fuzzy_matches[0]["similarity"] > fuzzy_matches[1]["similarity"] + 0.05: # Unique best fuzzy match or significantly better
+                                        best_fuzzy_match = fuzzy_matches[0]
+                                        target_student_id = best_fuzzy_match["id"]
+                                        s_current = self.students[target_student_id]
+                                        name_match_log.append(f"Fuzzy matched template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} to classroom's {s_current['full_name']} (Similarity: {best_fuzzy_match['similarity']:.2f}).")
+                                    else: # Multiple good fuzzy matches, try nickname disambiguation again
+                                        if t_nick:
+                                            final_fuzzy_nick_matches = [fm for fm in fuzzy_matches if fm["data"].get("nickname","").lower() == t_nick and fm["similarity"] >=0.85]
+                                            if len(final_fuzzy_nick_matches) == 1:
+                                                target_student_id = final_fuzzy_nick_matches[0]["id"]
+                                                s_current = self.students[target_student_id]
+                                                name_match_log.append(f"Fuzzy matched (with nickname) template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} ({t_nick}) to classroom's {s_current['full_name']} (Similarity: {final_fuzzy_nick_matches[0]['similarity']:.2f}).")
+                                            else:
+                                                name_match_log.append(f"Ambiguous fuzzy match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} ({t_nick}) after nickname. Skipped.")
+                                                skipped_count += 1
+                                        else:
+                                            name_match_log.append(f"Ambiguous fuzzy match for template's {t_stud_data.get('first_name')} {t_stud_data.get('last_name')}. Skipped.")
+                                            skipped_count += 1
+                                elif not potential_matches : # Only log "no match" if there were no exact first/last name potential_matches initially
+                                    name_match_log.append(f"No ID, exact name, or close fuzzy match for template student {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} (ID: {template_student_id}). Skipped.")
+                                    skipped_count += 1
+
+                            # If after all matching attempts, still no target_student_id
+                            if not target_student_id and not potential_matches : # Redundant check for skipped_count already done by fuzzy logic.
+                                # This log might be duplicated if fuzzy also logged a skip.
+                                # name_match_log.append(f"Final skip for template student {t_stud_data.get('first_name')} {t_stud_data.get('last_name')} (ID: {template_student_id}).")
+                                # skipped_count +=1 # This might double count skips if fuzzy already counted it.
+                                pass
+                        else:   # 2. ID Match
+                            if template_student_id in self.students:
+                                target_student_id = template_student_id
+                                s_current = self.students[target_student_id]
+
+                        # If a student was found (either by ID, exact name, or fuzzy name)
+                        if target_student_id and s_current:
+                            applied_count +=1
+                            # Position
+                            old_x, old_y = s_current["x"], s_current["y"]
+                            new_x, new_y = t_stud_data.get("x", old_x), t_stud_data.get("y", old_y)
+                            if old_x != new_x or old_y != new_y:
+                                move_commands_data.append({'id':target_student_id, 'type':'student', 'old_x':old_x, 'old_y':old_y, 'new_x':new_x, 'new_y':new_y})
+                            
+                            # Size
+                            old_w = s_current.get("style_overrides",{}).get("width", s_current.get("width", DEFAULT_STUDENT_BOX_WIDTH))
+                            old_h = s_current.get("style_overrides",{}).get("height", s_current.get("height", DEFAULT_STUDENT_BOX_HEIGHT))
+                            new_w = t_stud_data.get("width", old_w)
+                            new_h = t_stud_data.get("height", old_h)
+                            if old_w != new_w or old_h != new_h:
+                                size_commands_data.append({'id':target_student_id, 'type':'student', 'old_w':old_w, 'old_h':old_h, 'new_w':new_w, 'new_h':new_h})
+                            
+                            # Style Overrides
+                            t_style_overrides = t_stud_data.get("style_overrides", {})
+                            if t_style_overrides or (not t_style_overrides and s_current.get("style_overrides")): # Apply if template has styles OR if current has styles that need clearing
+                                current_style_snapshot = s_current.get("style_overrides", {}).copy()
+
+                                # Create a snapshot of the full student data before style change for EditItemCommand
+                                full_old_student_data_for_style_cmd = s_current.copy()
+                                full_old_student_data_for_style_cmd["style_overrides"] = current_style_snapshot
+
+                                # The new_item_data_changes for EditItemCommand needs to be just the changes.
+                                # Here, we are replacing the entire style_overrides dict from the template.
+                                if current_style_snapshot != t_style_overrides:
+                                     self.execute_command(EditItemCommand(self, target_student_id, "student", full_old_student_data_for_style_cmd, {"style_overrides": t_style_overrides.copy()}))
+
+
+                    # Furniture (still by ID)
+                    for item_id, t_data in template_furniture.items():
+                         if item_id in self.furniture:
+                            f_current = self.furniture[item_id]
+                            old_x, old_y = f_current["x"], f_current["y"]
+                            new_x, new_y = t_data.get("x", old_x), t_data.get("y", old_y)
+                            if old_x != new_x or old_y != new_y : move_commands_data.append({'id':item_id, 'type':'furniture', 'old_x':old_x, 'old_y':old_y, 'new_x':new_x, 'new_y':new_y})
+
+                            old_w = f_current.get("width", REBBI_DESK_WIDTH) ; old_h = f_current.get("height", REBBI_DESK_HEIGHT)
+                            new_w = t_data.get("width", old_w); new_h = t_data.get("height", old_h)
+                            if old_w != new_w or old_h != new_h: size_commands_data.append({'id':item_id, 'type':'furniture', 'old_w':old_w, 'old_h':old_h, 'new_w':new_w, 'new_h':new_h})
+
+                    if move_commands_data: self.execute_command(MoveItemsCommand(self, move_commands_data))
+                    if size_commands_data: self.execute_command(ChangeItemsSizeCommand(self, size_commands_data))
+
+                    status_message = f"Layout '{os.path.basename(file_path)}' loaded. Applied to {applied_count} students."
+                    if skipped_count > 0:
+                        status_message += f" Skipped {skipped_count} template students (see console log for details)."
+                    if name_match_log:
+                        print("--- Layout Load Name Matching Log ---")
+                        for log_line in name_match_log: print(log_line)
+                        print("------------------------------------")
+
+                    self.update_status(status_message)
+                    self.draw_all_items(check_collisions_on_redraw=True)
+                    self.save_data_wrapper(source="load_template")
+            except (json.JSONDecodeError, IOError) as e: messagebox.showerror("Load Error", f"Could not load layout template: {e}", parent=self.root)
+        else: self.update_status("Layout template load cancelled.")
+        self.password_manager.record_activity()
+    
+    
+    """
+    def save_layout_template_dialog(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Save Layout", "Enter password to save layout template:"): return
+        template_name = simpledialog.askstring("Save Layout Template", "Enter a name for this layout template:", parent=self.root)
+        if template_name and template_name.strip():
+            filename = "".join(c if c.isalnum() or c in (' ', '_', '-') else '_' for c in template_name.strip()) + ".json"
+            file_path = os.path.join(LAYOUT_TEMPLATES_DIR, filename)
+            layout_data = {
+                "students": {
+                    sid: {
+                        "x": s["x"], "y": s["y"],
+                        "width": s.get("width"), "height": s.get("height"),
+                        "style_overrides": s.get("style_overrides",{}).copy(),
+                        # Add name details for robust loading
+                        "first_name": s.get("first_name", ""),
+                        "last_name": s.get("last_name", ""),
+                        "nickname": s.get("nickname", "")
+                    } for sid, s in self.students.items()
+                },
+                "furniture": {
+                    fid: {
+                        "x": f["x"], "y": f["y"],
+                        "width": f.get("width"), "height": f.get("height")
+                    } for fid, f in self.furniture.items()
+                }
+            }
+            try:
                 with open(file_path, 'w', encoding='utf-8') as f: json.dump(layout_data, f, indent=4)
                 self.update_status(f"Layout template '{template_name}' saved.")
             except IOError as e: messagebox.showerror("Save Error", f"Could not save layout template: {e}", parent=self.root)
         else: self.update_status("Layout template save cancelled.")
         self.password_manager.record_activity()
-
+    
     def load_layout_template_dialog(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Load Layout", "Enter password to load layout template:"): return
@@ -5396,7 +5760,10 @@ class SeatingChartApp:
             except (json.JSONDecodeError, IOError) as e: messagebox.showerror("Load Error", f"Could not load layout template: {e}", parent=self.root)
         else: self.update_status("Layout template load cancelled.")
         self.password_manager.record_activity()
-
+    """
+    
+    
+    
     def generate_attendance_report_dialog(self):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Generate Report", "Enter password to generate attendance report:"): return

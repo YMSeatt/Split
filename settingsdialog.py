@@ -726,6 +726,11 @@ class SettingsDialog(simpledialog.Dialog):
 
         ttk.Label(lf_pw_options, text="For the Master Recovery Password, ask Yaakov Maimon (see Help)", foreground="blue", wraplength=420).pack(anchor=tk.W, padx=5, pady=5)
 
+        lf_encryption = ttk.LabelFrame(tab_frame, text="Data Encryption", padding=10)
+        lf_encryption.pack(fill=tk.X, pady=5)
+        self.encrypt_data_var = tk.BooleanVar(value=self.settings.get("encrypt_data_files", True))
+        ttk.Checkbutton(lf_encryption, text="Encrypt data files on save (requires password to be set)", variable=self.encrypt_data_var).pack(anchor=tk.W, padx=5, pady=2)
+
     def create_other_settings_tab(self, tab_frame):
         # Create content for the Other Settings tab
         lf_other_options = ttk.LabelFrame(tab_frame, text="Other Options", padding=10)
@@ -807,6 +812,7 @@ class SettingsDialog(simpledialog.Dialog):
             "password_on_edit_action": False,
             "password_auto_lock_enabled": False,
             "password_auto_lock_timeout_minutes": 15,
+            "encrypt_data_files": True,
 
             # Next ID counters (managed by _ensure_next_ids but good to have defaults)
             "next_student_id_num": 1,
@@ -1276,6 +1282,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings["password_on_edit_action"] = self.pw_on_edit_var.get()
             self.settings["password_auto_lock_enabled"] = self.pw_auto_lock_var.get()
             self.settings["password_auto_lock_timeout_minutes"] = self.pw_auto_lock_timeout_var.get()
+            self.settings["encrypt_data_files"] = self.encrypt_data_var.get()
         else:
             self.app.type_theme = "sun-valley-light" # Reset to default theme
             
