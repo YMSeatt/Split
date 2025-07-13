@@ -86,6 +86,9 @@ RESIZE_HANDLE_SIZE = 8
 RESIZE_HANDLE_TOUCH_PADDING = 4
 
 def get_app_data_path(filename):
+    """
+    Determines the appropriate path for application data files based on the operating system.
+    """
     app = App.get_running_app()
     if app:
         user_data_dir = app.user_data_dir
@@ -147,6 +150,7 @@ print(get_app_data_path(DATA_FILE))
 
 # --- Kivy Command Classes ---
 class Command:
+    """Base class for all commands in the application."""
     def __init__(self, app_logic):
         self.app_logic = app_logic
         self.timestamp = datetime.now().isoformat()
@@ -155,6 +159,7 @@ class Command:
     def to_dict(self): return {"type": self.__class__.__name__, "timestamp": self.timestamp}
     @staticmethod
     def from_dict(app_logic, data: Dict[str, Any]) -> Any:
+        """Creates a command object from a dictionary."""
         command_type = data.get("type")
         command_classes = {
             "AddItemCommand": AddItemCommand, "DeleteItemCommand": DeleteItemCommand,
@@ -170,6 +175,7 @@ class Command:
         return None
 
 class AddItemCommand(Command):
+    """Command to add a new item (student or furniture)."""
     def __init__(self, app_logic, item_id, item_type, item_data, original_next_id_num_for_type):
         super().__init__(app_logic)
         self.item_id = item_id; self.item_type = item_type; self.item_data = item_data.copy()
@@ -202,6 +208,7 @@ class AddItemCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["item_id"], data["item_type"], data["item_data"], data["original_next_id_num_for_type"])
 
 class LogEntryCommand(Command):
+    """Command to log a new behavior or quiz entry."""
     def __init__(self, app_logic, log_entry, student_id, timestamp=None):
         super().__init__(app_logic); self.log_entry = log_entry.copy(); self.student_id = student_id
         if timestamp: self.log_entry["timestamp"] = timestamp; self.timestamp = timestamp
@@ -220,6 +227,7 @@ class LogEntryCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["log_entry"], data["student_id"], timestamp=data.get("timestamp"))
 
 class LogHomeworkEntryCommand(Command):
+    """Command to log a new homework entry."""
     def __init__(self, app_logic, log_entry, student_id, timestamp=None):
         super().__init__(app_logic); self.log_entry = log_entry.copy(); self.student_id = student_id
         if timestamp: self.log_entry["timestamp"] = timestamp; self.timestamp = timestamp
@@ -238,6 +246,7 @@ class LogHomeworkEntryCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["log_entry"], data["student_id"], timestamp=data.get("timestamp"))
 
 class DeleteItemCommand(Command):
+    """Command to delete an item."""
     def __init__(self, app_logic, item_id, item_type, deleted_item_data, associated_behavior_logs=None, associated_homework_logs=None):
         super().__init__(app_logic); self.item_id = item_id; self.item_type = item_type; self.deleted_item_data = deleted_item_data.copy()
         self.associated_behavior_logs = [log.copy() for log in associated_behavior_logs] if associated_behavior_logs else []
@@ -277,6 +286,7 @@ class DeleteItemCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["item_id"], data["item_type"], data["deleted_item_data"], data.get("associated_behavior_logs"), data.get("associated_homework_logs"))
 
 class EditItemCommand(Command):
+    """Command to edit an item's data."""
     def __init__(self, app_logic, item_id, item_type, old_item_data_snapshot, new_item_data_changes):
         super().__init__(app_logic); self.item_id = item_id; self.item_type = item_type; self.old_item_data_snapshot = old_item_data_snapshot.copy(); self.new_item_data_changes = new_item_data_changes.copy()
     def execute(self):
@@ -296,6 +306,7 @@ class EditItemCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["item_id"], data["item_type"], data["old_item_data_snapshot"], data["new_item_data_changes"])
 
 class MoveItemsCommand(Command):
+    """Command to move items."""
     def __init__(self, app_logic, items_move_data: List[Dict[str, Any]]):
         super().__init__(app_logic); self.items_move_data = [item.copy() for item in items_move_data]
     def _apply_positions(self, use_new_coords: bool):
@@ -313,6 +324,7 @@ class MoveItemsCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["items_move_data"])
 
 class ChangeItemsSizeCommand(Command):
+    """Command to change the size of items."""
     def __init__(self, app_logic, items_size_data: List[Dict[str, Any]]):
         super().__init__(app_logic); self.items_size_data = [item.copy() for item in items_size_data]
     def _apply_sizes(self, use_new_sizes: bool):
@@ -335,6 +347,7 @@ class ChangeItemsSizeCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["items_size_data"])
 
 class MarkLiveQuizQuestionCommand(Command):
+    """Command to mark a question in a live quiz."""
     def __init__(self, app_logic, student_id, mark_action):
         super().__init__(app_logic); self.student_id = student_id; self.mark_action = mark_action; self.old_score_data = None
     def execute(self):
@@ -358,6 +371,7 @@ class MarkLiveQuizQuestionCommand(Command):
     def from_dict_data(cls, app_logic, data): cmd = cls(app_logic, data["student_id"], data["mark_action"]); cmd.old_score_data = data.get("old_score_data"); return cmd
 
 class MarkLiveHomeworkCommand(Command):
+    """Command to mark homework in a live session."""
     def __init__(self, app_logic, student_id, actions, session_mode):
         super().__init__(app_logic); self.student_id = student_id; self.actions = actions; self.session_mode = session_mode; self.old_hw_data_for_student = None
     def execute(self):
@@ -379,6 +393,7 @@ class MarkLiveHomeworkCommand(Command):
     def from_dict_data(cls, app_logic, data): cmd = cls(app_logic, data["student_id"], data["actions"], data["session_mode"]); cmd.old_hw_data_for_student = data.get("old_hw_data_for_student"); return cmd
 
 class ChangeStudentStyleCommand(Command):
+    """Command to change a student's style."""
     def __init__(self, app_logic, student_id, property_name, old_value, new_value):
         super().__init__(app_logic); self.student_id = student_id; self.property_name = property_name; self.old_value = old_value; self.new_value = new_value
     def _apply_style(self, value_to_apply):
@@ -397,6 +412,7 @@ class ChangeStudentStyleCommand(Command):
     def from_dict_data(cls, app_logic, data): return cls(app_logic, data["student_id"], data["property_name"], data["old_value"], data["new_value"])
 
 class ManageStudentGroupCommand(Command):
+    """Command to manage student groups."""
     def __init__(self, app_logic, old_groups, new_groups, old_assignments, new_assignments, old_next_id, new_next_id):
         super().__init__(app_logic); self.old_groups_snapshot = old_groups; self.new_groups_snapshot = new_groups; self.old_student_assignments_snapshot = old_assignments; self.new_student_assignments_snapshot = new_assignments; self.old_next_group_id_num = old_next_id; self.new_next_group_id_num = new_next_id
     def _apply_state(self, groups_to_apply, assignments_to_apply, next_id_to_apply):
@@ -413,6 +429,9 @@ class ManageStudentGroupCommand(Command):
 
 
 class SeatingChartAppLogic:
+    """
+    The main logic class for the Seating Chart application.
+    """
     # ... (All methods as defined in the previous version, including __init__, app_started, execute_command, undo/redo, dialog openers, etc.) ...
     def __init__(self, app_instance):
         self.app = app_instance
@@ -477,6 +496,9 @@ class SeatingChartAppLogic:
 
 
     def app_started(self):
+        """
+        Called when the Kivy application has started. Initializes paths and loads data.
+        """
         global DATA_FILE, CUSTOM_BEHAVIORS_FILE, CUSTOM_HOMEWORK_TYPES_FILE, \
                CUSTOM_HOMEWORK_STATUSES_FILE, AUTOSAVE_EXCEL_FILE, LAYOUT_TEMPLATES_DIR, \
                STUDENT_GROUPS_FILE, QUIZ_TEMPLATES_FILE, HOMEWORK_TEMPLATES_FILE, LOCK_FILE_PATH
@@ -516,9 +538,11 @@ class SeatingChartAppLogic:
 
 
     def app_stopping(self):
+        """Called when the Kivy application is stopping. Saves data."""
         self.save_data_wrapper(source="app_stop")
 
     def execute_command(self, command: Command):
+        """Executes a command and adds it to the undo stack."""
         try:
             command.execute()
             self.undo_stack.append(command)
@@ -532,6 +556,7 @@ class SeatingChartAppLogic:
 
 
     def undo_last_action(self):
+        """Undoes the last action."""
         if self.undo_stack:
             command = self.undo_stack.pop()
             try:
@@ -547,6 +572,7 @@ class SeatingChartAppLogic:
             self.update_status("Nothing to undo.")
 
     def redo_last_action(self):
+        """Redoes the last undone action."""
         if self.redo_stack:
             command = self.redo_stack.pop()
             try:
@@ -562,6 +588,7 @@ class SeatingChartAppLogic:
             self.update_status("Nothing to redo.")
 
     def update_undo_redo_buttons_kivy_state(self):
+        """Updates the state of the undo/redo buttons in the Kivy UI."""
         if hasattr(self, 'undo_button_kivy') and self.undo_button_kivy:
             self.undo_button_kivy.disabled = not bool(self.undo_stack)
         if hasattr(self, 'redo_button_kivy') and self.redo_button_kivy:
@@ -569,16 +596,19 @@ class SeatingChartAppLogic:
 
 
     def world_to_canvas_coords_kivy(self, world_x, world_y, canvas_widget):
+        """Converts world coordinates to canvas coordinates."""
         if hasattr(self.app, 'seating_canvas_widget'):
             return self.app.seating_canvas_widget.to_local(world_x, world_y, relative=False)
         return world_x, world_y
 
     def canvas_to_world_coords_kivy(self, screen_x, screen_y, canvas_widget):
+        """Converts canvas coordinates to world coordinates."""
         if hasattr(self.app, 'seating_canvas_widget'):
             return self.app.seating_canvas_widget.to_local(screen_x, screen_y, relative=True)
         return screen_x, screen_y
 
     def draw_single_student_kivy(self, student_id, canvas_layout_widget: ScatterLayout):
+        """Draws a single student on the canvas."""
         student_data = self.students.get(student_id)
         if not student_data:
             if student_id in self.student_widgets:
@@ -606,6 +636,7 @@ class SeatingChartAppLogic:
         widget.redraw()
 
     def draw_single_furniture_kivy(self, furniture_id, canvas_layout_widget: ScatterLayout):
+        """Draws a single piece of furniture on the canvas."""
         furniture_data = self.furniture.get(furniture_id)
         if not furniture_data:
             if furniture_id in self.furniture_widgets:
@@ -633,6 +664,7 @@ class SeatingChartAppLogic:
         widget.redraw()
 
     def draw_all_items_kivy(self, canvas_layout_widget):
+        """Draws all items on the canvas."""
         current_student_widgets_ids = set(self.student_widgets.keys())
         current_furniture_widgets_ids = set(self.furniture_widgets.keys())
         data_student_ids = set(self.students.keys())
@@ -654,6 +686,7 @@ class SeatingChartAppLogic:
 
 
     def export_layout_as_image(self): # ... (as before) ...
+        """Exports the current layout as an image."""
         try:
             default_filename = f"layout_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
             filechooser.save_file(title="Save Layout As PNG", default_path=default_filename, filters=[("PNG Image", "*.png")], on_selection=self._save_layout_image_callback)
@@ -661,6 +694,7 @@ class SeatingChartAppLogic:
             self.update_status(f"Error opening file chooser: {e}")
 
     def _save_layout_image_callback(self, selection): # ... (as before) ...
+        """Callback for saving the layout image."""
         if not selection:
             self.update_status("Image export cancelled.")
             return
@@ -675,6 +709,7 @@ class SeatingChartAppLogic:
             self.update_status(f"Failed to save image: {e}")
 
     def get_recent_incidents_for_student(self, student_id):
+        """Gets recent incidents for a student."""
         now = datetime.now()
         time_window = timedelta(hours=self.settings.get("recent_incident_time_window_hours", 24))
         num_to_show = self.settings.get("num_recent_incidents_to_show", 2)
@@ -694,6 +729,7 @@ class SeatingChartAppLogic:
         return list(reversed(recent_incidents))
 
     def _get_default_settings(self): # ... (as before) ...
+        """Gets the default settings for the application."""
         return {
             "show_recent_incidents_on_boxes": True, "num_recent_incidents_to_show": 2, "recent_incident_time_window_hours": 24, "show_full_recent_incidents": False, "reverse_incident_order": True, "selected_recent_behaviors_filter": None,
             "show_recent_homeworks_on_boxes": True, "num_recent_homeworks_to_show": 2, "recent_homework_time_window_hours": 24, "show_full_recent_homeworks": False, "reverse_homework_order": True, "selected_recent_homeworks_filter": None,
@@ -714,15 +750,18 @@ class SeatingChartAppLogic:
         }
 
     def update_status(self, message):
+        """Updates the status bar with a message."""
         print(f"Status: {message}")
         if self.app and hasattr(self.app, 'status_bar_label'):
              self.app.status_bar_label.text = message
 
     def prompt_for_password(self, title, prompt_message, for_editing=False):
+        """Prompts the user for a password."""
         print(f"PROMPT PASSWORD: {title} - {prompt_message}")
         return True
 
     def show_messagebox(self, type, title, message):
+        """Shows a message box."""
         popup_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
         popup_layout.add_widget(Label(text=message, text_size=(350, None)))
         btn = Button(text="OK", size_hint_y=None, height=40)
@@ -732,6 +771,7 @@ class SeatingChartAppLogic:
         popup.open()
 
     def show_messagebox_yesno(self, title, message, yes_callback=None, no_callback=None): # Added callbacks
+        """Shows a yes/no message box."""
         print(f"MESSAGEBOX YES/NO: {title} - {message}")
         # In a real scenario, this would show a popup and invoke callbacks.
         # For now, let's assume "yes" for automated flow where it makes sense (e.g. load layout)
@@ -740,18 +780,22 @@ class SeatingChartAppLogic:
         return True # Or return a value indicating "yes" was chosen
 
     def get_new_student_id(self):
+        """Gets a new student ID."""
         current_id_to_assign = self.next_student_id_num
         return f"student_{current_id_to_assign}", self.next_student_id_num + 1
 
     def get_new_furniture_id(self):
+        """Gets a new furniture ID."""
         current_id_to_assign = self.next_furniture_id_num
         return f"furniture_{current_id_to_assign}", self.next_furniture_id_num + 1
 
     def open_add_student_dialog(self):
+        """Opens the add student dialog."""
         popup = AddEditStudentPopup(logic=self)
         popup.open()
 
     def add_student_logic(self, first_name, last_name, nickname, gender, group_id_selection):
+        """The logic for adding a student."""
         old_next_student_id_num_for_command = self.next_student_id_num
         student_id_str, next_id_val_for_app_state_after_this = self.get_new_student_id()
         full_name = f"{first_name} \"{nickname}\" {last_name}" if nickname else f"{first_name} {last_name}"
@@ -766,10 +810,12 @@ class SeatingChartAppLogic:
         self.execute_command(command)
 
     def open_add_furniture_dialog(self):
+        """Opens the add furniture dialog."""
         popup = AddFurniturePopup(logic=self)
         popup.open()
 
     def add_furniture_logic(self, name, item_type, width, height):
+        """The logic for adding a piece of furniture."""
         old_next_furniture_id_num_for_command = self.next_furniture_id_num
         furniture_id_str, next_id_val_for_app_state_after_this = self.get_new_furniture_id()
         x, y = (70, 70)
@@ -782,10 +828,12 @@ class SeatingChartAppLogic:
         self.execute_command(command)
 
     def get_student_full_name(self, student_id):
+        """Gets a student's full name."""
         student = self.students.get(student_id)
         return student.get("full_name", "Unknown Student") if student else "Unknown Student"
 
     def open_log_behavior_dialog(self, student_id):
+        """Opens the log behavior dialog."""
         student = self.students.get(student_id)
         if not student:
             self.show_messagebox("error", "Error", "Student not found.")
@@ -795,6 +843,7 @@ class SeatingChartAppLogic:
         popup.open()
 
     def log_behavior_entry_logic(self, student_id, behavior, comment):
+        """The logic for logging a behavior."""
         student = self.students.get(student_id)
         if not student: return
 
@@ -806,10 +855,12 @@ class SeatingChartAppLogic:
         self.execute_command(command)
 
     def open_settings_dialog(self):
+        """Opens the settings dialog."""
         popup = SettingsPopup(logic=self)
         popup.open()
 
     def save_settings_logic(self, new_settings_values):
+        """The logic for saving settings."""
         print("Kivy: Settings received by logic:", new_settings_values)
         for key, value in new_settings_values.items():
             if key in self.settings:
@@ -829,6 +880,7 @@ class SeatingChartAppLogic:
         self.update_status("Settings updated (Kivy).")
 
     def open_log_quiz_score_dialog(self, student_id):
+        """Opens the log quiz score dialog."""
         student = self.students.get(student_id)
         if not student:
             self.show_messagebox("error", "Error", "Student not found.")
@@ -839,6 +891,7 @@ class SeatingChartAppLogic:
         popup.open()
 
     def log_quiz_score_entry_logic(self, student_id, quiz_name, marks_data, comment, num_questions):
+        """The logic for logging a quiz score."""
         student = self.students.get(student_id)
         if not student: return
 
@@ -859,6 +912,7 @@ class SeatingChartAppLogic:
         self.settings["_last_used_q_num_for_session"] = self.initial_num_questions
 
     def open_log_homework_dialog(self, student_id):
+        """Opens the log homework dialog."""
         student = self.students.get(student_id)
         if not student:
             self.show_messagebox("error", "Error", "Student not found.")
@@ -874,6 +928,7 @@ class SeatingChartAppLogic:
         popup.open()
 
     def log_homework_entry_logic(self, student_id, homework_type, comment, marks_data=None, num_items=None, homework_status=None):
+        """The logic for logging a homework entry."""
         student = self.students.get(student_id)
         if not student: return
 
@@ -899,6 +954,7 @@ class SeatingChartAppLogic:
         self.execute_command(command)
 
     def open_data_folder_kivy(self):
+        """Opens the data folder."""
         data_dir = os.path.dirname(DATA_FILE if DATA_FILE else get_app_data_path("dummy.txt"))
         self.update_status(f"Data folder is: {data_dir}")
         try:
@@ -912,16 +968,19 @@ class SeatingChartAppLogic:
             self.update_status(f"Error opening folder: {e}")
 
     def exit_app_kivy(self):
+        """Exits the Kivy application."""
         self.save_data_wrapper(source="exit_app_kivy")
         App.get_running_app().stop()
 
     def toggle_edit_mode_kivy(self, checkbox_instance, active_state):
+        """Toggles the edit mode in the Kivy UI."""
         self.edit_mode_var_kivy = active_state
         self.update_status(f"Edit Mode {'Enabled' if self.edit_mode_var_kivy else 'Disabled'}.")
         if hasattr(self.app, 'seating_canvas_widget'):
             self.app.seating_canvas_widget.redraw_all_items_on_canvas()
 
     def open_export_log_dialog_kivy(self, export_type):
+        """Opens the export log dialog in the Kivy UI."""
         # if self.password_manager.is_locked: # TODO
         #     if not self.prompt_for_password("Unlock to Export", "Enter password to export log data:"): return
 
@@ -934,6 +993,7 @@ class SeatingChartAppLogic:
         popup.open()
 
     def export_log_data_kivy(self, filter_settings, export_format):
+        """Exports log data in the Kivy UI."""
         default_filename = f"behavior_log_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         file_ext = f".{export_format}" if export_format != "csv" else "_csv.zip"
         default_filename += file_ext
@@ -956,6 +1016,7 @@ class SeatingChartAppLogic:
             self.show_messagebox("error", "Export Error", f"Could not open file chooser: {e}")
 
     def _on_export_file_select(self, selection, export_format, filter_settings):
+        """Callback for when a file is selected for export."""
         if not selection:
             self.update_status("Export cancelled.")
             return
@@ -979,6 +1040,7 @@ class SeatingChartAppLogic:
 
 
     def load_data(self, file_path=None, is_restore=False): # ... (implementation as before, ensure Command.from_dict is used for undo/redo) ...
+        """Loads data from a file."""
         target_file = file_path or DATA_FILE
         if not target_file:
             print("load_data called before DATA_FILE path is initialized. Aborting load.")
@@ -1054,13 +1116,26 @@ class SeatingChartAppLogic:
             print(f"Data file loaded from an older version. Saving in new format.")
             self.save_data_wrapper(source="migration_save")
 
-    def _migrate_v3_edited_data(self, data): print("Migrating v3 (stub)"); return data
-    def _migrate_v4_data(self, data): print("Migrating v4 (stub)"); return data
-    def _migrate_v5_data(self, data): print("Migrating v5 (stub)"); return data
-    def _migrate_v6_data(self, data): print("Migrating v6 (stub)"); return data
-    def _migrate_v7_data(self, data): print("Kivy: Migrating v7 (stub)"); return data
-    def _migrate_v8_data(self, data): print("Kivy: Migrating v8 (stub)"); return data
+    def _migrate_v3_edited_data(self, data):
+        """Migrates data from version 3 to 4."""
+        print("Migrating v3 (stub)"); return data
+    def _migrate_v4_data(self, data):
+        """Migrates data from version 4 to 5."""
+        print("Migrating v4 (stub)"); return data
+    def _migrate_v5_data(self, data):
+        """Migrates data from version 5 to 6."""
+        print("Migrating v5 (stub)"); return data
+    def _migrate_v6_data(self, data):
+        """Migrates data from version 6 to 7."""
+        print("Migrating v6 (stub)"); return data
+    def _migrate_v7_data(self, data):
+        """Migrates data from version 7 to 8."""
+        print("Kivy: Migrating v7 (stub)"); return data
+    def _migrate_v8_data(self, data):
+        """Migrates data from version 8 to 9."""
+        print("Kivy: Migrating v8 (stub)"); return data
     def _migrate_v9_data(self, data): # Stub for Kivy
+        """Migrates data from version 9 to 10."""
         print("Kivy: Migrating v9 to v10 (stub for guides).")
         if "settings" in data:
             data["settings"].setdefault("save_guides_to_file", True) # Keep consistent
@@ -1071,6 +1146,7 @@ class SeatingChartAppLogic:
         return data
 
     def save_data_wrapper(self, event=None, source="manual"):
+        """Saves all data to files."""
         if not DATA_FILE:
             print("save_data_wrapper: DATA_FILE not set, cannot save.")
             return
@@ -1092,85 +1168,105 @@ class SeatingChartAppLogic:
         self.save_student_groups(); self.save_custom_behaviors(); self.save_custom_homework_types(); self.save_custom_homework_statuses(); self.save_quiz_templates(); self.save_homework_templates()
 
     def load_custom_behaviors(self):
+        """Loads custom behaviors from a file."""
         if CUSTOM_BEHAVIORS_FILE and os.path.exists(CUSTOM_BEHAVIORS_FILE):
             try:
                 with open(CUSTOM_BEHAVIORS_FILE, 'r', encoding='utf-8') as f: self.custom_behaviors = json.load(f)
             except Exception as e: print(f"Error loading custom behaviors: {e}"); self.custom_behaviors = []
         else: self.custom_behaviors = []
     def save_custom_behaviors(self):
+        """Saves custom behaviors to a file."""
         if CUSTOM_BEHAVIORS_FILE:
             try:
                 with open(CUSTOM_BEHAVIORS_FILE, 'w', encoding='utf-8') as f: json.dump(self.custom_behaviors, f, indent=4)
             except Exception as e: print(f"Error saving custom behaviors: {e}")
 
     def load_custom_homework_types(self):
+        """Loads custom homework types from a file."""
         if CUSTOM_HOMEWORK_TYPES_FILE and os.path.exists(CUSTOM_HOMEWORK_TYPES_FILE):
             try:
                 with open(CUSTOM_HOMEWORK_TYPES_FILE, 'r', encoding='utf-8') as f: self.custom_homework_types = json.load(f)
             except Exception as e: print(f"Error loading custom_homework_types: {e}"); self.custom_homework_types = []
         else: self.custom_homework_types = []
     def save_custom_homework_types(self):
+        """Saves custom homework types to a file."""
         if CUSTOM_HOMEWORK_TYPES_FILE:
             try:
                 with open(CUSTOM_HOMEWORK_TYPES_FILE, 'w', encoding='utf-8') as f: json.dump(self.custom_homework_types, f, indent=4)
             except Exception as e: print(f"Error saving custom_homework_types: {e}")
 
     def load_custom_homework_statuses(self):
+        """Loads custom homework statuses from a file."""
         if CUSTOM_HOMEWORK_STATUSES_FILE and os.path.exists(CUSTOM_HOMEWORK_STATUSES_FILE):
             try:
                 with open(CUSTOM_HOMEWORK_STATUSES_FILE, 'r', encoding='utf-8') as f: self.custom_homework_statuses = json.load(f)
             except Exception as e: print(f"Error loading custom_homework_statuses: {e}"); self.custom_homework_statuses = []
         else: self.custom_homework_statuses = []
     def save_custom_homework_statuses(self):
+        """Saves custom homework statuses to a file."""
         if CUSTOM_HOMEWORK_STATUSES_FILE:
             try:
                 with open(CUSTOM_HOMEWORK_STATUSES_FILE, 'w', encoding='utf-8') as f: json.dump(self.custom_homework_statuses, f, indent=4)
             except Exception as e: print(f"Error saving custom_homework_statuses: {e}")
 
     def load_student_groups(self):
+        """Loads student groups from a file."""
         if STUDENT_GROUPS_FILE and os.path.exists(STUDENT_GROUPS_FILE):
             try:
                 with open(STUDENT_GROUPS_FILE, 'r', encoding='utf-8') as f: self.student_groups = json.load(f)
             except Exception as e: print(f"Error loading student_groups: {e}"); self.student_groups = {}
         else: self.student_groups = {}
     def save_student_groups(self):
+        """Saves student groups to a file."""
         if STUDENT_GROUPS_FILE:
             try:
                 with open(STUDENT_GROUPS_FILE, 'w', encoding='utf-8') as f: json.dump(self.student_groups, f, indent=4)
             except Exception as e: print(f"Error saving student_groups: {e}")
 
     def load_quiz_templates(self):
+        """Loads quiz templates from a file."""
         if QUIZ_TEMPLATES_FILE and os.path.exists(QUIZ_TEMPLATES_FILE):
             try:
                 with open(QUIZ_TEMPLATES_FILE, 'r', encoding='utf-8') as f: self.quiz_templates = json.load(f)
             except Exception as e: print(f"Error loading quiz_templates: {e}"); self.quiz_templates = {}
         else: self.quiz_templates = {}
     def save_quiz_templates(self):
+        """Saves quiz templates to a file."""
         if QUIZ_TEMPLATES_FILE:
             try:
                 with open(QUIZ_TEMPLATES_FILE, 'w', encoding='utf-8') as f: json.dump(self.quiz_templates, f, indent=4)
             except Exception as e: print(f"Error saving quiz_templates: {e}")
 
     def load_homework_templates(self):
+        """Loads homework templates from a file."""
         if HOMEWORK_TEMPLATES_FILE and os.path.exists(HOMEWORK_TEMPLATES_FILE):
             try:
                 with open(HOMEWORK_TEMPLATES_FILE, 'r', encoding='utf-8') as f: self.homework_templates = json.load(f)
             except Exception as e: print(f"Error loading homework_templates: {e}"); self.homework_templates = {}
         else: self.homework_templates = {}
     def save_homework_templates(self):
+        """Saves homework templates to a file."""
         if HOMEWORK_TEMPLATES_FILE:
             try:
                 with open(HOMEWORK_TEMPLATES_FILE, 'w', encoding='utf-8') as f: json.dump(self.homework_templates, f, indent=4)
             except Exception as e: print(f"Error saving homework_templates: {e}")
 
-    def update_all_behaviors(self): self.all_behaviors = DEFAULT_BEHAVIORS_LIST + [b["name"] if isinstance(b, dict) else str(b) for b in self.custom_behaviors]
-    def update_all_homework_types(self): self.all_homework_types = DEFAULT_HOMEWORK_TYPES_LIST + [item["name"] for item in self.custom_homework_types]
-    def update_all_homework_statuses(self): self.all_homework_statuses = DEFAULT_HOMEWORK_STATUSES + [item["name"] for item in self.custom_homework_statuses]
+    def update_all_behaviors(self):
+        """Updates the list of all behaviors."""
+        self.all_behaviors = DEFAULT_BEHAVIORS_LIST + [b["name"] if isinstance(b, dict) else str(b) for b in self.custom_behaviors]
+    def update_all_homework_types(self):
+        """Updates the list of all homework types."""
+        self.all_homework_types = DEFAULT_HOMEWORK_TYPES_LIST + [item["name"] for item in self.custom_homework_types]
+    def update_all_homework_statuses(self):
+        """Updates the list of all homework statuses."""
+        self.all_homework_statuses = DEFAULT_HOMEWORK_STATUSES + [item["name"] for item in self.custom_homework_statuses]
     def update_all_homework_session_types(self):
+        """Updates the list of all homework session types."""
         default_as_dicts = [{"id": f"default_{name.lower().replace(' ','_')}", "name": name} for name in DEFAULT_HOMEWORK_TYPES_LIST]
         self.all_homework_session_types = default_as_dicts + [ct for ct in self.custom_homework_types if isinstance(ct, dict)]
 
     def _ensure_next_ids(self):
+        """Ensures that the next IDs for all items are up to date."""
         max_s_id = 0; max_f_id = 0; max_g_id = 0; max_qt_id = 0; max_ht_id = 0; max_chwt_id = 0
         for sid in self.students:
             if sid.startswith("student_"): 
@@ -1209,6 +1305,7 @@ class SeatingChartAppLogic:
         self.settings["next_custom_homework_type_id_num"] = max(self.settings.get("next_custom_homework_type_id_num", 1), max_chwt_id + 1)
 
     def toggle_rulers(self):
+        """Toggles the visibility of the rulers."""
         self.settings['show_rulers'] = not self.settings.get('show_rulers', False)
         self.update_status(f"Rulers {'shown' if self.settings['show_rulers'] else 'hidden'}.")
         if hasattr(self.app, 'seating_canvas_widget'):
@@ -1216,12 +1313,14 @@ class SeatingChartAppLogic:
             self.app.seating_canvas_widget.redraw_all_items_on_canvas() # This will trigger ruler redraw
 
     def toggle_grid(self):
+        """Toggles the visibility of the grid."""
         self.settings['show_grid'] = not self.settings.get('show_grid', False)
         self.update_status(f"Grid {'shown' if self.settings['show_grid'] else 'hidden'}.")
         if hasattr(self.app, 'seating_canvas_widget'):
             self.app.seating_canvas_widget.redraw_all_items_on_canvas()
 
     def distribute_selected_items_evenly(self, direction='horizontal'):
+        """Distributes selected items evenly."""
         if len(self.selected_items) < 2:
             self.update_status("Select at least two items to distribute.")
             return
@@ -1320,8 +1419,10 @@ class SeatingChartAppLogic:
 # (Pasted content from previous `overwrite_file_with_block` for these classes)
 
 class SeatingChartKivyApp(App):
+    """The main Kivy application class."""
     # ... (build method with File menu, Export Log menu, Add Student, Settings, Undo, Redo buttons) ...
     def build(self):
+        """Builds the Kivy application."""
         self.logic = SeatingChartAppLogic(self)
         root_widget = BoxLayout(orientation='vertical')
 
@@ -1416,13 +1517,16 @@ class SeatingChartKivyApp(App):
         return root_widget
 
     def on_start(self):
+        """Called when the Kivy application starts."""
         self.logic.app_started()
 
     def on_stop(self):
+        """Called when the Kivy application stops."""
         print("App stopping. Data should be saved by logic if needed.")
         self.logic.app_stopping()
 
 class AddEditStudentPopup(Popup): # ... (as before)
+    """A popup for adding or editing a student."""
     def __init__(self, logic, student_data=None, **kwargs):
         super().__init__(**kwargs)
         self.logic = logic
@@ -1464,6 +1568,7 @@ class AddEditStudentPopup(Popup): # ... (as before)
         self.content = content
 
     def save_student(self, instance):
+        """Saves the student data."""
         first_name = self.first_name_input.text.strip()
         last_name = self.last_name_input.text.strip()
         nickname = self.nickname_input.text.strip()
@@ -1488,6 +1593,7 @@ class AddEditStudentPopup(Popup): # ... (as before)
         self.dismiss()
 
 class AddFurniturePopup(Popup): # ... (as before) ...
+    """A popup for adding a piece of furniture."""
     def __init__(self, logic, furniture_data=None, **kwargs):
         super().__init__(**kwargs)
         self.logic = logic
@@ -1522,6 +1628,7 @@ class AddFurniturePopup(Popup): # ... (as before) ...
         self.content = content
 
     def save_furniture(self, instance):
+        """Saves the furniture data."""
         name = self.name_input.text.strip()
         item_type = self.type_input.text.strip()
         try:
@@ -1536,6 +1643,7 @@ class AddFurniturePopup(Popup): # ... (as before) ...
         self.dismiss()
 
 class BehaviorLogPopup(Popup): # ... (as before) ...
+    """A popup for logging a behavior."""
     def __init__(self, logic, student_id, student_full_name, **kwargs):
         super().__init__(**kwargs)
         self.logic = logic
@@ -1582,6 +1690,7 @@ class BehaviorLogPopup(Popup): # ... (as before) ...
         self.content = content
 
     def log_behavior_action(self, instance):
+        """Logs the behavior."""
         behavior = self.behavior_spinner.text
         comment = self.comment_input.text.strip()
 
@@ -1593,6 +1702,7 @@ class BehaviorLogPopup(Popup): # ... (as before) ...
         self.dismiss()
 
 class SettingsPopup(Popup): # ... (as before) ...
+    """A popup for application settings."""
     def __init__(self, logic, **kwargs):
         super().__init__(**kwargs)
         self.logic = logic
@@ -1639,6 +1749,7 @@ class SettingsPopup(Popup): # ... (as before) ...
         self.content = main_content
 
     def save_settings_action(self, instance):
+        """Saves the settings."""
         new_settings = {}
         try:
             new_settings["show_recent_incidents_on_boxes"] = self.setting_widgets["show_recent_incidents_on_boxes"].active
@@ -1652,6 +1763,7 @@ class SettingsPopup(Popup): # ... (as before) ...
         self.dismiss()
 
 class QuizScorePopup(Popup): # ... (as before) ...
+    """A popup for logging a quiz score."""
     def __init__(self, logic, student_id, student_full_name, **kwargs):
         super().__init__(**kwargs)
         self.logic = logic
@@ -1705,6 +1817,7 @@ class QuizScorePopup(Popup): # ... (as before) ...
         self.content = main_layout
 
     def populate_mark_inputs(self, template_marks=None):
+        """Populates the mark inputs."""
         self.marks_grid.clear_widgets()
         self.mark_inputs_dict.clear()
         quiz_mark_types = self.logic.settings.get("quiz_mark_types", DEFAULT_QUIZ_MARK_TYPES)
@@ -1720,6 +1833,7 @@ class QuizScorePopup(Popup): # ... (as before) ...
             self.marks_grid.add_widget(mark_input)
 
     def load_template_data_action(self, spinner, text):
+        """Loads data from a quiz template."""
         if text == "None":
             self.quiz_name_input.text = self.logic.settings.get("default_quiz_name", "Pop Quiz")
             self.num_questions_input.text = str(self.logic.settings.get("default_quiz_questions", 10))
@@ -1740,6 +1854,7 @@ class QuizScorePopup(Popup): # ... (as before) ...
             self.comment_input.text = selected_template_data.get("comment", "")
 
     def log_score_action(self, instance):
+        """Logs the quiz score."""
         quiz_name = self.quiz_name_input.text.strip()
         comment = self.comment_input.text.strip()
         marks_data = {}
@@ -1766,6 +1881,7 @@ class QuizScorePopup(Popup): # ... (as before) ...
         self.dismiss()
 
 class ManualHomeworkLogPopup(Popup): # ... (as before) ...
+    """A popup for logging homework."""
     def __init__(self, logic, student_id, student_full_name, log_marks_enabled, **kwargs):
         super().__init__(**kwargs)
         self.logic = logic
@@ -1839,6 +1955,7 @@ class ManualHomeworkLogPopup(Popup): # ... (as before) ...
                 self.hw_template_spinner.text = hw_template_names[1]
 
     def populate_hw_mark_inputs(self, template_marks=None):
+        """Populates the homework mark inputs."""
         if not hasattr(self, 'hw_marks_grid'): return
         self.hw_marks_grid.clear_widgets()
         self.hw_mark_inputs_dict.clear()
@@ -1855,6 +1972,7 @@ class ManualHomeworkLogPopup(Popup): # ... (as before) ...
             self.hw_marks_grid.add_widget(mark_input)
 
     def load_hw_template_data_action(self, spinner, text):
+        """Loads data from a homework template."""
         if not self.log_marks_enabled or text == "None":
             if self.log_marks_enabled and hasattr(self, 'homework_name_input_detailed'):
                 self.homework_name_input_detailed.text = ""
@@ -1876,6 +1994,7 @@ class ManualHomeworkLogPopup(Popup): # ... (as before) ...
             if hasattr(self, 'comment_input_detailed'): self.comment_input_detailed.text = selected_template_data.get("comment", "")
 
     def log_homework_action(self, instance):
+        """Logs the homework."""
         if not self.log_marks_enabled:
             homework_type = self.homework_type_spinner.text
             homework_status = self.homework_status_spinner.text
@@ -1914,6 +2033,7 @@ class ManualHomeworkLogPopup(Popup): # ... (as before) ...
         self.dismiss()
 
 class ExportFilterPopup(Popup): # ... (as before) ...
+    """A popup for filtering data before exporting."""
     def __init__(self, logic, export_format, **kwargs):
         super().__init__(**kwargs)
         self.logic = logic
@@ -1978,6 +2098,7 @@ class ExportFilterPopup(Popup): # ... (as before) ...
         self.content = main_layout
 
     def export_action(self, instance):
+        """Exports the data with the selected filters."""
         filter_settings = {
             "start_date": self.filter_widgets['start_date'].text or None,
             "end_date": self.filter_widgets['end_date'].text or None,
@@ -2007,6 +2128,7 @@ class ExportFilterPopup(Popup): # ... (as before) ...
 
 
 class StudentWidget(Widget): # ... (as before, with on_size/on_pos redraw bindings) ...
+    """A widget representing a student on the canvas."""
     item_id = StringProperty('')
     is_selected = BooleanProperty(False)
     student_data = ObjectProperty(None)
@@ -2023,6 +2145,7 @@ class StudentWidget(Widget): # ... (as before, with on_size/on_pos redraw bindin
     def on_is_selected(self, instance, value): self.redraw()
 
     def redraw(self, *args): # Added *args for Kivy property bindings
+        """Redraws the widget."""
         self.canvas.clear()
         if not self.student_data: return
 
@@ -2105,6 +2228,7 @@ class StudentWidget(Widget): # ... (as before, with on_size/on_pos redraw bindin
 
 
 class FurnitureWidget(Widget): # ... (as before, with on_size/on_pos redraw bindings and handle drawing) ...
+    """A widget representing a piece of furniture on the canvas."""
     item_id = StringProperty('')
     is_selected = BooleanProperty(False)
     furniture_data = ObjectProperty(None)
@@ -2121,6 +2245,7 @@ class FurnitureWidget(Widget): # ... (as before, with on_size/on_pos redraw bind
     def on_is_selected(self, instance, value): self.redraw()
 
     def redraw(self, *args):
+        """Redraws the widget."""
         self.canvas.clear()
         if not self.furniture_data: return
         with self.canvas:
@@ -2169,6 +2294,7 @@ class FurnitureWidget(Widget): # ... (as before, with on_size/on_pos redraw bind
 
 
 class SeatingCanvasLayout(ScatterLayout):
+    """The main canvas layout for the seating chart."""
     # ... (init, redraw_all_items_on_canvas, get_widget_at_touch, get_resize_handle_at_touch as before) ...
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -2186,6 +2312,7 @@ class SeatingCanvasLayout(ScatterLayout):
         self.guides_to_draw: List[Tuple[str, float]] = [] # List of ('h' or 'v', world_coord)
 
     def redraw_all_items_on_canvas(self, *args):
+        """Redraws all items on the canvas."""
         self.canvas.before.clear()
         self.canvas.after.clear()
 
@@ -2200,6 +2327,7 @@ class SeatingCanvasLayout(ScatterLayout):
         self.app_logic.draw_all_items_kivy(self)
 
     def draw_grid(self):
+        """Draws the grid on the canvas."""
         with self.canvas.before: # Draw grid before items and rulers
             grid_size = self.app_logic.settings.get('grid_size', DEFAULT_GRID_SIZE)
             if grid_size <= 0: return
@@ -2235,6 +2363,7 @@ class SeatingCanvasLayout(ScatterLayout):
 
 
     def draw_rulers(self):
+        """Draws the rulers on the canvas."""
         # Rulers are drawn in screen space, but markings reflect world coordinates
         # This requires transforming world coordinates to screen coordinates considering pan and zoom.
         # The ScatterLayout's transform (self.transform) does this.
@@ -2317,6 +2446,7 @@ class SeatingCanvasLayout(ScatterLayout):
                             Rectangle(texture=label.texture, pos=(self.ruler_size - tick_width - label.texture.width - 2, screen_y - label.texture.height / 2), size=label.texture.size)
 
     def draw_guides(self):
+        """Draws the guides on the canvas."""
         with self.canvas.after: # Draw guides on top of items
             Color(*self.guide_line_color)
             for guide_type, world_coord in self.guides_to_draw:
@@ -2331,12 +2461,14 @@ class SeatingCanvasLayout(ScatterLayout):
 
 
     def get_widget_at_touch(self, touch_pos_screen):
+        """Gets the widget at a given touch position."""
         for widget in reversed(self.children): # Children are StudentWidget, FurnitureWidget
             if widget.collide_point(*widget.to_local(*touch_pos_screen, relative=self)):
                 return widget
         return None
 
     def get_resize_handle_at_touch(self, widget, touch_pos_widget_local):
+        """Gets the resize handle at a given touch position."""
         h_size = RESIZE_HANDLE_SIZE
         pad = RESIZE_HANDLE_TOUCH_PADDING
         w, h = widget.size
@@ -2358,6 +2490,7 @@ class SeatingCanvasLayout(ScatterLayout):
         return None
 
     def on_touch_down(self, touch: MotionEvent):
+        """Handles the touch down event."""
         if not self.collide_point(*touch.pos): return False
         self.last_touch_pos = touch.pos
         app_logic = self.app_logic
@@ -2467,6 +2600,7 @@ class SeatingCanvasLayout(ScatterLayout):
             return super().on_touch_down(touch)
 
     def on_touch_move(self, touch: MotionEvent):
+        """Handles the touch move event."""
         if touch.grab_current is not self or not self.current_drag_info:
             return super().on_touch_move(touch)
 
@@ -2521,6 +2655,7 @@ class SeatingCanvasLayout(ScatterLayout):
         return True
 
     def on_touch_up(self, touch: MotionEvent):
+        """Handles the touch up event."""
         if touch.grab_current is self and self.current_drag_info:
             touch.ungrab(self)
             app_logic = self.app_logic

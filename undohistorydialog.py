@@ -133,6 +133,3 @@ class UndoHistoryDialog(tk.Toplevel):
     def cancel(self):
         """Closes the dialog."""
         self.destroy()
-
-
-

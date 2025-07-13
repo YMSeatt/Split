@@ -48,6 +48,9 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
+    """
+    Determines the appropriate path for application data files based on the operating system.
+    """
     try:
         # Determine base path based on whether the app is frozen (packaged) or running from script
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -169,11 +172,21 @@ MASTER_RECOVERY_PASSWORD_HASH = "d3c01af653d8940fc36ea1e1f33a8dc03f47dd864d2cd0d
 
 # --- File Lock Manager ---
 class FileLockManager:
+    """
+    A class to manage a lock file to prevent multiple instances of the application
+    from running simultaneously.
+    """
     def __init__(self, lock_file_path):
         self.lock_file_path = lock_file_path
         self.lock = None
 
     def acquire_lock(self):
+        """
+        Acquires a lock on the lock file.
+
+        Returns:
+            bool: True if the lock was acquired, False otherwise.
+        """
         try:
             # Open the lock file in exclusive mode, creating it if it doesn't exist.
             # portalocker will raise an exception if the lock cannot be acquired.
@@ -208,6 +221,7 @@ class FileLockManager:
             return False
         
     def release_lock(self):
+        """Releases the lock on the lock file."""
         if self.lock:
             try:
                 portalocker.unlock(self.lock)
@@ -224,15 +238,18 @@ class FileLockManager:
                     print(f"Warning: Could not delete lock file {self.lock_file_path}: {e}")
 # --- Password Management ---
 class PasswordManager:
+    """A class to manage the application's password and auto-lock features."""
     def __init__(self, app_settings):
         self.app_settings = app_settings
         self.is_locked = False
         self.last_activity_time = datetime.now()
 
     def _hash_password(self, password):
+        """Hashes a password using SHA-512."""
         return hashlib.sha3_512(password.encode('utf-8')).hexdigest()
 
     def set_password(self, password):
+        """Sets or removes the application password."""
         if not password:
             self.app_settings["app_password_hash"] = None
             return True
@@ -240,23 +257,28 @@ class PasswordManager:
         return True
 
     def check_password(self, password):
+        """Checks if a given password matches the stored password."""
         stored_hash = self.app_settings.get("app_password_hash")
         if not stored_hash: return True
         return self._hash_password(password) == stored_hash
 
     def check_recovery_password(self, recovery_password):
+        """Checks if a given password matches the master recovery password."""
         return self._hash_password(recovery_password) == MASTER_RECOVERY_PASSWORD_HASH
 
     def is_password_set(self):
+        """Checks if a password is set."""
         return bool(self.app_settings.get("app_password_hash"))
 
     def lock_application(self):
+        """Locks the application."""
         if self.is_password_set():
             self.is_locked = True
             return True
         return False
 
     def unlock_application(self, password_attempt):
+        """Unlocks the application with a given password attempt."""
         if self.check_password(password_attempt) or self.check_recovery_password(password_attempt):
             self.is_locked = False
             self.last_activity_time = datetime.now()
@@ -264,6 +286,7 @@ class PasswordManager:
         return False
 
     def check_auto_lock(self):
+        """Checks if the application should be auto-locked due to inactivity."""
         if self.is_locked or not self.is_password_set() or not self.app_settings.get("password_auto_lock_enabled", False):
             return
         timeout_minutes = self.app_settings.get("password_auto_lock_timeout_minutes", 15)
@@ -272,15 +295,18 @@ class PasswordManager:
                 self.lock_application()
 
     def record_activity(self):
+        """Records user activity to reset the auto-lock timer."""
         self.last_activity_time = datetime.now()
 
 
 class HelpDialog(simpledialog.Dialog):
+    """A dialog that displays help and about information."""
     def __init__(self, parent, app_version):
         self.app_version = app_version
         super().__init__(parent, f"Help & About - {APP_NAME}")
 
     def body(self, master):
+        """Creates the dialog body."""
         main_frame = ttk.Frame(master); main_frame.pack(expand=True, fill="both")
         
         header_label = ttk.Label(main_frame, text=f"{APP_NAME} - Version {self.app_version}", font=("", 14, "bold"))
@@ -456,6 +482,7 @@ Phone: +1 206-750-5557
         return main_frame # No specific focus needed
 
     def buttonbox(self): # Override to only show an OK button
+        """Creates the dialog's button box."""
         box = ttk.Frame(self)
         ok_button = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
         ok_button.pack(pady=5)

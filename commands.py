@@ -42,6 +42,19 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
+    """
+    Determines the appropriate path for application data files based on the operating system.
+
+    This function ensures that data files are stored in standard locations (e.g., AppData on Windows,
+    Application Support on macOS, .config on Linux) when the application is packaged (frozen).
+    If the application is running as a script, it uses the script's directory.
+
+    Args:
+        filename (str): The name of the file for which to get the path.
+
+    Returns:
+        str: The full, absolute path to the data file.
+    """
     try:
         # Determine base path based on whether the app is frozen (packaged) or running from script
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -150,17 +163,36 @@ MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
 # --- Command Pattern for Undo/Redo ---
 class Command:
+    """
+    Base class for all commands in the application, implementing the Command design pattern.
+    This allows for undo/redo functionality by encapsulating all information needed to
+    perform and reverse an action.
+    """
     def __init__(self, app, timestamp=None):
         self.app = app
         self.timestamp = timestamp or datetime.now().isoformat()
 
-    def execute(self): raise NotImplementedError
-    def undo(self): raise NotImplementedError
-    def to_dict(self): return {'type': self.__class__.__name__, 'timestamp': self.timestamp, 'data': self._get_data_for_serialization()}
-    def _get_data_for_serialization(self): raise NotImplementedError
+    def execute(self):
+        """Executes the command's action."""
+        raise NotImplementedError
+    def undo(self):
+        """Reverses the command's action."""
+        raise NotImplementedError
+    def to_dict(self):
+        """
+        Serializes the command's data to a dictionary for saving.
+        """
+        return {'type': self.__class__.__name__, 'timestamp': self.timestamp, 'data': self._get_data_for_serialization()}
+    def _get_data_for_serialization(self):
+        """
+        Returns the specific data needed for serialization by the subclass.
+        """
+        raise NotImplementedError
 
     def get_description(self):
-        """Returns a user-friendly description of the command."""
+        """
+        Returns a user-friendly description of the command for display in the undo history.
+        """
         # Attempt to format timestamp for better readability if it's a valid ISO string
         try:
             dt_obj = datetime.fromisoformat(self.timestamp)
@@ -174,6 +206,9 @@ class Command:
 
     @classmethod
     def from_dict(cls, app, data_dict):
+        """
+        Factory method to create a command object from a dictionary (deserialization).
+        """
         command_type_name = data_dict['type']
         command_class = getattr(sys.modules[__name__], command_type_name, None)
         if command_class and issubclass(command_class, Command):
@@ -185,12 +220,17 @@ class Command:
         print(f"Warning: Unknown command type '{command_type_name}' in undo/redo history.")
         return None
     @classmethod
-    def _from_serializable_data(cls, app, data, timestamp): raise NotImplementedError
+    def _from_serializable_data(cls, app, data, timestamp):
+        """
+        Class method to be implemented by subclasses to create an instance from serialized data.
+        """
+        raise NotImplementedError
 
 
 
 
 class MoveGuideCommand(Command):
+    """Command to move a horizontal or vertical guide."""
     def __init__(self, app, items_moves, timestamp=None):
         super().__init__(app, timestamp)
         self.items_moves = items_moves # List of dicts: {'id', 'type', 'old_x', 'old_y', 'new_x', 'new_y'}
@@ -223,6 +263,7 @@ class MoveGuideCommand(Command):
         return f"Move {len(self.items_moves)} guide(s)"
 
 class AddGuideCommand(Command):
+    """Command to add a new guide to the canvas."""
     def __init__(self, app, item_id, item_type, item_data, id_next_num, timestamp=None):
         super().__init__(app, timestamp)
         self.item_id = item_id
@@ -250,6 +291,7 @@ class AddGuideCommand(Command):
         return f"Add {self.item_type} guide at {self.item_data['world_coord']}"
 
 class DeleteGuideCommand(Command):
+    """Command to delete a guide."""
     def __init__(self, app, item_id, item_data, timestamp=None):
         self.item_id = item_id
         self.item_type = "horizontal" if item_data.get('type') == "h" else "vertical"
@@ -286,6 +328,7 @@ class DeleteGuideCommand(Command):
 
 
 class MoveItemsCommand(Command):
+    """Command to move one or more items on the canvas."""
     def __init__(self, app, items_moves, timestamp=None):
         super().__init__(app, timestamp)
         self.items_moves = items_moves # List of dicts: {'id', 'type', 'old_x', 'old_y', 'new_x', 'new_y'}
@@ -317,6 +360,7 @@ class MoveItemsCommand(Command):
         return f"Move {len(self.items_moves)} item(s)"
 
 class AddItemCommand(Command):
+    """Command to add a new student or furniture item."""
     def __init__(self, app, item_id, item_type, item_data, old_next_id_num, timestamp=None):
         super().__init__(app, timestamp)
         self.item_id = item_id
@@ -358,6 +402,7 @@ class AddItemCommand(Command):
         return f"Add {self.item_type}: {item_name}"
 
 class DeleteItemCommand(Command):
+    """Command to delete a student or furniture item, including associated logs for students."""
     def __init__(self, app, item_id, item_type, item_data, associated_logs=None, timestamp=None):
         super().__init__(app, timestamp)
         self.item_id = item_id
@@ -427,6 +472,7 @@ class DeleteItemCommand(Command):
         return f"Delete {self.item_type}: {item_name}"
 
 class LogEntryCommand(Command): # For Behavior and Quiz logs
+    """Command to log a new behavior or quiz score entry."""
     def __init__(self, app, log_entry, student_id, timestamp=None):
         super().__init__(app, timestamp)
         self.log_entry = log_entry
@@ -468,6 +514,7 @@ class LogEntryCommand(Command): # For Behavior and Quiz logs
         return f"Log {log_type}: '{behavior}' for {student_name}"
 
 class LogHomeworkEntryCommand(Command): # New for Homework logs
+    """Command to log a new homework entry."""
     def __init__(self, app, log_entry, student_id, timestamp=None):
         super().__init__(app, timestamp)
         self.log_entry = log_entry
@@ -507,6 +554,7 @@ class LogHomeworkEntryCommand(Command): # New for Homework logs
         return f"Log Homework: '{hw_type}' for {student_name}"
 
 class EditItemCommand(Command):
+    """Command to edit the data of an existing student or furniture item."""
     def __init__(self, app, item_id, item_type, old_item_data, new_item_data_changes, timestamp=None):
         super().__init__(app, timestamp)
         self.item_id = item_id
@@ -552,6 +600,7 @@ class EditItemCommand(Command):
         return f"Edit {self.item_type}: {item_name} (Fields: {changed_keys})"
 
 class ChangeItemsSizeCommand(Command):
+    """Command to change the size of one or more items."""
     def __init__(self, app, items_sizes_changes, timestamp=None):
         super().__init__(app, timestamp)
         self.items_sizes_changes = items_sizes_changes
@@ -593,6 +642,7 @@ class ChangeItemsSizeCommand(Command):
         return f"Resize {len(self.items_sizes_changes)} item(s)"
 
 class MarkLiveQuizQuestionCommand(Command):
+    """Command to mark a question in a live quiz session."""
     def __init__(self, app, student_id, action_taken, timestamp=None):
         super().__init__(app, timestamp)
         self.student_id = student_id
@@ -601,7 +651,7 @@ class MarkLiveQuizQuestionCommand(Command):
 
     def execute(self):
         if self.previous_student_score_state is None:
-            self.previous_student_score_state = self.app.live_quiz_scores.get(self.student_id, {"correct": 0, "total_asked": 0}).copy()
+            self.app.live_quiz_scores.get(self.student_id, {"correct": 0, "total_asked": 0}).copy()
         current_score = self.app.live_quiz_scores.get(self.student_id, {"correct": 0, "total_asked": 0}).copy()
         current_score["total_asked"] += 1
         if self.action_taken == "correct": current_score["correct"] += 1
@@ -638,6 +688,7 @@ class MarkLiveQuizQuestionCommand(Command):
         return f"Mark Quiz: {self.action_taken} for {student_name}"
 
 class MarkLiveHomeworkCommand(Command): # New for Live Homework
+    """Command to mark homework in a live homework session."""
     def __init__(self, app, student_id, homework_actions, session_mode, timestamp=None):
         super().__init__(app, timestamp)
         self.student_id = student_id
@@ -698,6 +749,7 @@ class MarkLiveHomeworkCommand(Command): # New for Live Homework
         return f"Mark HW ({self.session_mode}): {action_summary} for {student_name}"
 
 class ChangeStudentStyleCommand(Command):
+    """Command to change a student's box style override."""
     def __init__(self, app, student_id, style_property, old_value, new_value, timestamp=None):
         super().__init__(app, timestamp)
         self.student_id = student_id
@@ -738,6 +790,7 @@ class ChangeStudentStyleCommand(Command):
         return f"Style Change: {self.style_property} for {student_name}"
 
 class ManageStudentGroupCommand(Command):
+    """Command to manage student groups, including creation, deletion, and assignments."""
     def __init__(self, app, old_groups_snapshot, new_groups_snapshot,
                  old_student_group_assignments, new_student_group_assignments,
                  old_next_group_id_num, new_next_group_id_num, timestamp=None):
@@ -790,6 +843,7 @@ class ManageStudentGroupCommand(Command):
         return "Manage Student Groups"
 
 class ResetSettingsCommand(Command):
+    """Command to reset all application settings to their default values."""
     def __init__(self, app, timestamp=None):
         super().__init__(app, timestamp)
         self.old_settings = None
