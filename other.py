@@ -16,7 +16,7 @@ import portalocker
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v54.0" # Version incremented
+APP_VERSION = "v55.0" # Version incremented
 CURRENT_DATA_VERSION_TAG = "v9" # Incremented for new homework/marks features
 
 # --- Default Configuration ---
@@ -290,45 +290,108 @@ class HelpDialog(simpledialog.Dialog):
         
         # --- General Info Tab ---
         info_tab = ttk.Frame(notebook, padding=10)
-        info_text_content = f"""Welcome to {APP_NAME}!
+        info_text = tk.Text(info_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial', 11))
+        info_text.tag_configure("bold", font=('Arial', 11, 'bold'))
 
-This application helps you track student behaviors, quiz scores, and homework completion in a visual classroom layout.
+        info_text.insert("end", f"Welcome to {APP_NAME}!\n\n")
+        info_text.insert("end", "This application helps you track student behaviors, quiz scores, and homework completion in a visual classroom layout.\n\n")
 
-Key Features:
-- Visual seating chart: Drag-and-drop students and furniture. Includes Rulers, a Grid, and draggable Guides for precise alignment.
-- Layout Tools: Align and distribute multiple selected items for a clean layout.
-- Behavior Logging: Quickly log predefined or custom behaviors for students.
-- Quiz Logging: Record quiz scores with detailed marks. Supports live quiz sessions and quiz templates.
-- Homework Logging: Track homework completion status and scores. Supports:
-    - Manual logging (simplified type/status or detailed with marks).
-    - Live homework sessions ("Yes/No" for multiple assignments or "Select" for predefined statuses).
-    - Customizable homework types, statuses, and mark types.
-    - Homework templates.
-- Live Sessions: Conduct real-time quiz or homework checks directly on the seating chart.
-- Advanced Conditional Formatting: Automatically change student box appearance based on groups, behavior counts, quiz scores, live session responses, and more. Rules can be active during specific times and in specific application modes.
-- Data Export & Import: Export logs to Excel/CSV for reporting. Import student rosters from Excel.
-- Undo/Redo & History: Most actions can be undone/redone. View the full action history and revert to any point.
-- Security: Optional password protection with auto-lock and data file encryption.
-- Data Backup & Restore: Keep your classroom data safe with ZIP backups.
-- Themes: Light and Dark mode support with customizable canvas color.
+        info_text.insert("end", "Key Features:\n", "bold")
+        info_text.insert("end",
+                         "- Visual seating chart: Drag-and-drop students and furniture. Includes Rulers, a Grid, and draggable Guides for precise alignment.\n"
+                         "- Layout Tools: Align and distribute multiple selected items for a clean layout.\n"
+                         "- Behavior Logging: Quickly log predefined or custom behaviors for students.\n"
+                         "- Quiz Logging: Record quiz scores with detailed marks. Supports live quiz sessions and quiz templates.\n"
+                         "- Homework Logging: Track homework completion status and scores. Supports:\n"
+                         "    - Manual logging (simplified type/status or detailed with marks).\n"
+                         "    - Live homework sessions (\"Yes/No\" for multiple assignments or \"Select\" for predefined statuses).\n"
+                         "    - Customizable homework types, statuses, and mark types.\n"
+                         "    - Homework templates.\n"
+                         "- Live Sessions: Conduct real-time quiz or homework checks directly on the seating chart.\n"
+                         "- Advanced Conditional Formatting: Automatically change student box appearance based on groups, behavior counts, quiz scores, live session responses, and more. Rules can be active during specific times and in specific application modes.\n"
+                         "- Data Export & Import: Export logs to Excel/CSV for reporting. Import student rosters from Excel.\n"
+                         "- Undo/Redo & History: Most actions can be undone/redone. View the full action history and revert to any point.\n"
+                         "- Security: Optional password protection with auto-lock and data file encryption.\n"
+                         "- Data Backup & Restore: Keep your classroom data safe with ZIP backups.\n"
+                         "- Themes: Light and Dark mode support with customizable canvas color.\n\n")
 
-Navigation & Interaction Tips:
-- Canvas Panning: Middle-click and drag, or Shift + Mouse Wheel for horizontal scroll.
-- Canvas Zoom: Ctrl + Mouse Wheel.
-- Multi-Select: Ctrl + Left-click to select multiple items.
-- Context Menus: Right-click on items or the canvas for quick actions.
-- Edit Mode: Toggle "Edit Mode" to resize items by dragging their bottom-right corner.
-- Layout Tools: Use the "Layout Tools" buttons (e.g., Align Top, Distribute H) when multiple items are selected.
-- Visual Guides: Toggle Rulers on (in Settings or View controls) and then use "Add V Guide" or "Add H Guide" to create alignment lines you can drag around the canvas.
-- Undo History: Use the "Show undo history" button to view all past actions and revert if needed.
-- Data Files: Your classroom data is stored locally (JSON files). Use 'File > Open Data Folder' to access them. Regularly backup using 'File > Backup All Application Data (.zip)...'.
-- Exported Layout Images: The 'Export Layout as Image' feature uses PostScript. For it to work correctly, Ghostscript needs to be installed and accessible in your system's PATH.
-"""
-        info_text = tk.Text(info_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial',11))
-        info_text.insert("1.0", info_text_content)
+        info_text.insert("end", "Navigation & Interaction Tips:\n", "bold")
+        info_text.insert("end",
+                         "- Canvas Panning: Middle-click and drag, or Shift + Mouse Wheel for horizontal scroll.\n"
+                         "- Canvas Zoom: Ctrl + Mouse Wheel.\n"
+                         "- Multi-Select: Ctrl + Left-click to select multiple items.\n"
+                         "- Context Menus: Right-click on items or the canvas for quick actions.\n"
+                         "- Edit Mode: Toggle \"Edit Mode\" to resize items by dragging their bottom-right corner.\n"
+                         "- Layout Tools: Use the \"Layout Tools\" buttons (e.g., Align Top, Distribute H) when multiple items are selected.\n"
+                         "- Visual Guides: Toggle Rulers on (in Settings or View controls) and then use \"Add V Guide\" or \"Add H Guide\" to create alignment lines you can drag around the canvas.\n"
+                         "- Undo History: Use the \"Show undo history\" button to view all past actions and revert if needed.\n"
+                         "- Data Files: Your classroom data is stored locally (JSON files). Use 'File > Open Data Folder' to access them. Regularly backup using 'File > Backup All Application Data (.zip)...'.\n"
+                         "- Exported Layout Images: The 'Export Layout as Image' feature uses PostScript. For it to work correctly, Ghostscript needs to be installed and accessible in your system's PATH.\n\n")
+
+        info_text.insert("end", "Keyboard Shortcuts:\n", "bold")
+        info_text.insert("end",
+                         "- Ctrl+S: Save data\n"
+                         "- Ctrl+Q: Save and Exit\n"
+                         "- Ctrl+Z: Undo last action\n"
+                         "- Ctrl+Y / Ctrl+Shift+Z: Redo last action\n"
+                         "- Ctrl+L: Lock the application\n"
+                         "- Delete / Backspace: Delete selected item(s)\n\n"
+                         "- E: Toggle Edit Mode\n"
+                         "- B: Switch to Behavior Mode\n"
+                         "- Q: Switch to Quiz Mode\n"
+                         "- H: Switch to Homework Mode\n\n"
+                         "- Ctrl + (+): Zoom In\n"
+                         "- Ctrl + (-): Zoom Out\n"
+                         "- Ctrl + 0: Reset Zoom\n\n"
+                         "- S: Open Settings\n"
+                         "- P: Open this Help dialog\n")
+
         info_text.config(state="disabled")
         info_text.pack(pady=5, fill="both", expand=True)
         notebook.add(info_tab, text="General Info")
+
+        # --- What's New Tab ---
+        whats_new_tab = ttk.Frame(notebook, padding=10)
+        whats_new_text = tk.Text(whats_new_tab, wrap="word", height=20, width=70, relief=tk.FLAT, font=('Arial', 11))
+        whats_new_text.tag_configure("bold", font=('Arial', 11, 'bold'))
+
+        whats_new_text.insert("end", f"What's New in Version {self.app_version}:\n\n")
+
+        whats_new_text.insert("end", "- Real-Time Conditional Formatting:\n", "bold")
+        whats_new_text.insert("end", "  - Conditional formatting rules based on time will now update automatically, precisely on the minute, every minute. This ensures that time-sensitive visual cues (like a box changing color during a specific class period) are always accurate without needing a manual refresh.\n\n")
+
+        whats_new_text.insert("end", "- Advanced Conditional Formatting Rules:\n", "bold")
+        whats_new_text.insert("end", "  - Live Quiz & Homework Rules:", "bold")
+        whats_new_text.insert("end", " Create rules that react instantly to live session events. Change a student's box color based on their answer in a live quiz or their status in a live homework check.\n")
+        whats_new_text.insert("end", "  - Time & Mode Scoping:", "bold")
+        whats_new_text.insert("end", " Rules can now be configured to be active only during specific times of the day (e.g., \"9:00 AM\" to \"10:30 AM\") or only when the application is in a certain mode (e.g., \"Quiz Mode\").\n")
+        whats_new_text.insert("end", "  - Stripe & Override Styles:", "bold")
+        whats_new_text.insert("end", " Choose how a rule is displayed. \"Override\" changes the entire box color, while \"Stripe\" adds a colored stripe, allowing multiple rules to be visualized simultaneously on the same student box.\n")
+        whats_new_text.insert("end", "  - Bulk Editing:", "bold")
+        whats_new_text.insert("end", " Efficiently manage your rules by enabling, disabling, or modifying the active times/modes for multiple rules at once.\n\n")
+
+        whats_new_text.insert("end", "- Enhanced Homework & Quiz Logging:\n", "bold")
+        whats_new_text.insert("end", "  - Live Homework Sessions:", "bold")
+        whats_new_text.insert("end", " Added a \"Select\" mode for live homework sessions, allowing you to pick from a list of predefined statuses (e.g., \"Late,\" \"Signed\").\n")
+        whats_new_text.insert("end", "  - Homework Templates:", "bold")
+        whats_new_text.insert("end", " Create and reuse templates for common homework assignments to speed up manual logging.\n")
+        whats_new_text.insert("end", "  - Quiz Templates:", "bold")
+        whats_new_text.insert("end", " Similarly, define and apply templates for recurring quizzes.\n\n")
+
+        whats_new_text.insert("end", "- Improved UI & UX:\n", "bold")
+        whats_new_text.insert("end", "  - Layout Guides:", "bold")
+        whats_new_text.insert("end", " Added draggable vertical and horizontal guides to help with precise alignment of classroom items.\n")
+        whats_new_text.insert("end", "  - Box Dragging Toggle:", "bold")
+        whats_new_text.insert("end", " You can now disable the dragging of student/furniture boxes to prevent accidental layout changes.\n")
+        #whats_new_text.insert("end", "  - Clearer Help Sections:", "bold")
+        #whats_new_text.insert("end", " The help dialog has been reorganized into tabs for easier navigation.\n\n")
+
+        whats_new_text.insert("end", "- General Improvements:\n", "bold")
+        whats_new_text.insert("end", "  - Numerous bug fixes and performance enhancements.\n")
+
+        whats_new_text.config(state="disabled")
+        whats_new_text.pack(pady=5, fill="both", expand=True)
+        notebook.add(whats_new_tab, text="What's New")
 
         # --- Modes Tab ---
         modes_tab = ttk.Frame(notebook, padding=10)
