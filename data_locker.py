@@ -14,9 +14,6 @@ def lock_file(file_path):
     On Windows, it sets the 'Read-only' attribute.
     On Linux/macOS, it sets permissions to 'r--r--r--' (444), which is
     read-only for the owner, group, and everyone else.
-
-    Args:
-        file_path (str): The path to the file to be locked.
     """
     print(f"Attempting to lock '{file_path}'...")
     try:
@@ -42,9 +39,6 @@ def unlock_file(file_path):
     On Windows, it removes the 'Read-only' attribute.
     On Linux/macOS, it sets permissions to 'rw-r--r--' (644), which is
     read/write for the owner and read-only for others.
-
-    Args:
-        file_path (str): The path to the file to be unlocked.
     """
     print(f"Attempting to unlock '{file_path}'...")
     try:

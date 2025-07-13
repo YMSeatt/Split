@@ -44,9 +44,6 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
-    """
-    Determines the appropriate path for application data files based on the operating system.
-    """
     try:
         # Determine base path based on whether the app is frozen (packaged) or running from script
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -156,14 +153,12 @@ MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
 # --- Quiz Template Management ---
 class ManageQuizTemplatesDialog(simpledialog.Dialog):
-    """A dialog for managing quiz templates."""
     def __init__(self, parent, app_instance):
         self.app = app_instance # Main application instance
         self.templates_changed_flag = False
         super().__init__(parent, "Manage Quiz Templates")
 
     def body(self, master):
-        """Creates the dialog body."""
         self.master_frame = master
         top_frame = ttk.Frame(master); top_frame.pack(pady=5, padx=5, fill=tk.X)
         ttk.Button(top_frame, text="Add New Quiz Template", command=self.add_template).pack(side=tk.LEFT, padx=5)
@@ -184,12 +179,10 @@ class ManageQuizTemplatesDialog(simpledialog.Dialog):
         return self.templates_scrollable_frame
 
     def _on_mousewheel_templates(self, event):
-        """Handles mouse wheel scrolling in the templates list."""
         if event.delta: self.canvas_templates.yview_scroll(int(-1*(event.delta/120)), "units")
         else: self.canvas_templates.yview_scroll(1 if event.num == 5 else -1, "units")
 
     def populate_templates_list(self):
-        """Populates the list of quiz templates."""
         for widget in self.templates_scrollable_frame.winfo_children(): widget.destroy()
         if not self.app.quiz_templates:
             ttk.Label(self.templates_scrollable_frame, text="No quiz templates created yet.").pack(pady=10)
@@ -206,7 +199,6 @@ class ManageQuizTemplatesDialog(simpledialog.Dialog):
             ttk.Button(tpl_frame, text="Delete", command=lambda tid=tpl_id: self.delete_template(tid)).pack(side=tk.LEFT, padx=3)
 
     def add_template(self):
-        """Adds a new quiz template."""
         dialog = QuizTemplateEditDialog(self, self.app, template_data=None) # Pass self as parent
         if dialog.result_template_data:
             template_id_str, next_id_val = self.app.get_new_quiz_template_id()
@@ -222,7 +214,6 @@ class ManageQuizTemplatesDialog(simpledialog.Dialog):
             self.populate_templates_list()
 
     def edit_template(self, template_id):
-        """Edits an existing quiz template."""
         if template_id not in self.app.quiz_templates: return
         current_template_data = self.app.quiz_templates[template_id]
         dialog = QuizTemplateEditDialog(self, self.app, template_data=current_template_data.copy(), existing_template_id=template_id)
@@ -237,7 +228,6 @@ class ManageQuizTemplatesDialog(simpledialog.Dialog):
             self.populate_templates_list()
 
     def delete_template(self, template_id):
-        """Deletes a quiz template."""
         if template_id not in self.app.quiz_templates: return
         tpl_name = self.app.quiz_templates[template_id]["name"]
         if messagebox.askyesno("Confirm Delete", f"Delete quiz template '{tpl_name}'?", parent=self):
@@ -246,12 +236,10 @@ class ManageQuizTemplatesDialog(simpledialog.Dialog):
             self.populate_templates_list()
 
     def apply(self): # OK button
-        """Applies the changes."""
         self.result = self.templates_changed_flag
 
 
 class QuizTemplateEditDialog(simpledialog.Dialog):
-    """A dialog for editing a quiz template."""
     def __init__(self, parent_dialog, app_instance, template_data=None, existing_template_id=None):
         self.app = app_instance
         self.template_data_initial = template_data or {} # If editing, this is a copy
@@ -262,7 +250,6 @@ class QuizTemplateEditDialog(simpledialog.Dialog):
         super().__init__(parent_dialog, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         main_frame = ttk.Frame(master); main_frame.pack(padx=10, pady=10, expand=True, fill=tk.BOTH)
         
         name_frame = ttk.Frame(main_frame); name_frame.pack(fill=tk.X, pady=3)
@@ -295,7 +282,6 @@ class QuizTemplateEditDialog(simpledialog.Dialog):
         return self.tpl_name_entry # Initial focus
 
     def apply(self):
-        """Applies the changes."""
         name = self.tpl_name_var.get().strip()
         if not name: messagebox.showerror("Input Required", "Template name cannot be empty.", parent=self); return
         try: num_q = int(self.tpl_num_q_var.get())
@@ -313,14 +299,12 @@ class QuizTemplateEditDialog(simpledialog.Dialog):
 
 # --- Homework Template Management (New) ---
 class ManageHomeworkTemplatesDialog(simpledialog.Dialog):
-    """A dialog for managing homework templates."""
     def __init__(self, parent, app_instance):
         self.app = app_instance
         self.templates_changed_flag = False
         super().__init__(parent, "Manage Homework Templates")
 
     def body(self, master):
-        """Creates the dialog body."""
         self.master_frame = master
         top_frame = ttk.Frame(master); top_frame.pack(pady=5, padx=5, fill=tk.X)
         ttk.Button(top_frame, text="Add New Homework Template", command=self.add_template).pack(side=tk.LEFT, padx=5)
@@ -338,12 +322,10 @@ class ManageHomeworkTemplatesDialog(simpledialog.Dialog):
         return self.templates_scrollable_frame
 
     def _on_mousewheel_templates(self, event):
-        """Handles mouse wheel scrolling in the templates list."""
         if event.delta: self.canvas_templates.yview_scroll(int(-1*(event.delta/120)), "units")
         else: self.canvas_templates.yview_scroll(1 if event.num == 5 else -1, "units")
 
     def populate_templates_list(self):
-        """Populates the list of homework templates."""
         for widget in self.templates_scrollable_frame.winfo_children(): widget.destroy()
         if not self.app.homework_templates:
             ttk.Label(self.templates_scrollable_frame, text="No homework templates created yet.").pack(pady=10)
@@ -358,7 +340,6 @@ class ManageHomeworkTemplatesDialog(simpledialog.Dialog):
             ttk.Button(tpl_frame, text="Delete", command=lambda tid=tpl_id: self.delete_template(tid)).pack(side=tk.LEFT, padx=3)
 
     def add_template(self):
-        """Adds a new homework template."""
         dialog = HomeworkTemplateEditDialog(self, self.app, template_data=None)
         if dialog.result_template_data:
             template_id_str, next_id_val = self.app.get_new_homework_template_id()
@@ -371,7 +352,6 @@ class ManageHomeworkTemplatesDialog(simpledialog.Dialog):
             self.populate_templates_list()
 
     def edit_template(self, template_id):
-        """Edits an existing homework template."""
         if template_id not in self.app.homework_templates: return
         current_template_data = self.app.homework_templates[template_id]
         dialog = HomeworkTemplateEditDialog(self, self.app, template_data=current_template_data.copy(), existing_template_id=template_id)
@@ -384,7 +364,6 @@ class ManageHomeworkTemplatesDialog(simpledialog.Dialog):
             self.populate_templates_list()
 
     def delete_template(self, template_id):
-        """Deletes a homework template."""
         if template_id not in self.app.homework_templates: return
         tpl_name = self.app.homework_templates[template_id]["name"]
         if messagebox.askyesno("Confirm Delete", f"Delete homework template '{tpl_name}'?", parent=self):
@@ -393,12 +372,10 @@ class ManageHomeworkTemplatesDialog(simpledialog.Dialog):
             self.populate_templates_list()
 
     def apply(self):
-        """Applies the changes."""
         self.result = self.templates_changed_flag
 
 
 class HomeworkTemplateEditDialog(simpledialog.Dialog):
-    """A dialog for editing a homework template."""
     def __init__(self, parent_dialog, app_instance, template_data=None, existing_template_id=None):
         self.app = app_instance
         self.template_data_initial = template_data or {}
@@ -409,7 +386,6 @@ class HomeworkTemplateEditDialog(simpledialog.Dialog):
         super().__init__(parent_dialog, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         main_frame = ttk.Frame(master); main_frame.pack(padx=10, pady=10, expand=True, fill=tk.BOTH)
         name_frame = ttk.Frame(main_frame); name_frame.pack(fill=tk.X, pady=3)
         ttk.Label(name_frame, text="Template Name:").pack(side=tk.LEFT, padx=5)
@@ -440,7 +416,6 @@ class HomeworkTemplateEditDialog(simpledialog.Dialog):
         return self.tpl_name_entry
 
     def apply(self):
-        """Applies the changes."""
         name = self.tpl_name_var.get().strip()
         if not name: messagebox.showerror("Input Required", "Template name cannot be empty.", parent=self); return
         try: num_items = int(self.tpl_num_items_var.get())
@@ -458,7 +433,6 @@ class HomeworkTemplateEditDialog(simpledialog.Dialog):
         self.result_template_data = {"name": name, "num_items": num_items, "default_marks": default_marks}
 
 class ManageInitialsDialog(simpledialog.Dialog):
-    """A dialog for managing the initials of behaviors and homework logs."""
     def __init__(self, parent, initials_overrides_dict, all_names_list, item_type_display_name):
         self.initials_overrides = initials_overrides_dict # Direct reference to app.settings[key]
         self.all_names = sorted(list(set(all_names_list)))
@@ -468,7 +442,6 @@ class ManageInitialsDialog(simpledialog.Dialog):
         super().__init__(parent, f"Manage Initials for {self.item_type_name}")
 
     def body(self, master):
-        """Creates the dialog body."""
         info_label = ttk.Label(master, text=f"Set custom initials for {self.item_type_name} types.\nLeave blank to use auto-generated initials.", justify=tk.LEFT)
         info_label.pack(pady=5, padx=5, anchor=tk.W)
         
@@ -492,7 +465,6 @@ class ManageInitialsDialog(simpledialog.Dialog):
         return canvas_frame # Or some specific entry if needed for focus
 
     def apply(self):
-        """Applies the changes."""
         for name, var in self.entry_vars.items():
             new_initial = var.get().strip()[:3] # Max 3 chars for initials
             if new_initial:
@@ -507,7 +479,6 @@ class ManageInitialsDialog(simpledialog.Dialog):
 
 
 class ManageMarkTypesDialog(simpledialog.Dialog):
-    """A dialog for managing mark types."""
     def __init__(self, parent, current_mark_types_list, item_type_display_name, default_mark_types):
         self.mark_types_ref = current_mark_types_list # Direct reference, e.g., app.settings["quiz_mark_types"]
         self.item_type_name = item_type_display_name # "Quiz Mark Types" or "Homework Mark Types"
@@ -516,7 +487,6 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
         super().__init__(parent, f"Manage {self.item_type_name}")
 
     def body(self, master):
-        """Creates the dialog body."""
         self.main_frame = master # To rebuild list
         button_frame = ttk.Frame(master); button_frame.pack(fill=tk.X, pady=5)
         ttk.Button(button_frame, text="Add New Mark Type", command=self.add_mark_type).pack(side=tk.LEFT, padx=5)
@@ -527,7 +497,6 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
         return self.main_frame # For focus
 
     def populate_mark_types_ui(self):
-        """Populates the list of mark types."""
         for widget in self.list_frame.winfo_children(): widget.destroy()
         
         headers = ["ID", "Name", "Default Points", "To Total?", "Bonus?"]
@@ -565,7 +534,6 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
 
 
     def add_mark_type(self):
-        """Adds a new mark type."""
         if len(self.mark_types_ref) >= MAX_CUSTOM_TYPES: # Or a specific limit for mark types
             messagebox.showwarning("Limit Reached", "Maximum number of mark types reached.", parent=self); return
         
@@ -583,7 +551,6 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
         self.populate_mark_types_ui()
 
     def delete_mark_type_at_index(self, index):
-        """Deletes a mark type at a given index."""
         if 0 <= index < len(self.mark_types_ref):
             # Check if it's a default one, prevent deletion (or handle carefully)
             # For now, allow deletion, user can reset to defaults
@@ -593,7 +560,6 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
                 self.populate_mark_types_ui()
     
     def reset_to_defaults(self):
-        """Resets the mark types to the default values."""
         if messagebox.askyesno("Confirm Reset", f"Reset all {self.item_type_name.lower()} to application defaults?", parent=self):
             self.mark_types_ref.clear()
             for default_item in self.default_mark_types_const:
@@ -602,7 +568,6 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
             self.populate_mark_types_ui()
 
     def apply(self): # OK button
-        """Applies the changes."""
         # Update the list of dicts from the UI widgets
         updated_list = []
         for row_widgets in self.mark_type_widgets:
@@ -637,14 +602,12 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
         # self.mark_types_changed flag is now set if there were modifications.
 
 class ManageLiveSelectOptionsDialog(simpledialog.Dialog):
-    """A dialog for managing the options for the 'Select' mode in live homework sessions."""
     def __init__(self, parent, current_options_list):
         self.current_options = [opt.copy() for opt in current_options_list] # Work on a copy
         self.options_changed_flag = False
         super().__init__(parent, "Manage 'Select' Mode Options for Live Homework")
 
     def body(self, master):
-        """Creates the dialog body."""
         self.main_frame = master
         ttk.Label(master, text="Define the buttons/options available in 'Select' mode for live homework sessions.", wraplength=350).pack(pady=5)
         
@@ -656,7 +619,6 @@ class ManageLiveSelectOptionsDialog(simpledialog.Dialog):
         return self.main_frame
 
     def populate_options_ui(self):
-        """Populates the list of options."""
         for widget in self.list_frame.winfo_children(): widget.destroy()
         
         self.option_entry_vars = [] # List of StringVars for names
@@ -675,7 +637,6 @@ class ManageLiveSelectOptionsDialog(simpledialog.Dialog):
             ttk.Label(self.list_frame, text="No options defined. Click 'Add New Option'.").pack(pady=10)
 
     def add_option(self):
-        """Adds a new option."""
         if len(self.current_options) >= MAX_CUSTOM_TYPES: # Use a reasonable limit
             messagebox.showwarning("Limit Reached", "Maximum number of 'Select' options reached.", parent=self); return
         
@@ -689,7 +650,6 @@ class ManageLiveSelectOptionsDialog(simpledialog.Dialog):
             self.populate_options_ui()
 
     def delete_option_at_index(self, index):
-        """Deletes an option at a given index."""
         if 0 <= index < len(self.current_options):
             if messagebox.askyesno("Confirm Delete", f"Delete option '{self.current_options[index]['name']}'?", parent=self):
                 del self.current_options[index]
@@ -697,7 +657,6 @@ class ManageLiveSelectOptionsDialog(simpledialog.Dialog):
                 self.populate_options_ui()
 
     def apply(self):
-        """Applies the changes."""
         updated_options = []
         for name_var in self.option_entry_vars:
             name = name_var.get().strip()

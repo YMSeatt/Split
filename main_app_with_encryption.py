@@ -7,9 +7,6 @@ from data_encryptor import encrypt_data, decrypt_data
 DATA_FILE = "student_data.dat"
 
 def main():
-    """
-    Main function to demonstrate the encryption and decryption of data.
-    """
     # --- On Program Start: Decrypt data into a variable in memory ---
     print("Loading and decrypting data...")
     student_data_content = decrypt_data(DATA_FILE)

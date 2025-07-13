@@ -98,9 +98,6 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
-    """
-    Determines the appropriate path for application data files based on the operating system.
-    """
     try:
         # Determine base path based on whether the app is frozen (packaged) or running from script
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):

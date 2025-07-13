@@ -43,9 +43,6 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
-    """
-    Determines the appropriate path for application data files based on the operating system.
-    """
     try:
         # Determine base path based on whether the app is frozen (packaged) or running from script
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -154,9 +151,6 @@ MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
 
 class ExportFilterDialog(simpledialog.Dialog):
-    """
-    A dialog for selecting export options and filters.
-    """
     # ... (updated for homework filters)
     def __init__(self, parent, students_dict, all_behaviors_list, all_homework_types_list, default_settings, earliest_date):
         self.students_dict = students_dict
@@ -168,7 +162,6 @@ class ExportFilterDialog(simpledialog.Dialog):
         super().__init__(parent, "Export Log Options")
 
     def body(self, master):
-        """Creates the dialog body."""
         frame = ttk.Frame(master); frame.pack(padx=10, pady=10)
         # Date Range
         date_frame = ttk.LabelFrame(frame, text="Date Range"); date_frame.grid(pady=5,column=0,row=0,columnspan=3, sticky="ew")
@@ -258,27 +251,16 @@ class ExportFilterDialog(simpledialog.Dialog):
         self.toggle_student_list_state(); self.toggle_behavior_list_state(); self.toggle_homework_list_state()
         return frame
 
-    def clear_dates(self):
-        """Clears the start and end date entries."""
-        self.start_date_var.set(""); self.end_date_var.set("")
-    def toggle_student_list_state(self):
-        """Enables or disables the student listbox based on the filter selection."""
-        self.student_listbox.config(state=tk.NORMAL if self.student_filter_var.get() == "specific" else tk.DISABLED)
-    def toggle_behavior_list_state(self):
-        """Enables or disables the behavior listbox based on the filter selection."""
-        self.behavior_listbox.config(state=tk.NORMAL if self.behavior_filter_var.get() == "specific" else tk.DISABLED)
-    def toggle_homework_list_state(self):
-        """Enables or disables the homework listbox based on the filter selection."""
-        self.homework_listbox.config(state=tk.NORMAL if self.homework_filter_var.get() == "specific" else tk.DISABLED)
+    def clear_dates(self): self.start_date_var.set(""); self.end_date_var.set("")
+    def toggle_student_list_state(self): self.student_listbox.config(state=tk.NORMAL if self.student_filter_var.get() == "specific" else tk.DISABLED)
+    def toggle_behavior_list_state(self): self.behavior_listbox.config(state=tk.NORMAL if self.behavior_filter_var.get() == "specific" else tk.DISABLED)
+    def toggle_homework_list_state(self): self.homework_listbox.config(state=tk.NORMAL if self.homework_filter_var.get() == "specific" else tk.DISABLED)
     #def toggle_master_log_btn(self): self.master_log_btn.pack(anchor=tk.W, padx=5) if self.separate_sheets_var.get() == True else self.master_log_btn.pack_forget()
-    def toggle_master_log_btn(self):
-        """Enables or disables the master log checkbox based on the separate sheets selection."""
-        self.master_log_btn.configure(state='enabled') if self.separate_sheets_var.get() == True else self.master_log_btn.configure(state='disabled'); self.master_log_var.set(True)
+    def toggle_master_log_btn(self): self.master_log_btn.configure(state='enabled') if self.separate_sheets_var.get() == True else self.master_log_btn.configure(state='disabled'); self.master_log_var.set(True)
 
 
 
     def apply(self):
-        """Processes the dialog's input and sets the result."""
         start_dt, end_dt = None, None
         try:
             if self.start_date_var.get(): start_dt = datetime.strptime(self.start_date_var.get(), '%Y-%m-%d').date()

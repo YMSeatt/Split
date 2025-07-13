@@ -58,9 +58,6 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
-    """
-    Determines the appropriate path for application data files based on the operating system.
-    """
     try:
         # Determine base path based on whether the app is frozen (packaged) or running from script
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -169,7 +166,6 @@ MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
 # --- Dialog Classes ---
 class PasswordPromptDialog(simpledialog.Dialog):
-    """A dialog for prompting the user for a password."""
     def __init__(self, parent, title, prompt, password_manager_instance):
         self.prompt = prompt
         self.password_manager = password_manager_instance
@@ -177,7 +173,6 @@ class PasswordPromptDialog(simpledialog.Dialog):
         super().__init__(parent, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         ttk.Label(master, text=self.prompt, wraplength=280).pack(pady=5)
         self.password_entry = ttk.Entry(master, show="*", width=30)
         self.password_entry.pack(pady=5)
@@ -186,7 +181,6 @@ class PasswordPromptDialog(simpledialog.Dialog):
         return self.password_entry # initial focus
 
     def buttons(self):
-        """Creates the dialog buttons."""
         box = ttk.Frame(self)
         ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE).pack(side=tk.LEFT, padx=5, pady=5)
         ttk.Button(box, text="Cancel", width=10, command=self.cancel).pack(side=tk.LEFT, padx=5, pady=5)
@@ -195,7 +189,6 @@ class PasswordPromptDialog(simpledialog.Dialog):
         box.pack()
 
     def apply(self):
-        """Processes the password attempt."""
         password_attempt = self.password_entry.get()
         if self.password_manager.unlock_application(password_attempt): # unlock_application handles recovery pw too
             self.result = True
@@ -211,9 +204,9 @@ class PasswordPromptDialog(simpledialog.Dialog):
             # The `ok` method will be called. If result is False, the dialog won't close.
             # We need to ensure `ok` can prevent closing.
             # A simple way is to override `ok` more directly or ensure `validate` fails.
+            # simpledialog.Dialog closes if validate() returns true.
 
     def ok(self, event=None): # Override ok to control closing
-        """Handles the OK button click."""
         if not self.validate(): # validate calls apply
             self.password_entry.focus_set()
             return # Don't close if validation (password check) fails
@@ -225,12 +218,10 @@ class PasswordPromptDialog(simpledialog.Dialog):
 
 
     def validate(self): # This is called by simpledialog's ok method
-        """Validates the password."""
         self.apply() # Calls our apply which sets self.result
         return self.result # If True, dialog closes. If False, stays open due to logic in apply.
 
 class AddEditStudentDialog(simpledialog.Dialog):
-    """A dialog for adding or editing a student."""
     # ... (similar to v51, but needs group dropdown to be populated from app.student_groups)
     def __init__(self, parent, title, student_data=None, app=None):
         self.student_data = student_data
@@ -239,7 +230,6 @@ class AddEditStudentDialog(simpledialog.Dialog):
         super().__init__(parent, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         ttk.Label(master, text="First Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
         self.fn_var = tk.StringVar(value=self.student_data["first_name"] if self.student_data else "")
         self.fn_entry = ttk.Entry(master, textvariable=self.fn_var, width=30); self.fn_entry.grid(row=0, column=1, padx=5, pady=2)
@@ -281,7 +271,6 @@ class AddEditStudentDialog(simpledialog.Dialog):
         return self.fn_entry
 
     def apply(self):
-        """Processes the dialog's input."""
         first_name = self.fn_var.get().strip()
         last_name = self.ln_var.get().strip()
         nickname = self.nick_var.get().strip()
@@ -299,14 +288,12 @@ class AddEditStudentDialog(simpledialog.Dialog):
             self.result = None # Stay open
 
 class AddFurnitureDialog(simpledialog.Dialog):
-    """A dialog for adding or editing a furniture item."""
     # ... (same as v51)
     def __init__(self, parent, title, furniture_data=None):
         self.furniture_data = furniture_data
         self.result = None
         super().__init__(parent, title)
     def body(self, master):
-        """Creates the dialog body."""
         ttk.Label(master, text="Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
         self.name_var = tk.StringVar(value=self.furniture_data["name"] if self.furniture_data else "Desk")
         self.name_entry = ttk.Entry(master, textvariable=self.name_var); self.name_entry.grid(row=0, column=1, padx=5, pady=2)
@@ -321,14 +308,12 @@ class AddFurnitureDialog(simpledialog.Dialog):
         self.height_spinbox = ttk.Spinbox(master, from_=20, to=1000, textvariable=self.height_var, width=5); self.height_spinbox.grid(row=3, column=1, sticky=tk.W, padx=5, pady=2)
         return self.name_entry
     def apply(self):
-        """Processes the dialog's input."""
         name = self.name_var.get().strip(); item_type = self.type_var.get().strip()
         width = self.width_var.get(); height = self.height_var.get()
         if name and item_type and width > 0 and height > 0: self.result = (name, item_type, width, height)
         else: messagebox.showwarning("Invalid Input", "Name, Type, Width, and Height are required and must be positive.", parent=self); self.result = None
 
 class BehaviorDialog(simpledialog.Dialog):
-    """A dialog for logging a behavior."""
     # ... (same as v51)
     def __init__(self, parent, title, all_behaviors, custom_behaviors, initial_value=None): # Added initial_value
         self.all_behaviors = all_behaviors
@@ -342,7 +327,6 @@ class BehaviorDialog(simpledialog.Dialog):
 
         super().__init__(parent, title)
     def body(self, master):
-        """Creates the dialog body."""
         
         master.grid_columnconfigure(0, weight=1) # Allow master frame to expand
         top_label = ttk.Label(master, text="Select Behavior:")
@@ -419,12 +403,10 @@ class BehaviorDialog(simpledialog.Dialog):
     
     
     def behavior_selected(self, behavior_name):
-        """Handles the selection of a behavior."""
         self.selected_behavior_var.set(behavior_name)
         self.ok() # Trigger apply and close
 
     def buttonbox(self): # Standard OK/Cancel are usually handled by simpledialog.Dialog
-        """Creates the dialog's button box."""
         # We only need a cancel button as OK is triggered by behavior selection
         cancel_button_frame = ttk.Frame(self)
         cancel_button_frame.pack(fill=tk.X, padx=5, pady=(0,5)) # Pad bottom
@@ -432,7 +414,6 @@ class BehaviorDialog(simpledialog.Dialog):
         self.bind("<Escape>", self.cancel)
 
     def apply(self):
-        """Processes the dialog's input."""
         behavior = self.selected_behavior_var.get()
         comment = self.comment_text_widget.get("1.0", tk.END).strip()
         if not behavior: # Should not happen if ok() is only called on selection
@@ -448,7 +429,6 @@ class BehaviorDialog(simpledialog.Dialog):
     #    else: messagebox.showwarning("Input Required", "Please select or enter a behavior.", parent=self); self.result = None
 
 class ManualHomeworkLogDialog(simpledialog.Dialog):
-    """A dialog for manually logging homework."""
     def __init__(self, parent, title, all_homework_types, custom_homework_types, log_marks_enabled, homework_mark_types, homework_templates, app, initial_homework_name=None, initial_num_items=None):
         self.all_homework_types = all_homework_types # List of strings (for the combobox)
         self.custom_homework_types = custom_homework_types
@@ -463,7 +443,6 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         super().__init__(parent, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         main_frame = ttk.Frame(master); main_frame.pack(fill=tk.BOTH, side=tk.LEFT, expand=True, padx=10, pady=10)
 
         # Homework Type / Template Selection
@@ -618,24 +597,19 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         return self.homework_type_combobox if self.log_marks_enabled else self.comment_entry
 
     def on_button_select(self, name):
-        """Handles the selection of a homework type from the button grid."""
         self.homework_type_var.set(name)
         self.apply()
         self.ok()
 
     def _on_press(self, key):
-        """Handles a key press on the on-screen numpad."""
         current_text = self.target_entry.get()
         if key == '⌫': n = len(current_text)-1; self.target_entry.set(current_text[0:n])
         elif key == '.':
             if self.allow_decimal and '.' not in current_text: self.target_entry.set(self.target_entry.get()+ key)
         else: self.target_entry.set(self.target_entry.get()+ key)
         
-    def _clear_entry(self):
-        """Clears the target entry widget."""
-        self.target_entry.set("")
+    def _clear_entry(self): self.target_entry.set("")
     def _next_entry(self):
-        """Moves focus to the next entry widget in the dialog."""
         if self.cte < self.tte: self.cte +=1
         else: self.cte = 0
         self.target_entry = self.target_entry2[(self.cte)]
@@ -643,7 +617,6 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         self.target_name_label.configure(text=self.target_entry_name)
         
     def _previous_entry(self):
-        """Moves focus to the previous entry widget in the dialog."""
         if self.cte < self.tte and self.cte > -2: self.cte -=1
         else: self.cte = (self.tte-1)
         self.target_entry = self.target_entry2[(self.cte)]
@@ -651,7 +624,6 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         self.target_name_label.configure(text=self.target_entry_name)
         
     def set_numpad(self, event, x):
-        """Sets the target for the on-screen numpad."""
         #print(x)
         self.cte = x
         self.target_entry = self.target_entry2[(self.cte)]
@@ -662,7 +634,6 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
 
 
     def on_template_select(self, event):
-        """Handles the selection of a homework template."""
         selected_name = self.homework_type_var.get()
         template = next((tpl for tpl_id, tpl in self.homework_templates.items() if tpl['name'] == selected_name), None)
 
@@ -680,7 +651,6 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
 
 
     def apply(self):
-        """Processes the dialog's input."""
         homework_type = self.homework_type_var.get().strip()
         comment = self.comment_entry.get().strip()
         num_items_val = None
@@ -709,7 +679,6 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         self.result = (homework_type, comment, marks_data if self.log_marks_enabled else None, num_items_val if self.log_marks_enabled else None)
 
 class QuizScoreDialog(simpledialog.Dialog):
-    """A dialog for logging a quiz score."""
     # ... (same as v51)
     def __init__(self, parent, title, initial_quiz_name, mark_types, quiz_templates, default_num_questions, initial_num_questions_val):
         self.initial_quiz_name = initial_quiz_name
@@ -722,7 +691,6 @@ class QuizScoreDialog(simpledialog.Dialog):
         super().__init__(parent, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         main_frame = ttk.Frame(master); main_frame.pack(fill=tk.BOTH, expand=True)
         top_frame = ttk.Frame(main_frame); top_frame.grid(pady=5, sticky="ew", columnspan=3)
         ttk.Label(top_frame, text="Quiz Name/Template:").pack(side=tk.LEFT, padx=5)
@@ -813,19 +781,15 @@ class QuizScoreDialog(simpledialog.Dialog):
 
     # Functions for NumPad
     def _on_press(self, key):
-        """Handles a key press on the on-screen numpad."""
         current_text = self.target_entry.get()
         if key == '⌫': n = len(current_text)-1; self.target_entry.set(current_text[0:n])
         elif key == '.':
             if self.allow_decimal and '.' not in current_text: self.target_entry.set(self.target_entry.get()+ key)
         else: self.target_entry.set(self.target_entry.get()+ key)
 
-    def _clear_entry(self):
-        """Clears the target entry widget."""
-        self.target_entry.set("")
+    def _clear_entry(self): self.target_entry.set("")
     
     def _next_entry(self):
-        """Moves focus to the next entry widget in the dialog."""
         if self.cte < self.tte: self.cte +=1
         else: self.cte = 0
         self.target_entry = self.target_entry2[(self.cte)]
@@ -833,7 +797,6 @@ class QuizScoreDialog(simpledialog.Dialog):
         self.target_name_label.configure(text=self.target_entry_name)
         
     def _previous_entry(self):
-        """Moves focus to the previous entry widget in the dialog."""
         if self.cte < self.tte and self.cte > -2: self.cte -=1
         else: self.cte = (self.tte-1)
         self.target_entry = self.target_entry2[(self.cte)]
@@ -841,7 +804,6 @@ class QuizScoreDialog(simpledialog.Dialog):
         self.target_name_label.configure(text=self.target_entry_name)
         
     def set_numpad(self, event, x):
-        """Sets the target for the on-screen numpad."""
         #print(x)
         self.cte = x
         self.target_entry = self.target_entry2[(self.cte)]
@@ -853,7 +815,6 @@ class QuizScoreDialog(simpledialog.Dialog):
 
 
     def on_template_select(self, event):
-        """Handles the selection of a quiz template."""
         selected_name = self.quiz_name_var.get()
         template = next((tpl for tpl_id, tpl in self.quiz_templates.items() if tpl['name'] == selected_name), None)
         if template:
@@ -868,7 +829,6 @@ class QuizScoreDialog(simpledialog.Dialog):
             # for mark_id, var in self.mark_entry_vars.items(): var.set("")
 
     def apply(self):
-        """Processes the dialog's input."""
         quiz_name = self.quiz_name_var.get().strip(); comment = self.comment_entry.get().strip()
         try: num_questions_actual = int(self.num_questions_var.get())
         except ValueError: messagebox.showwarning("Invalid Input", "Number of questions must be an integer.", parent=self); self.result = None; return
@@ -899,7 +859,6 @@ class QuizScoreDialog(simpledialog.Dialog):
         else: messagebox.showwarning("Input Required", "Quiz name cannot be empty.", parent=self); self.result = None
 
 class LiveQuizMarkDialog(simpledialog.Dialog):
-    """A dialog for marking a question in a live quiz session."""
     # ... (same as v51)
     def __init__(self, parent, student_id, app_instance, session_type="Quiz"): # session_type can be Quiz or Homework
         self.student_id = student_id
@@ -910,7 +869,6 @@ class LiveQuizMarkDialog(simpledialog.Dialog):
         super().__init__(parent, f"Mark {session_type} for {self.student_name}")
 
     def body(self, master):
-        """Creates the dialog body."""
         if self.session_type_display == "Quiz":
             current_score_info = self.app.live_quiz_scores.get(self.student_id, {"correct": 0, "total_asked": 0})
             score_text = f"Current Score: {current_score_info['correct']} / {current_score_info['total_asked']}"
@@ -921,7 +879,6 @@ class LiveQuizMarkDialog(simpledialog.Dialog):
         return master # No specific focus needed as it's button driven
 
     def buttonbox(self): # Override to provide custom buttons
-        """Creates the dialog's button box."""
         button_frame = ttk.Frame(self)
         button_frame.pack(pady=10)
         if self.session_type_display == "Quiz":
@@ -934,16 +891,12 @@ class LiveQuizMarkDialog(simpledialog.Dialog):
         # Could bind 1,2,3 to correct, incorrect, skip for faster input
 
     def set_result_and_close(self, res_val):
-        """Sets the dialog's result and closes it."""
         self.result = res_val
         self.destroy() # Close the dialog
 
-    def apply(self):
-        """Processes the dialog's input."""
-        pass # Not strictly needed due to custom button actions
+    def apply(self): pass # Not strictly needed due to custom button actions
 
 class LiveHomeworkMarkDialog(simpledialog.Dialog): # New
-    """A dialog for marking homework in a live session."""
     def __init__(self, parent, student_id, app_instance, session_mode, current_hw_data):
         self.student_id = student_id
         self.app = app_instance
@@ -960,7 +913,6 @@ class LiveHomeworkMarkDialog(simpledialog.Dialog): # New
         super().__init__(parent, f"Mark Homework: {self.student_name} ({self.session_mode} Mode)")
 
     def body(self, master):
-        """Creates the dialog body."""
         main_frame = ttk.Frame(master); main_frame.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
         
         current_session_name_label = ttk.Label(main_frame, text=f"Session: {self.app.current_live_homework_name}", font=("", 11, "italic"))
@@ -1022,7 +974,6 @@ class LiveHomeworkMarkDialog(simpledialog.Dialog): # New
         return master
 
     def apply(self):
-        """Processes the dialog's input."""
         if self.session_mode == "Yes/No":
             self.result_actions = {}
             for hw_id, var in self.homework_item_vars.items():
@@ -1038,13 +989,9 @@ class LiveHomeworkMarkDialog(simpledialog.Dialog): # New
         # it will be handled by the command to potentially clear the student's entry.
 
 class ExitConfirmationDialog(simpledialog.Dialog): # Same as v50
-    """A dialog for confirming exit."""
     def __init__(self, parent, title): self.choice = None; super().__init__(parent, title)
-    def body(self, master):
-        """Creates the dialog body."""
-        ttk.Label(master, text="Do you want to save changes before quitting?").pack(pady=10, padx=10); return None
+    def body(self, master): ttk.Label(master, text="Do you want to save changes before quitting?").pack(pady=10, padx=10); return None
     def buttonbox(self):
-        """Creates the dialog's button box."""
         box = ttk.Frame(self)
         box.columnconfigure(0, weight=1); box.columnconfigure(1, weight=1); box.columnconfigure(2, weight=1)
         ttk.Button(box, text="Save and Quit", width=15, command=self.save_quit).grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -1052,15 +999,10 @@ class ExitConfirmationDialog(simpledialog.Dialog): # Same as v50
         ttk.Button(box, text="Cancel", width=10, command=self.cancel).grid(row=0, column=2, padx=5, pady=5, sticky="ew")
         self.bind("<Return>", lambda e: self.save_quit()); self.bind("<Escape>", self.cancel)
         box.pack(fill=tk.X, padx=5, pady=5)
-    def save_quit(self):
-        """Handles the 'Save and Quit' button click."""
-        self.result = "save_quit"; self.destroy()
-    def no_save_quit(self):
-        """Handles the 'Don't Save and Quit' button click."""
-        self.result = "no_save_quit"; self.destroy()
+    def save_quit(self): self.result = "save_quit"; self.destroy()
+    def no_save_quit(self): self.result = "no_save_quit"; self.destroy()
 
 class ImportExcelOptionsDialog(simpledialog.Dialog): # Same as v50, but ensure app_instance is passed
-    """A dialog for importing data from an Excel file."""
     def __init__(self, parent, app_instance):
         self.app_instance = app_instance
         self.file_path_var = tk.StringVar()
@@ -1069,7 +1011,6 @@ class ImportExcelOptionsDialog(simpledialog.Dialog): # Same as v50, but ensure a
         self.workbook_sheet_names = []
         super().__init__(parent, "Import Data from Excel")
     def body(self, master):
-        """Creates the dialog body."""
         ttk.Label(master, text="Excel File:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
         self.file_entry = ttk.Entry(master, textvariable=self.file_path_var, width=40, state="readonly")
         self.file_entry.grid(row=0, column=1, padx=5, pady=2)
@@ -1080,7 +1021,6 @@ class ImportExcelOptionsDialog(simpledialog.Dialog): # Same as v50, but ensure a
         ttk.Checkbutton(master, text="Import incidents from individual student sheets\n(matches sheet names to current students)", variable=self.import_incidents_var).grid(row=2, column=0, columnspan=3, sticky="w", padx=5, pady=5)
         return self.file_entry
     def _browse_file(self):
-        """Opens a file dialog to select an Excel file."""
         path = filedialog.askopenfilename(title="Select Excel File", filetypes=[("Excel files", "*.xlsx *.xls *.xlsm")])
         if path:
             self.file_path_var.set(path)
@@ -1096,26 +1036,22 @@ class ImportExcelOptionsDialog(simpledialog.Dialog): # Same as v50, but ensure a
                 messagebox.showerror("Excel Error", f"Could not read Excel file: {e}", parent=self.app_instance.root)
                 self.student_sheet_combo['values'] = [""]; self.student_sheet_var.set(""); self.student_sheet_combo.config(state="disabled")
     def validate(self):
-        """Validates the dialog's input."""
         if not self.file_path_var.get() or not os.path.exists(self.file_path_var.get()):
             messagebox.showerror("File Error", "Please select a valid Excel file.", parent=self.app_instance.root); return False
         # No need to check workbook_sheet_names here as _browse_file handles errors.
         # Student sheet can be blank if user doesn't want to import students.
         return True
     def apply(self):
-        """Processes the dialog's input."""
         if not self.validate(): self.result = None; return
         self.result = (self.file_path_var.get(), self.import_incidents_var.get(), self.student_sheet_var.get() or None) # Return None if sheet is blank
 
 class SizeInputDialog(simpledialog.Dialog): # Same as v50
-    """A dialog for inputting a size."""
     def __init__(self, parent, title, initial_w, initial_h, status):
         self.status = status
         self.initial_w, self.initial_h = initial_w, initial_h
         self.width_var = tk.IntVar(value=initial_w); self.height_var = tk.IntVar(value=initial_h)
         super().__init__(parent, title)
     def body(self, master):
-        """Creates the dialog body."""
         ttk.Label(master, text="Width:").grid(row=0, column=0, sticky="W", padx=5, pady=5)
         self.width_entry = ttk.Spinbox(master, from_=MIN_STUDENT_BOX_WIDTH, to=1000, textvariable=self.width_var, width=7)
         self.width_entry.grid(row=0, column=1, padx=5, pady=5)
@@ -1130,14 +1066,12 @@ class SizeInputDialog(simpledialog.Dialog): # Same as v50
         return self.width_entry
     
     def reset_width(self):
-        """Resets the width to its default value."""
         if self.status:
             self.width_var.set(DEFAULT_STUDENT_BOX_WIDTH)
         else:
             self.width_var.set(REBBI_DESK_WIDTH)
         
     def reset_height(self):
-        """Resets the height to its default value."""
         #self.height_var.set(DEFAULT_STUDENT_BOX_HEIGHT)
         if self.status:
             self.height_var.set(DEFAULT_STUDENT_BOX_HEIGHT)
@@ -1145,7 +1079,6 @@ class SizeInputDialog(simpledialog.Dialog): # Same as v50
             self.height_var.set(REBBI_DESK_HEIGHT)
     
     def validate(self):
-        """Validates the dialog's input."""
         try:
             w, h = self.width_var.get(), self.height_var.get()
             if w < MIN_STUDENT_BOX_WIDTH or h < MIN_STUDENT_BOX_HEIGHT or w > 1000 or h > 1000:
@@ -1153,12 +1086,10 @@ class SizeInputDialog(simpledialog.Dialog): # Same as v50
             return True
         except tk.TclError: messagebox.showerror("Invalid Input", "Valid numbers for W/H.", parent=self); return False
     def apply(self):
-        """Processes the dialog's input."""
         if not self.validate(): self.result = None; return
         self.result = (self.width_var.get(), self.height_var.get())
 
 class StudentStyleDialog(simpledialog.Dialog):
-    """A dialog for customizing a student's box style."""
     # ... (same as v51)
     def __init__(self, parent, title, student_data, app):
         self.student_data = student_data
@@ -1168,7 +1099,6 @@ class StudentStyleDialog(simpledialog.Dialog):
         super().__init__(parent, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         prop_frame = ttk.Frame(master); prop_frame.pack(padx=10,pady=10)
         row_idx = 0
         # Fill Color
@@ -1212,18 +1142,15 @@ class StudentStyleDialog(simpledialog.Dialog):
         ttk.Button(prop_frame, text="Default", command=lambda v=self.font_color_var, k="font_color": self.reset_to_default(v,k)).grid(row=row_idx, column=3, pady=3, padx=2)
         return self.fill_color_entry # Initial focus
     def choose_color(self, var_to_set):
-        """Opens a color chooser and sets the selected color to the given variable."""
         initial_color = var_to_set.get() if var_to_set.get() else None
         color_code = colorchooser.askcolor(title="Choose color", initialcolor=initial_color, parent=self)
         if color_code and color_code[1]: var_to_set.set(color_code[1])
     def reset_to_default(self, var_to_set, key):
-        """Resets a style property to its default value."""
         # For string vars (colors, font family), set to empty string to signify "use app default"
         # For int var (font size), set to 0 to signify "use app default"
         if isinstance(var_to_set, tk.StringVar): var_to_set.set("")
         elif isinstance(var_to_set, tk.IntVar): var_to_set.set(0)
     def apply(self):
-        """Processes the dialog's input."""
         style_props_vars = {
             "fill_color": self.fill_color_var, "outline_color": self.outline_color_var,
             "font_family": self.font_family_var, "font_size": self.font_size_var,
@@ -1250,14 +1177,12 @@ class StudentStyleDialog(simpledialog.Dialog):
 
 
 class AttendanceReportDialog(simpledialog.Dialog):
-    """A dialog for generating an attendance report."""
     def __init__(self, parent, students_dict):
         self.students_dict = students_dict
         self.result = None
         super().__init__(parent, "Generate Attendance Report")
 
     def body(self, master):
-        """Creates the dialog body."""
         frame = ttk.Frame(master); frame.pack(padx=10, pady=10)
 
         date_frame = ttk.LabelFrame(frame, text="Report Date Range"); date_frame.pack(pady=5, fill=tk.X)
@@ -1301,7 +1226,6 @@ class AttendanceReportDialog(simpledialog.Dialog):
         return frame
 
     def apply(self):
-        """Processes the dialog's input."""
         start_dt, end_dt = None, None
         try:
             if self.start_date_var.get(): start_dt = datetime.strptime(self.start_date_var.get(), '%Y-%m-%d').date()
@@ -1320,7 +1244,6 @@ class AttendanceReportDialog(simpledialog.Dialog):
         self.result = (start_dt, end_dt, selected_student_ids)
 
 class ConditionalFormattingRuleDialog(simpledialog.Dialog):
-    """A dialog for adding or editing a conditional formatting rule."""
     def __init__(self, parent, app, rule_to_edit=None):
         self.app = app
         self.rule = rule_to_edit or {} # Existing rule or new empty dict
@@ -1329,7 +1252,6 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         super().__init__(parent, title)
 
     def body(self, master):
-        """Creates the dialog body."""
         frame = ttk.Frame(master); frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
         # Rule Type
@@ -1422,7 +1344,6 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         return self.type_combo
 
     def _populate_times_listbox(self):
-        """Populates the listbox with active time slots."""
         self.times_listbox.delete(0, tk.END)
         days_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         for slot in self.rule.get("active_times", []):
@@ -1430,7 +1351,6 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
             self.times_listbox.insert(tk.END, f"{slot['start_time']} - {slot['end_time']} ({days_str if days_str else 'All Days'})")
 
     def add_time_slot(self):
-        """Adds a new active time slot."""
         start_time = self.start_time_var.get().strip()
         end_time = self.end_time_var.get().strip()
         if ":" not in start_time:
@@ -1461,7 +1381,6 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         for var in self.days_vars: var.set(True) # Reset day checkboxes
 
     def remove_time_slot(self):
-        """Removes a selected active time slot."""
         selected_indices = self.times_listbox.curselection()
         if not selected_indices: return
         # Iterate reversed to avoid index issues when removing multiple
@@ -1470,13 +1389,11 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         self._populate_times_listbox()
 
     def choose_color_for_var(self, color_var):
-        """Opens a color chooser and sets the selected color to the given variable."""
         initial = color_var.get() if color_var.get() else None
         color_code = colorchooser.askcolor(title="Choose color", initialcolor=initial, parent=self)
         if color_code and color_code[1]: color_var.set(color_code[1])
 
     def on_rule_type_change(self, event):
-        """Handles the selection of a rule type."""
         for widget in self.condition_frame.winfo_children(): widget.destroy() # Clear previous condition widgets
         rule_type = self.rule_type_var.get()
 
@@ -1608,7 +1525,6 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
 
 
     def apply(self):
-        """Processes the dialog's input."""
         final_rule = {"type": self.rule_type_var.get()}
         final_rule["application_style"] = self.application_style_var.get() # Common to all
         rule_type = final_rule["type"]
@@ -1682,7 +1598,6 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
         self.result = final_rule
 
 class ManageStudentGroupsDialog(simpledialog.Dialog):
-    """A dialog for managing student groups."""
     def __init__(self, parent, student_groups_data, students_data, app, default_colors):
         self.student_groups = student_groups_data # This is a reference to app.student_groups, modified directly
         self.students = students_data # App.students, for assigning
@@ -1692,7 +1607,6 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
         super().__init__(parent, "Manage Student Groups")
 
     def body(self, master):
-        """Creates the dialog body."""
         self.master_frame = master
         top_frame = ttk.Frame(master); top_frame.pack(pady=5, padx=5, fill=tk.X)
         ttk.Button(top_frame, text="Add New Group", command=self.add_group).pack(side=tk.LEFT, padx=5)
@@ -1713,13 +1627,11 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
         return self.groups_scrollable_frame # For initial focus target (though dynamic)
 
     def _on_mousewheel_groups(self, event):
-        """Handles mouse wheel scrolling."""
         if event.delta: self.canvas_groups.yview_scroll(int(-1*(event.delta/120)), "units")
         else: self.canvas_groups.yview_scroll(1 if event.num == 5 else -1, "units")
 
 
     def populate_groups_list(self):
-        """Populates the list of student groups."""
         for widget in self.groups_scrollable_frame.winfo_children(): widget.destroy()
         row_idx = 0
         if not self.student_groups:
@@ -1760,7 +1672,6 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
 
 
     def add_group(self):
-        """Adds a new student group."""
         new_group_name = simpledialog.askstring("New Group", "Enter name for the new group:", parent=self)
         if new_group_name and new_group_name.strip():
             group_id_str, next_id_val = self.app.get_new_group_id() # Get ID from app
@@ -1779,7 +1690,6 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
 
 
     def update_group_name(self, group_id, new_name):
-        """Updates the name of a student group."""
         new_name = new_name.strip()
         if not new_name:
             messagebox.showwarning("Invalid Name", "Group name cannot be empty. Reverting.", parent=self)
@@ -1798,7 +1708,6 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
 
 
     def choose_group_color(self, color_var, group_id):
-        """Opens a color chooser to select a color for a student group."""
         initial_color = color_var.get()
         new_color = colorchooser.askcolor(initial_color, title=f"Choose color for group", parent=self)
         if new_color and new_color[1]:
@@ -1809,7 +1718,6 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
                 # No repopulate needed just for color if var is traced.
 
     def delete_group(self, group_id):
-        """Deletes a student group."""
         group_name = self.student_groups[group_id]["name"]
         if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete group '{group_name}'?\nStudents in this group will be unassigned.", parent=self):
             # Unassign students from this group
@@ -1821,14 +1729,12 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
             self.populate_groups_list()
 
     def assign_students_to_group_dialog(self, group_id, group_name):
-        """Opens a dialog for assigning students to a group."""
         dialog = AssignStudentsToGroupSubDialog(self, group_id, group_name, self.students, self.student_groups)
         if dialog.assignments_changed:
             self.groups_changed_flag = True # Signal main app that changes occurred
             self.populate_groups_list() # Repopulate to update student counts
 
     def apply(self): # Called when OK is pressed
-        """Processes the dialog's input."""
         # Changes are applied directly, so just set the flag if it was ever true
         self.result = self.groups_changed_flag
         if self.groups_changed_flag:
@@ -1836,7 +1742,6 @@ class ManageStudentGroupsDialog(simpledialog.Dialog):
             self.app.save_student_groups() # Save groups if changed
 
 class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
-    """A sub-dialog for assigning students to a group."""
     def __init__(self, parent_dialog, group_id, group_name, all_students_data, all_groups_data):
         self.parent_dialog_ref = parent_dialog # Reference to ManageStudentGroupsDialog
         self.group_id_to_assign = group_id
@@ -1847,7 +1752,6 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
         super().__init__(parent_dialog, f"Assign Students to '{group_name}'")
 
     def body(self, master):
-        """Creates the dialog body."""
         # Listbox for available students (not in any group OR in a different group)
         # Listbox for students currently in THIS group
         frame = ttk.Frame(master); frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
@@ -1870,7 +1774,6 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
         return self.available_lb
 
     def populate_student_lists(self):
-        """Populates the listboxes with available and assigned students."""
         self.available_lb.delete(0, tk.END); self.assigned_lb.delete(0, tk.END)
         self.available_students_map.clear(); self.assigned_students_map.clear()
 
@@ -1889,7 +1792,6 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
             # Else: student is in a *different* group, don't show in "Available" unless we want a "move from group X" feature
 
     def add_to_group(self):
-        """Adds selected students to the group."""
         selected_indices = self.available_lb.curselection()
         if not selected_indices: return
         for i in reversed(selected_indices): # Iterate reversed to handle index changes on delete
@@ -1901,7 +1803,6 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
         self.populate_student_lists() # Refresh both listboxes
 
     def remove_from_group(self):
-        """Removes selected students from the group."""
         selected_indices = self.assigned_lb.curselection()
         if not selected_indices: return
         for i in reversed(selected_indices):
@@ -1913,13 +1814,11 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
         self.populate_student_lists()
 
     def apply(self):
-        """Processes the dialog's input."""
         # Changes were made directly to self.all_students (app.students)
         # The self.assignments_changed flag will be checked by the parent dialog
         pass
 
 class BulkEditConditionalRulesDialog(simpledialog.Dialog):
-    """A dialog for bulk editing conditional formatting rules."""
     def __init__(self, parent, app, rules_being_edited_copies, original_indices):
         self.app = app
         self.rules_copies = rules_being_edited_copies # These are copies
@@ -1942,7 +1841,6 @@ class BulkEditConditionalRulesDialog(simpledialog.Dialog):
         super().__init__(parent, f"Bulk Edit {len(self.rules_copies)} Conditional Rules")
 
     def body(self, master):
-        """Creates the dialog body."""
         main_frame = ttk.Frame(master); main_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         notebook = ttk.Notebook(main_frame); notebook.pack(fill=tk.BOTH, expand=True)
 
@@ -2000,7 +1898,6 @@ class BulkEditConditionalRulesDialog(simpledialog.Dialog):
         return main_frame
 
     def _toggle_times_ui(self):
-        """Toggles the UI for active times based on the selected action."""
         action = self.times_action_var.get()
         state = tk.NORMAL if action in ["replace", "add"] else tk.DISABLED
         for child in self.bulk_times_def_frame.winfo_children():
@@ -2013,7 +1910,6 @@ class BulkEditConditionalRulesDialog(simpledialog.Dialog):
 
 
     def _toggle_modes_ui(self):
-        """Toggles the UI for active modes based on the selected action."""
         action = self.modes_action_var.get()
         state = tk.NORMAL if action in ["replace", "add_selected", "remove_selected"] else tk.DISABLED
         for child in self.bulk_modes_selection_frame.winfo_children():
@@ -2027,7 +1923,6 @@ class BulkEditConditionalRulesDialog(simpledialog.Dialog):
 
 
     def _bulk_add_time_slot_to_list(self):
-        """Adds a time slot to the list for bulk editing."""
         start_time = self.bulk_start_time_var.get().strip()
         end_time = self.bulk_end_time_var.get().strip()
         try:
@@ -2045,14 +1940,12 @@ class BulkEditConditionalRulesDialog(simpledialog.Dialog):
         for var in self.bulk_days_vars: var.set(True)
 
     def _bulk_remove_time_slot_from_list(self):
-        """Removes a time slot from the list for bulk editing."""
         sel = self.bulk_times_listbox.curselection()
         if not sel: return
         for i in reversed(sel): del self.new_active_times_for_bulk[i]
         self._refresh_bulk_times_listbox()
 
     def _refresh_bulk_times_listbox(self):
-        """Refreshes the listbox of time slots for bulk editing."""
         self.bulk_times_listbox.delete(0, tk.END)
         days_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         for slot in self.new_active_times_for_bulk:
@@ -2060,7 +1953,6 @@ class BulkEditConditionalRulesDialog(simpledialog.Dialog):
             self.bulk_times_listbox.insert(tk.END, f"{slot['start_time']} - {slot['end_time']} ({days_str})")
 
     def apply(self):
-        """Applies the bulk edits to the selected rules."""
         # Apply changes to the original rules in app.settings
         # The self.rules_copies were just for initial display/safety, not directly modified.
 
