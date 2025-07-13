@@ -15,9 +15,9 @@ import csv
 import PIL
 from PIL import Image
 from settingsdialog import SettingsDialog
-from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
+from commands import Command, DeleteGuideCommand, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
-        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, MoveGuideCommand
+        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, MoveGuideCommand, AddGuideCommand
 from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDialog, BehaviorDialog, \
     ManualHomeworkLogDialog, QuizScoreDialog, LiveQuizMarkDialog, LiveHomeworkMarkDialog, ExitConfirmationDialog, \
         ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, ManageStudentGroupsDialog
@@ -817,14 +817,14 @@ class SeatingChartApp:
         self.root.bind_all("<H>", lambda event: self.toggle_mode_("homework"))
         
         # Edit Menu (for Undo History)
-        self.edit_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Edit")
-        self.edit_menu = tk.Menu(self.edit_menu_btn, tearoff=0)
-        self.edit_menu.add_command(label="Undo", command=self.undo_last_action, accelerator="Ctrl+Z")
-        self.edit_menu.add_command(label="Redo", command=self.redo_last_action, accelerator="Ctrl+Y")
-        self.edit_menu.add_separator()
-        self.edit_menu.add_command(label="Show Undo History...", command=self.show_undo_history_dialog)
-        self.edit_menu_btn["menu"] = self.edit_menu
-        self.edit_menu_btn.pack(side=tk.LEFT, padx=2)
+        # self.edit_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Edit")
+        # self.edit_menu = tk.Menu(self.edit_menu_btn, tearoff=0)
+        # self.edit_menu.add_command(label="Undo", command=self.undo_last_action, accelerator="Ctrl+Z")
+        # self.edit_menu.add_command(label="Redo", command=self.redo_last_action, accelerator="Ctrl+Y")
+        # self.edit_menu.add_separator()
+        # self.edit_menu.add_command(label="Show Undo History...", command=self.show_undo_history_dialog)
+        # self.edit_menu_btn["menu"] = self.edit_menu
+        # self.edit_menu_btn.pack(side=tk.LEFT, padx=2)
 
         self.export_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Export Log"); self.export_menu = tk.Menu(self.export_menu_btn, tearoff=0)
         self.export_menu.add_command(label="To Excel (.xlsx)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsx"))
@@ -878,8 +878,8 @@ class SeatingChartApp:
 
         
 
-        self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=3)
-        layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=0)
+        self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=2)
+        layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=2)
         ttk.Button(layout_tools_frame, text="Align Top", command=lambda: self.align_selected_items("top")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Bottom", command=lambda: self.align_selected_items("bottom")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Left", command=lambda: self.align_selected_items("left")).pack(side=tk.LEFT,pady=1, padx=1)
@@ -888,15 +888,17 @@ class SeatingChartApp:
         ttk.Button(layout_tools_frame, text="Distribute V", command=lambda: self.distribute_selected_items_evenly("vertical")).pack(side=tk.LEFT, pady=1, padx=1)
 
         templates_groups_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout & Groups", padding=2); 
-        templates_groups_frame.pack(side=tk.LEFT, padx=0)
+        templates_groups_frame.pack(side=tk.LEFT, padx=2)
         ttk.Button(templates_groups_frame, text="Save Layout...", command=self.save_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(templates_groups_frame, text="Load Layout...", command=self.load_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         self.manage_groups_btn = ttk.Button(templates_groups_frame, text="Manage Groups...", command=self.manage_student_groups_dialog); self.manage_groups_btn.pack(side=tk.LEFT,pady=1, padx=1)        
         
         # Toggle Dragging Button
         self.toggle_dragging_btn = ttk.Button(self.manage_boxes_frame, text="Disable Dragging", command=self.toggle_dragging_allowed)
-        self.toggle_dragging_btn.pack(side=tk.LEFT, padx=5)
+        self.toggle_dragging_btn.pack(side=tk.LEFT, padx=(2))
         self._update_toggle_dragging_button_text() # Initialize button text
+        
+        ttk.Button(self.manage_boxes_frame, text="Show undo history", command=self.show_undo_history_dialog).pack(side=tk.LEFT, padx=2)
         
         ttk.Button(self.manage_boxes_frame, text="Add Student", command=self.add_student_dialog).pack(side=tk.LEFT, padx=2)
         ttk.Button(self.manage_boxes_frame, text="Add Furniture", command=self.add_furniture_dialog).pack(side=tk.LEFT, padx=2)
@@ -2501,7 +2503,7 @@ class SeatingChartApp:
             if not self.prompt_for_password("Unlock to Interact", "Enter password to interact with canvas:"): return
         self.canvas.focus_set()
 
-        # Check if dragging is allowed
+        # Check if dragging is allowed # This is obsolete (I removed it's function)
         if False:#not self.settings.get("allow_box_dragging", True):
             # If dragging is disabled, still allow selection clicks but not drag initiation for items.
             # Guide interaction and ruler interaction might still be allowed or handled separately.
@@ -2569,9 +2571,11 @@ class SeatingChartApp:
                 world_coord_to_use = world_x if guide_type_to_add == 'vertical' else world_y
 
                 new_guide_data = {'id': guide_id_str, 'type': guide_type_to_add[0], 'world_coord': world_coord_to_use, 'canvas_item_id': None}
-                self.guides[guide_id_str] = (new_guide_data)
+                #self.guides[guide_id_str] = (new_guide_data)
 
-                self.draw_all_items() # Redraws everything including the new guide via self.draw_guides()
+                self.execute_command(AddGuideCommand(self, guide_id_str, guide_type_to_add, new_guide_data, self.next_guide_id_num, ))
+                
+                #self.draw_all_items() # Redraws everything including the new guide via self.draw_guides()
                 self.update_status(f"Added {guide_type_to_add} guide ({guide_id_str}) at {world_coord_to_use:.0f}.")
 
                 # Deactivate add guide mode and reset button state
@@ -3106,7 +3110,7 @@ class SeatingChartApp:
 
     def is_in_guides(self, tag):
         for guide in self.guides:
-            if guide.get("id") == tag: return True
+            if self.guides[guide] == tag: return True
         return False
     
     def show_guide_context_menu(self, event, guide_id):
@@ -3115,7 +3119,7 @@ class SeatingChartApp:
         #guide_data = self.guides[guide_id]
         print(guide_id)
         for guide in self.guides:
-            if guide.get("id") == guide_id: guide_data = guide.get("id")
+            if self.guides[guide] == guide_id: guide_data = self.guides[guide].get("id")
         #print(guide_id.get("id"))
         context_menu = tk.Menu(self.canvas, tearoff=0); current_mode = self.mode_var.get()
         
@@ -3125,18 +3129,21 @@ class SeatingChartApp:
         finally: context_menu.grab_release()
 
     def delete_guide(self, guide_id):
-        self.canvas.delete(guide_id)
-        i=0
-        for guide in self.guides:
-            
-            if guide.get("id") == guide_id: del self.guides[i]
-            i+=1
+        #self.canvas.delete(guide_id)
+        
+        self.execute_command(DeleteGuideCommand(self, guide_id, self.guides[guide_id]))
+        #self.guides.__delitem__(guide_id)
+        
         self.password_manager.record_activity()
 
     def delete_all_guides(self):
         if messagebox.askyesno("Delete all guides", "Are you sure you want to delete ALL guides?"):
-            self.canvas.delete("guide")
-            self.guides.clear()
+            commands_to_execute = []
+            for guide in self.guides:
+                commands_to_execute.append(DeleteGuideCommand(self, self.guides[guide].get("id"), self.guides[guide]))
+            for cmd in commands_to_execute: self.execute_command(cmd)
+            #self.canvas.delete("guide")
+            #self.guides.clear()
 
     def _select_items_by_type(self, item_type_key):
         # ... (same as v51)

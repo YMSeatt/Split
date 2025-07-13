@@ -222,8 +222,67 @@ class MoveGuideCommand(Command):
     def get_description(self):
         return f"Move {len(self.items_moves)} guide(s)"
 
+class AddGuideCommand(Command):
+    def __init__(self, app, item_id, item_type, item_data, id_next_num, timestamp=None):
+        super().__init__(app, timestamp)
+        self.item_id = item_id
+        self.item_type = item_type
+        self.item_data = item_data
+        self.old_next_id_num = id_next_num
 
+    def execute(self):
+        data_source = self.app.guides # if self.item_type == 'student' else self.app.furniture
+        data_source[self.item_id] = self.item_data.copy()
+        self.app.draw_all_items(check_collisions_on_redraw=True)
 
+    def undo(self):
+        data_source = self.app.guides # if self.item_type == 'student' else self.app.furniture
+        if self.item_id in data_source:
+            del data_source[self.item_id]
+            self.app.canvas.delete(self.item_id)
+        self.app.draw_all_items(check_collisions_on_redraw=True)
+
+    def _get_data_for_serialization(self): return {'item_id': self.item_id, 'item_type': self.item_type, 'item_data': self.item_data, 'old_next_id_num': self.old_next_id_num}
+    @classmethod
+    def _from_serializable_data(cls, app, data, timestamp): return cls(app, data['item_id'], data['item_type'], data['item_data'], data['old_next_id_num'], timestamp)
+    def get_description(self):
+        item_name = self.item_data.get('full_name', self.item_data.get('name', self.item_id))
+        return f"Add {self.item_type} guide at {self.item_data['world_coord']}"
+
+class DeleteGuideCommand(Command):
+    def __init__(self, app, item_id, item_data, timestamp=None):
+        self.item_id = item_id
+        self.item_type = "horizontal" if item_data.get('type') == "h" else "vertical"
+        self.item_data = item_data
+        super().__init__(app, timestamp)
+    
+    def execute(self):
+        data_source = self.app.guides # if self.item_type == 'student' else self.app.furniture
+        if self.item_id in data_source:
+            del data_source[self.item_id]
+        self.app.update_status(f"Deleted {self.item_type} guide at {self.item_data.get("world_coord")}")
+        self.app.canvas.delete(self.item_id)
+        self.app.draw_all_items(check_collisions_on_redraw=True)
+
+    def undo(self):
+        data_source = self.app.guides # if self.item_type == 'student' else self.app.furniture
+        data_source[self.item_id] = self.item_data.copy()
+        self.app.update_status(f"Undid delete of {self.item_type} guide at {self.item_data.get("world_coord")}")
+        self.app.draw_all_items(check_collisions_on_redraw=True)
+
+    def _get_data_for_serialization(self):
+        return {
+            'item_id': self.item_id, 'item_type': self.item_type,
+            'item_data': self.item_data
+        }
+    @classmethod
+    def _from_serializable_data(cls, app, data, timestamp):
+        cmd = cls(app, data['item_id'], data['item_data'], timestamp)
+        
+        return cmd
+    def get_description(self):
+        #item_name = self.item_data.get('full_name', self.item_data.get('name', self.item_id))
+        return f"Delete {self.item_type} guide at {self.item_data.get("world_coords")}"
 
 
 class MoveItemsCommand(Command):

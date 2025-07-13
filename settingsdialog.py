@@ -253,10 +253,10 @@ class SettingsDialog(simpledialog.Dialog):
         
         
         
-        ttk.Label(lf, text = "Theme: ").grid(row=12,column=0,sticky='W', padx=0, pady=3)
+        ttk.Label(lf, text = "Theme: ").grid(row=12,column=0,sticky='W', padx=(0), pady=3)
         
         style_combo = ttk.Combobox(lf, values= list(self.styles), textvariable=self.style, width=17, state='readonly')
-        style_combo.grid(row=12, column=0, sticky=tk.E, columnspan=2, padx=(0,105))
+        style_combo.grid(row=12, column=0, sticky=tk.E, columnspan=2, padx=(0,75 if self.style.get() != "sun-valley (Default)" else 105))
         style_combo.grid_anchor("w")
         style_combo.bind("<<ComboboxSelected>>", self.style_set)
         style_combo.set(self.style.get())
