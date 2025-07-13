@@ -49,6 +49,9 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
+    """
+    Determines the appropriate path for application data files based on the operating system.
+    """
     try:
         # Determine base path based on whether the app is frozen (packaged) or running from script
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -156,6 +159,7 @@ MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
 
 class SettingsDialog(simpledialog.Dialog):
+    """A dialog for managing application settings."""
     def __init__(self, parent, current_settings, custom_behaviors, all_behaviors, app,
                  custom_homework_statuses, all_homework_statuses, # RENAMED
                  custom_homework_types, all_homework_types, # NEW
@@ -188,6 +192,7 @@ class SettingsDialog(simpledialog.Dialog):
         super().__init__(parent, f"Settings - {APP_NAME}")
 
     def body(self, master):
+        """Creates the dialog body."""
         self.master_frame = master # Keep a reference for rebuilding tabs if needed
         self.notebook = ttk.Notebook(master)
         
@@ -228,6 +233,7 @@ class SettingsDialog(simpledialog.Dialog):
         return self.notebook
 
     def create_general_tab(self, tab_frame):
+        """Creates the General settings tab."""
         lf = ttk.LabelFrame(tab_frame, text="Application Behavior", padding=10); lf.pack(fill=tk.BOTH, side=tk.LEFT, pady=5)
         # Autosave interval
         ttk.Label(lf, text="Autosave Interval (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
@@ -344,6 +350,7 @@ class SettingsDialog(simpledialog.Dialog):
         
         
     def create_student_display_tab(self, tab_frame):
+        """Creates the Student Display settings tab."""
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
         lf_defaults.grid(sticky="nsew", column=0,row=0, pady=5)
         # Default size
@@ -395,6 +402,7 @@ class SettingsDialog(simpledialog.Dialog):
 
 
     def create_behavior_log_tab(self, tab_frame):
+        """Creates the Behavior & Quiz settings tab."""
         # Recent Incidents Display
         lf_recent = ttk.LabelFrame(tab_frame, text="Recent Incidents on Student Boxes (Behavior/Quiz)", padding=10); lf_recent.grid(sticky="nsew",column=0,row=0, pady=5)
         self.show_recent_var = tk.BooleanVar(value=self.settings.get("show_recent_incidents_on_boxes", True))
@@ -449,7 +457,7 @@ class SettingsDialog(simpledialog.Dialog):
         lf_quiz.grid_columnconfigure(2, weight=1)
 
     def create_homework_log_tab(self, tab_frame):
-        """Rebuilt homework tab with clear sections for Types and Statuses."""
+        """Creates the Homework settings tab."""
         
         # --- Column 0: Customization of Lists ---
         customization_frame = tk.Canvas(tab_frame, width=1000)
@@ -583,12 +591,14 @@ class SettingsDialog(simpledialog.Dialog):
     
     # Custom Homework TYPES
     def populate_custom_homework_types_listbox(self):
+        """Populates the listbox with custom homework types."""
         self.custom_hw_types_listbox.delete(0, tk.END)
         print(self.custom_homework_types_ref)
         for item in self.custom_homework_types_ref:
             self.custom_hw_types_listbox.insert(tk.END, item["name"])
     
     def add_custom_homework_type(self):
+        """Adds a new custom homework type."""
         name = simpledialog.askstring("Add Homework Type", "Enter name for the new type (e.g., 'Project Milestone 1'):", parent=self)
         if name and name.strip():
             name = name.strip()
@@ -601,6 +611,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True; self.app.save_custom_homework_types(); self.populate_custom_homework_types_listbox()
 
     def edit_selected_custom_homework_type(self):
+        """Edits a selected custom homework type."""
         sel_idx = self.custom_hw_types_listbox.curselection()
         if not sel_idx: return
         idx = sel_idx[0]; old_name = self.custom_homework_types_ref[idx]["name"]
@@ -613,6 +624,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True; self.app.save_custom_homework_types(); self.populate_custom_homework_types_listbox()
     
     def remove_selected_custom_homework_type(self):
+        """Removes a selected custom homework type."""
         sel_idx = self.custom_hw_types_listbox.curselection()
         if not sel_idx: return
         if messagebox.askyesno("Confirm Remove", "Remove selected homework type?", parent=self):
@@ -621,12 +633,14 @@ class SettingsDialog(simpledialog.Dialog):
 
     # Custom Homework STATUSES
     def populate_custom_homework_statuses_listbox(self):
+        """Populates the listbox with custom homework statuses."""
         self.custom_hw_statuses_listbox.delete(0, tk.END)
         #self.custom_hw_log_behaviors_listbox
         for item in self.custom_homework_statuses_ref:
             self.custom_hw_statuses_listbox.insert(tk.END, item["name"])
 
     def add_custom_homework_status(self):
+        """Adds a new custom homework status."""
         name = simpledialog.askstring("Add Homework Status", "Enter name for the new status (e.g., 'Excellent Effort'):", parent=self)
         if name and name.strip():
             name = name.strip()
@@ -636,6 +650,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True; self.app.save_custom_homework_statuses(); self.populate_custom_homework_statuses_listbox()
 
     def edit_selected_custom_homework_status(self):
+        """Edits a selected custom homework status."""
         sel_idx = self.custom_hw_statuses_listbox.curselection()
         if not sel_idx: return
         idx = sel_idx[0]; old_name = self.custom_homework_statuses_ref[idx]["name"]
@@ -648,6 +663,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True; self.app.save_custom_homework_statuses(); self.populate_custom_homework_statuses_listbox()
             
     def remove_selected_custom_homework_status(self):
+        """Removes a selected custom homework status."""
         sel_idx = self.custom_hw_statuses_listbox.curselection()
         if not sel_idx: return
         if messagebox.askyesno("Confirm Remove", "Remove selected homework status?", parent=self):
@@ -657,6 +673,7 @@ class SettingsDialog(simpledialog.Dialog):
 
     
     def on_live_hw_mode_change(self, event):
+        """Handles changes to the live homework mode."""
         mode = self.live_hw_mode_var.get()
         if mode == "Yes/No":
             self.select_mode_settings_frame.grid_remove()
@@ -669,6 +686,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.select_mode_settings_frame.grid_remove()
 
     def create_data_export_tab(self, tab_frame):
+        """Creates the Data & Export settings tab."""
         lf_excel = ttk.LabelFrame(tab_frame, text="Excel Export Defaults", padding=10); lf_excel.pack(fill=tk.X, pady=5)
         self.excel_sep_sheets_var = tk.BooleanVar(value=self.settings.get("excel_export_separate_sheets_by_default", True))
         ttk.Checkbutton(lf_excel, text="Separate log types into different sheets by default", variable=self.excel_sep_sheets_var).pack(anchor=tk.W, padx=5, pady=2)
@@ -687,6 +705,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.export_image_spin.set(self.dpi_image_export_var.get())
 
     def create_security_tab(self, tab_frame):
+        """Creates the Security settings tab."""
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)
         lf_password.pack(fill=tk.X, pady=5)
 
@@ -732,6 +751,7 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Checkbutton(lf_encryption, text="Encrypt data files on save (This does NOT protect from deletion)", variable=self.encrypt_data_var).pack(anchor=tk.W, padx=5, pady=2)
 
     def create_other_settings_tab(self, tab_frame):
+        """Creates the Other Settings tab."""
         # Create content for the Other Settings tab
         lf_other_options = ttk.LabelFrame(tab_frame, text="Other Options", padding=10)
         lf_other_options.pack(fill=tk.X, pady=5)
@@ -739,6 +759,7 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Button(lf_other_options, text="Reset All Settings to Default", command=self.reset_all_settings, style="Warning.TButton").pack(anchor=tk.W, padx=5, pady=5)
         
     def reset_all_settings(self):
+        """Resets all settings to their default values."""
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Confirm Reset", "Enter password to confirm reset of all settings to default. This cannot be undone.", for_editing=True):
                 return
@@ -750,6 +771,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.ok()# Reload settings
 
     def _get_default_settings(self):
+        """Returns a dictionary of default settings."""
         return {
             "show_recent_incidents_on_boxes": True,
             "num_recent_incidents_to_show": 2,
@@ -848,6 +870,7 @@ class SettingsDialog(simpledialog.Dialog):
 
 
     def theme_set(self, event):
+        """Sets the application theme."""
         #print(self.app.theme_style_using, "old")
         self.app.theme_style_using = self.theme.get()
         self.settings_changed_flag = True
@@ -856,11 +879,13 @@ class SettingsDialog(simpledialog.Dialog):
         #print("theme2", self.theme2)
 
     def style_set(self, event=None):
+        """Sets the application style."""
         self.app.type_theme = self.style.get()
         self.theme_combo.configure(state='disabled' if "sun-valley" not in self.style.get().lower() else 'readonly')
         self.theme_combo.set("Light") if "sun-valley" not in self.style.get().lower() else "System"
 
     def set_or_change_password(self):
+        """Sets or changes the application password."""
         new_pw = self.new_pw_var.get()
         confirm_pw = self.confirm_pw_var.get()
         if not new_pw:
@@ -881,6 +906,7 @@ class SettingsDialog(simpledialog.Dialog):
         messagebox.showinfo("Password Set", "Application password has been set/changed.", parent=self)
 
     def prompt_for_password(self, title, prompt_message, for_editing=False):
+        """Prompts the user for a password."""
         if self.password_manager.is_locked:
              if not hasattr(self, '_lock_screen_active') or not self._lock_screen_active.winfo_exists(): self.show_lock_screen()
              return not self.password_manager.is_locked
@@ -890,6 +916,7 @@ class SettingsDialog(simpledialog.Dialog):
         return dialog.result
 
     def remove_password(self):
+        """Removes the application password."""
         if self.password_manager.is_password_set():
             if self.prompt_for_password("Confirm Password", "Enter current password to confirm identity", for_editing=True):
                 if messagebox.askyesno("Confirm Removal", "Are you sure you want to remove the application password?", parent=self):
@@ -907,6 +934,7 @@ class SettingsDialog(simpledialog.Dialog):
 
     # --- UI Helper for color/font settings ---
     def create_color_font_settings_ui(self, parent_frame, start_row, fill_key, outline_key, font_fam_key, font_size_key, font_color_key):
+        """Creates the UI for color and font settings."""
         # Fill Color
         ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
         fill_var = tk.StringVar(value=self.settings.get(fill_key, DEFAULT_BOX_FILL_COLOR))
@@ -947,9 +975,11 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=behavior_font_size_var, width=5).grid(row=start_row+5,column=1,sticky=tk.W,padx=5,pady=3)
 
     def reset_color_for_var(self, color_var, default): # Helper for color reset buttons in settings
+        """Resets a color variable to its default value."""
         color_var.set(default) # Reset to empty string
 
     def choose_color_for_var(self, color_var): # Helper for color choosers in settings
+        """Opens a color chooser and sets the selected color to the given variable."""
         initial_color = color_var.get()
         if not initial_color: # If empty, pick a default to show in chooser
             if "fill" in color_var._name: initial_color = DEFAULT_BOX_FILL_COLOR
@@ -960,6 +990,7 @@ class SettingsDialog(simpledialog.Dialog):
         if color_code and color_code[1]: color_var.set(color_code[1])
 
     def choose_color_for_canvas(self, color_var): # Helper for color choosers in settings
+        """Opens a color chooser for the canvas background."""
         initial_color = color_var.get()
         if initial_color == "Default": initial_color = None
         if not initial_color: # If empty, pick a default to show in chooser
@@ -975,6 +1006,7 @@ class SettingsDialog(simpledialog.Dialog):
 
     # --- Methods for managing custom lists ---
     def populate_conditional_rules_listbox(self):
+        """Populates the listbox with conditional formatting rules."""
         self.rules_listbox.delete(0, tk.END)
         for i, rule in enumerate(self.settings.get("conditional_formatting_rules", [])):
             desc = f"Rule {i+1}: Type='{rule.get('type', 'Unknown')}'"
@@ -1006,6 +1038,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.rules_listbox.insert(tk.END, desc)
 
     def add_conditional_rule(self):
+        """Adds a new conditional formatting rule."""
         dialog = ConditionalFormattingRuleDialog(self.master_frame, self.app) # Pass app and correct parent
         if dialog.result:
             if "conditional_formatting_rules" not in self.settings: self.settings["conditional_formatting_rules"] = []
@@ -1013,6 +1046,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True
             self.populate_conditional_rules_listbox()
     def edit_selected_conditional_rule(self):
+        """Edits a selected conditional formatting rule."""
         selected_idx = self.rules_listbox.curselection()
         if not selected_idx: messagebox.showinfo("No Selection", "Please select a rule to edit.", parent=self); return
         idx_to_edit = selected_idx[0]
@@ -1024,6 +1058,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.populate_conditional_rules_listbox()
 
     def remove_selected_conditional_rule(self):
+        """Removes a selected conditional formatting rule."""
         selected_indices = self.rules_listbox.curselection() # Will be tuple of indices
         if not selected_indices:
             messagebox.showinfo("No Selection", "Please select rule(s) to remove.", parent=self)
@@ -1038,6 +1073,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.populate_conditional_rules_listbox()
 
     def bulk_edit_selected_rules(self):
+        """Bulk edits selected conditional formatting rules."""
         selected_indices = self.rules_listbox.curselection()
         if not selected_indices:
             messagebox.showinfo("No Selection", "Please select at least one rule to bulk edit.", parent=self)
@@ -1072,21 +1108,25 @@ class SettingsDialog(simpledialog.Dialog):
 
 
     def force_canvas_border_visi(self):
+        """Forces the canvas border to be visible."""
         self.force_canvas_border_btn.configure(state="normal" if self.canvas_border_var.get() == True else 'disabled')
 
 
 
     def _manage_custom_list_generic(self, listbox, custom_list_ref, item_type_name, add_func_name, edit_func_name):
+        """A generic method for managing custom lists."""
         # This is a placeholder for a more generic dialog if needed, for now specific ones are used
         pass
 
     # Custom Behaviors (for Log Behavior dialog)
     def populate_custom_behaviors_listbox(self):
+        """Populates the listbox with custom behaviors."""
         self.custom_behaviors_listbox.delete(0, tk.END)
         for behavior_item in self.custom_behaviors_ref: # List of dicts or old strings
             name = behavior_item["name"] if isinstance(behavior_item, dict) else behavior_item
             self.custom_behaviors_listbox.insert(tk.END, name)
     def add_custom_behavior(self):
+        """Adds a new custom behavior."""
         if len(self.custom_behaviors_ref) >= MAX_CUSTOM_TYPES:
             messagebox.showwarning("Limit Reached", f"Maximum of {MAX_CUSTOM_TYPES} custom {item_type_name.lower()}s allowed.", parent=self); return
         name = simpledialog.askstring("Add Custom Behavior", "Enter name for the new behavior:", parent=self)
@@ -1097,6 +1137,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.custom_behaviors_ref.append({"name": name}) # Store as dict
             self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
     def edit_selected_custom_behavior(self):
+        """Edits a selected custom behavior."""
         sel_idx = self.custom_behaviors_listbox.curselection()
         if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to edit.", parent=self); return
         idx = sel_idx[0]
@@ -1110,6 +1151,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.custom_behaviors_ref[idx] = {"name": new_name}
             self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
     def remove_selected_custom_behavior(self):
+        """Removes a selected custom behavior."""
         sel_idx = self.custom_behaviors_listbox.curselection()
         if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to remove.", parent=self); return
         if messagebox.askyesno("Confirm Remove", "Remove selected custom behavior?", parent=self):
@@ -1185,18 +1227,23 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True; self.app.save_custom_homework_session_types(); self.populate_custom_homework_session_types_listbox()
     """
     def manage_behavior_initials(self):
+        """Opens a dialog to manage the initials for behaviors."""
         dialog = ManageInitialsDialog(self, self.settings["behavior_initial_overrides"], self.app.all_behaviors, "Behavior/Quiz")
         if dialog.initials_changed: self.settings_changed_flag = True
     def manage_homework_initials(self): # New
+        """Opens a dialog to manage the initials for homework."""
         dialog = ManageInitialsDialog(self, self.settings["homework_initial_overrides"], self.app.all_homework_statuses, "Homework Log")
         if dialog.initials_changed: self.settings_changed_flag = True
     def manage_quiz_mark_types(self):
+        """Opens a dialog to manage the mark types for quizzes."""
         dialog = ManageMarkTypesDialog(self, self.settings["quiz_mark_types"], "Quiz Mark Types", DEFAULT_QUIZ_MARK_TYPES)
         if dialog.mark_types_changed: self.settings_changed_flag = True
     def manage_homework_mark_types(self): # New
+        """Opens a dialog to manage the mark types for homework."""
         dialog = ManageMarkTypesDialog(self, self.settings["homework_mark_types"], "Homework Mark Types", DEFAULT_HOMEWORK_MARK_TYPES)
         if dialog.mark_types_changed: self.settings_changed_flag = True
     def manage_live_homework_select_options(self):
+        """Opens a dialog to manage the options for live homework sessions in 'Select' mode."""
         dialog = ManageLiveSelectOptionsDialog(self, self.settings.get("live_homework_select_mode_options", DEFAULT_HOMEWORK_SESSION_BUTTONS.copy()))
         if dialog.options_changed_flag:
             self.settings["live_homework_select_mode_options"] = dialog.current_options
@@ -1209,6 +1256,7 @@ class SettingsDialog(simpledialog.Dialog):
     
     
     def apply(self): # OK button of SettingsDialog
+        """Applies the changes made in the settings dialog."""
         if self.reset == False: # If reset button was not pressed
             # General Tab
             self.settings["autosave_interval_ms"] = self.autosave_interval_var.get() * 1000
