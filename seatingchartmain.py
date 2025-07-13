@@ -50,8 +50,6 @@ except ImportError:
     win32gui = None # Explicitly set to None if import fails
     print("Warning: win32gui/win32ui/win32con not found. Full window screenshot (deprecated) might not work if called.")
 
-base_path = os.path.dirname(os.path.abspath(__file__))
-print(base_path)
 # def listener(callback: typing.Callable[[str], None]) -> None: ...
 # TODO: make conditional formatting work by quizzes. add thing for homework also.
 
@@ -195,8 +193,7 @@ DEFAULT_HOMEWORK_MARK_TYPES = [ # New for homework marks
 
 MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
-MASTER_RECOVERY_PASSWORD_HASH = "d3c01af653d8940fc36ea1e1f33a8dc03f47dd864d2cd0d8814e2643fa37e70de0a2228e58d7d591eb2f124e2f4f9ff7c98686f4f5da3de6bbfc0267db3c1a0e" # SHA256 of "RecoverMyData123!"
-#Recovery1Master2Password!Jaffe1
+MASTER_RECOVERY_PASSWORD_HASH = "5bf881cb69863167a3172fda5c552694a3328548a43c7ee258d6d7553fc0e1a1a8bad378fb131fbe10e37efbd9e285b22c29b75d27dcc2283d48d8edf8063292" # SHA256 of "RecoverMyData123!" # It's actually SHA3_512 or something else, which only Yaakov Maimon (me) has, although you can add your own if you like
 
 def levenshtein_distance(s1, s2):
     if len(s1) < len(s2):

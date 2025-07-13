@@ -4,19 +4,16 @@ from cryptography.fernet import Fernet
 import os
 import sys
 
-ENCRYPTION_KEY = b'87KRv9OeBzEpeW1xSNT8NqCqN_GIizfRyEmqGZBLvxw='
-f = Fernet(ENCRYPTION_KEY)
+ENCRYPTION_KEY = b'' # Enter your own encryption key here. You can generate your own with the code below: 
 
-"""
-def generate_key():
-    
-    Generates a key and saves it into a file
-    
-    key = Fernet.generate_key()
-    with open(KEY_PATH, "wb") as key_file:
-        key_file.write(key)
-    print(f"Encryption key generated and saved to {KEY_PATH}")
+# def generate_key():
+#     """
+#     Generates a key and saves it into a file
+#     """
+#     key = Fernet.generate_key()
+#     print(key)
 
+""" # Useless - I don't use it
 def load_key():
     
     Loads the key from the current directory named `secret.key`
@@ -25,6 +22,7 @@ def load_key():
         generate_key()
     return open(KEY_PATH, "rb").read()
 """
+f = Fernet(ENCRYPTION_KEY)
 # --- Encryption and Decryption Functions ---
 
 def encrypt_data(data_string):
