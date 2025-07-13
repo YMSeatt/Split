@@ -1,0 +1,7 @@
+openpyxl
+Pillow
+sv-ttk
+darkdetect
+cryptography
+portalocker
+pywin32 ; sys_platform == 'win32'
