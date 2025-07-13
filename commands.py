@@ -651,7 +651,7 @@ class MarkLiveQuizQuestionCommand(Command):
 
     def execute(self):
         if self.previous_student_score_state is None:
-            self.app.live_quiz_scores.get(self.student_id, {"correct": 0, "total_asked": 0}).copy()
+            self.previous_student_score_state = self.app.live_quiz_scores.get(self.student_id, {"correct": 0, "total_asked": 0}).copy()
         current_score = self.app.live_quiz_scores.get(self.student_id, {"correct": 0, "total_asked": 0}).copy()
         current_score["total_asked"] += 1
         if self.action_taken == "correct": current_score["correct"] += 1
