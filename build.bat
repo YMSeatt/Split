@@ -24,6 +24,8 @@ pyinstaller --onefile ^
     --clean ^
     -n "%APP_NAME%" ^
     -i "%ICON_PATH%" ^
+    --splash "%SPLASH_PATH%" ^
+    --hidden-import pyi_splash ^
     --collect-all openpyxl ^
     --collect-all tkcalendar ^
     --collect-all sv_ttk ^

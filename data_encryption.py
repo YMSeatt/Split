@@ -4,7 +4,7 @@ from cryptography.fernet import Fernet
 import os
 import sys
 
-ENCRYPTION_KEY = b'' # Enter your own encryption key here. You can generate your own with the code below: 
+ENCRYPTION_KEY = b'7-BH7qsnKyRK0jdAZrjXSIW9VmcdpfHHeZor0ACBkmU=' # Enter your own encryption key here. You can generate your own with the code below: 
 
 # def generate_key():
 #     """

@@ -6656,6 +6656,13 @@ def perform_data_operations():
 
 # --- Main Execution ---
 if __name__ == "__main__":
+    try:
+        import pyi_splash
+        # You can optionally update the splash screen text as things load
+        pyi_splash.update_text("Loading UI...")
+    except ImportError:
+        pyi_splash = None # Will be None when not running from a PyInstaller bundle
+
     root = tk.Tk()
     # Apply a theme if available and desired
     try:
@@ -6680,4 +6687,9 @@ if __name__ == "__main__":
         t.daemon = True
         t.start()
     except: pass
+
+    # Close the splash screen once the main app is initialized and ready
+    if pyi_splash:
+        pyi_splash.close()
+
     root.mainloop()

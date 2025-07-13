@@ -212,8 +212,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.create_data_export_tab(data_export_tab)
 
         # --- Other Settings Tab ---
-        other_settings_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(other_settings_tab, text="Other Settings")
-        self.create_other_settings_tab(other_settings_tab)
+        # other_settings_tab = ttk.Frame(self.notebook, padding=10); #self.notebook.add(other_settings_tab, text="Other Settings")
+        # self.create_other_settings_tab(other_settings_tab)
         
         # --- Security Tab ---
         security_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(security_tab, text="Security")
@@ -729,7 +729,7 @@ class SettingsDialog(simpledialog.Dialog):
         lf_encryption = ttk.LabelFrame(tab_frame, text="Data Encryption", padding=10)
         lf_encryption.pack(fill=tk.X, pady=5)
         self.encrypt_data_var = tk.BooleanVar(value=self.settings.get("encrypt_data_files", True))
-        ttk.Checkbutton(lf_encryption, text="Encrypt data files on save (requires password to be set)", variable=self.encrypt_data_var).pack(anchor=tk.W, padx=5, pady=2)
+        ttk.Checkbutton(lf_encryption, text="Encrypt data files on save (This does NOT protect from deletion)", variable=self.encrypt_data_var).pack(anchor=tk.W, padx=5, pady=2)
 
     def create_other_settings_tab(self, tab_frame):
         # Create content for the Other Settings tab
