@@ -841,6 +841,7 @@ class SettingsDialog(simpledialog.Dialog):
             "next_guide_id_num": 1, # Added in migration, also good here
             "guides_color": "blue", # Default color for guides
             "allow_box_dragging": True, # New setting for box dragging
+            "canvas_color": "Default"
         }
 
    
@@ -1208,7 +1209,7 @@ class SettingsDialog(simpledialog.Dialog):
     
     
     def apply(self): # OK button of SettingsDialog
-        if self.reset == False: # If reset button was pressed
+        if self.reset == False: # If reset button was not pressed
             # General Tab
             self.settings["autosave_interval_ms"] = self.autosave_interval_var.get() * 1000
             self.settings["grid_snap_enabled"] = self.grid_snap_var.get()
@@ -1285,7 +1286,106 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings["encrypt_data_files"] = self.encrypt_data_var.get()
         else:
             self.app.type_theme = "sun-valley-light" # Reset to default theme
+            self.settings = {}
+            print("Default")
+            self.settings = self._get_default_settings()
             
+            self.settings = {
+                "show_recent_incidents_on_boxes": True,
+                "num_recent_incidents_to_show": 2,
+                "recent_incident_time_window_hours": 24,
+                "show_full_recent_incidents": False,
+                "reverse_incident_order": True,
+                "selected_recent_behaviors_filter": None, # List of behavior names, or None for all
+
+                "show_recent_homeworks_on_boxes": True, # New
+                "num_recent_homeworks_to_show": 2, # New
+                "recent_homework_time_window_hours": 24, # New
+                "show_full_recent_homeworks": False, # New
+                "reverse_homework_order": True, # New
+                "selected_recent_homeworks_filter": None, # New
+
+                "autosave_interval_ms": 30000,
+                "default_student_box_width": DEFAULT_STUDENT_BOX_WIDTH,
+                "default_student_box_height": DEFAULT_STUDENT_BOX_HEIGHT,
+                "student_box_fill_color": DEFAULT_BOX_FILL_COLOR,
+                "student_box_outline_color": DEFAULT_BOX_OUTLINE_COLOR,
+                "student_font_family": DEFAULT_FONT_FAMILY,
+                "student_font_size": DEFAULT_FONT_SIZE,
+                "student_font_color": DEFAULT_FONT_COLOR,
+                "grid_snap_enabled": False,
+                "grid_size": DEFAULT_GRID_SIZE,
+                "current_mode": "behavior", # "behavior", "quiz", or "homework"
+                "max_undo_history_days": MAX_UNDO_HISTORY_DAYS,
+                "student_groups_enabled": True,
+                "show_zoom_level_display": True,
+                "available_fonts": sorted(list(tkfont.families())),
+
+                # Quiz specific
+                "default_quiz_name": "Pop Quiz",
+                "last_used_quiz_name_timeout_minutes": 60, # Timeout for remembering quiz name
+                "show_recent_incidents_during_quiz": True,
+                "live_quiz_score_font_color": DEFAULT_QUIZ_SCORE_FONT_COLOR,
+                "live_quiz_score_font_style_bold": DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD,
+                "quiz_mark_types": DEFAULT_QUIZ_MARK_TYPES.copy(),
+                "default_quiz_questions": 10,
+                "quiz_score_calculation": "percentage",
+                "combine_marks_for_display": True,
+
+                # Homework specific (New)
+                "default_homework_name": "Homework Check", # Default name for manual log & live session
+                "last_used_homework_name_timeout_minutes": 60, # Timeout for remembering homework name (manual log)
+                "behavior_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for behavior log text
+                "quiz_log_font_size": DEFAULT_FONT_SIZE,       # Specific font size for quiz log text
+                "homework_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for homework log text
+                "live_homework_session_mode": "Yes/No", # "Yes/No" or "Select"
+                "log_homework_marks_enabled": True, # Enable/disable detailed marks for manual log
+                "homework_mark_types": DEFAULT_HOMEWORK_MARK_TYPES.copy(),
+                "default_homework_items_for_yes_no_mode": 5, # For live session "Yes/No"
+                "live_homework_score_font_color": DEFAULT_HOMEWORK_SCORE_FONT_COLOR,
+                "live_homework_score_font_style_bold": DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD,
+
+
+                # Password settings
+                "app_password_hash": None,
+                "password_on_open": False,
+                "password_on_edit_action": False,
+                "password_auto_lock_enabled": False,
+                "password_auto_lock_timeout_minutes": 15,
+                "encrypt_data_files": True,
+
+                # Next ID counters (managed by _ensure_next_ids but good to have defaults)
+                "next_student_id_num": 1,
+                "next_furniture_id_num": 1,
+                "next_group_id_num": 1,
+                "next_quiz_template_id_num": 1,
+                "next_homework_template_id_num": 1, # New
+                "next_custom_homework_type_id_num": 1, # For custom homework types in Yes/No mode
+
+                # Internal state storage (prefixed with underscore)
+                "_last_used_quiz_name_for_session": "", # Stores last used quiz name for manual log
+                "_last_used_quiz_name_timestamp_for_session": None, # Timestamp for quiz name timeout
+                "_last_used_q_num_for_session": 10, # Stores last used num questions for manual quiz log
+
+                "_last_used_homework_name_for_session": "", # Stores last used homework name for manual log
+                "_last_used_homework_name_timestamp_for_session": None, # Timestamp for homework name timeout
+                "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
+                "theme": "System", # Newer
+                "type_theme": "sun-valley-light", # Newer
+                "enable_text_background_panel": True, # Default for the new setting
+                "show_rulers": False, # Default for rulers
+                "show_grid": False, # Default for grid visibility
+                "grid_color": "#000000", # Default light gray for grid lines
+                "save_guides_to_file": True, # New setting for guides
+                "guides_stay_when_rulers_hidden": True, # New setting for guides
+                "next_guide_id_num": 1, # Added in migration, also good here
+                "guides_color": "blue", # Default color for guides
+                "allow_box_dragging": True, # New setting for box dragging
+                "canvas_color": "Default"
+            }
+            
+            
+            self.app.custom_canvas_color = "Default"
         # Check if any significant setting actually changed by comparing with snapshot
         for key, initial_val in self.initial_settings_snapshot.items():
             current_val = self.settings.get(key)

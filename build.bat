@@ -8,6 +8,7 @@ REM --- Configuration ---
 REM For better portability, it's recommended to copy your icon into your 
 REM project directory and use a relative path, e.g., "assets\icon.ico"
 set "ICON_PATH=C:\Users\Yaakov M\OneDrive\Pictures\Logo\Variations\LightningChocolate.png"
+set "SPLASH_PATH=C:\Users\Yaakov M\OneDrive\Pictures\Logo\YMAPPS2.png"
 
 REM It's also best to use a relative path to your main script.
 REM For example, if this script is in your project root and your main file is
@@ -15,7 +16,7 @@ REM in a 'Split' subfolder, you could use "Split\__main__.py".
 set "SCRIPT_PATH=C:\Users\Yaakov M\Jaffe Project\Split\seatingchartmain.py"
 
 set "APP_NAME=BehaviorLogger v55"
-
+REM --splash "%SPLASH_PATH%" ^
 REM --- PyInstaller Command ---
 echo Running PyInstaller...
 pyinstaller --onefile ^
