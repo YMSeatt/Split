@@ -17,7 +17,7 @@ from PIL import Image
 from settingsdialog import SettingsDialog
 from commands import Command, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
-        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand
+        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, MoveGuideCommand
 from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDialog, BehaviorDialog, \
     ManualHomeworkLogDialog, QuizScoreDialog, LiveQuizMarkDialog, LiveHomeworkMarkDialog, ExitConfirmationDialog, \
         ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, ManageStudentGroupsDialog
@@ -320,7 +320,7 @@ class SeatingChartApp:
         self.pan_y = 0.0
 
         # Ruler and guide attributes
-        self.guides = [] # To store {'id': str, 'type': 'v'/'h', 'world_coord': float, 'canvas_item_id': int}
+        self.guides = {} # To store {'id': str, 'type': 'v'/'h', 'world_coord': float, 'canvas_item_id': int}
         self.next_guide_id_num = 1
         self.add_guide_mode: Optional[str] = None # 'vertical', 'horizontal', or None
         self.active_guide_button: Optional[ttk.Button] = None # To manage button visual state
@@ -646,9 +646,9 @@ class SeatingChartApp:
         # Guide IDs
         max_g_id_num = 0
         # Ensure self.guides exists and is iterable; it might not be populated if loading very old data before migration
-        if hasattr(self, 'guides') and isinstance(self.guides, list):
+        if hasattr(self, 'guides') and isinstance(self.guides, dict):
             for guide_info in self.guides:
-                guide_id_str = guide_info.get('id', '')
+                guide_id_str = self.guides[guide_info].get('id', '') #guide_info.get('id', '')
                 if guide_id_str.startswith("guide_v_") or guide_id_str.startswith("guide_h_"):
                     try: max_g_id_num = max(max_g_id_num, int(guide_id_str.split("_")[-1]))
                     except (ValueError, IndexError, TypeError): pass
@@ -876,10 +876,7 @@ class SeatingChartApp:
         self.add_h_guide_btn = ttk.Button(view_controls_frame, text="Add H Guide", command=lambda: self.toggle_add_guide_mode("horizontal", self.add_h_guide_btn))
         self.add_h_guide_btn.pack(side=tk.LEFT, padx=2)
 
-        # Toggle Dragging Button
-        self.toggle_dragging_btn = ttk.Button(view_controls_frame, text="Disable Dragging", command=self.toggle_dragging_allowed)
-        self.toggle_dragging_btn.pack(side=tk.LEFT, padx=5)
-        self._update_toggle_dragging_button_text() # Initialize button text
+        
 
         self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=3)
         layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=0)
@@ -895,6 +892,11 @@ class SeatingChartApp:
         ttk.Button(templates_groups_frame, text="Save Layout...", command=self.save_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(templates_groups_frame, text="Load Layout...", command=self.load_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         self.manage_groups_btn = ttk.Button(templates_groups_frame, text="Manage Groups...", command=self.manage_student_groups_dialog); self.manage_groups_btn.pack(side=tk.LEFT,pady=1, padx=1)        
+        
+        # Toggle Dragging Button
+        self.toggle_dragging_btn = ttk.Button(self.manage_boxes_frame, text="Disable Dragging", command=self.toggle_dragging_allowed)
+        self.toggle_dragging_btn.pack(side=tk.LEFT, padx=5)
+        self._update_toggle_dragging_button_text() # Initialize button text
         
         ttk.Button(self.manage_boxes_frame, text="Add Student", command=self.add_student_dialog).pack(side=tk.LEFT, padx=2)
         ttk.Button(self.manage_boxes_frame, text="Add Furniture", command=self.add_furniture_dialog).pack(side=tk.LEFT, padx=2)
@@ -2006,9 +2008,9 @@ class SeatingChartApp:
         self.canvas.delete("guide") # Delete only items tagged 'guide'
 
         for guide_info in self.guides:
-            guide_type = guide_info['type']
-            world_coord = guide_info['world_coord']
-            guide_id_tag = guide_info['id'] # e.g., "guide_v_1"
+            guide_type = self.guides[guide_info].get('type')
+            world_coord = self.guides[guide_info].get('world_coord') #guide_info['world_coord']
+            guide_id_tag = self.guides[guide_info].get('id') #guide_info['id'] # e.g., "guide_v_1"
 
             canvas_item_id = None
             if guide_type == 'h': # Horizontal guide
@@ -2023,7 +2025,7 @@ class SeatingChartApp:
                     screen_x, 0, screen_x, self.canvas.winfo_height(),
                     fill=self.guide_line_color, tags=("guide", guide_id_tag, "guide_v"), width=1, dash=(4, 2)
                 )
-            guide_info['canvas_item_id'] = canvas_item_id # Store/update Tkinter canvas item ID
+            self.guides[guide_info]['canvas_item_id'] = canvas_item_id #guide_info['canvas_item_id'] = canvas_item_id # Store/update Tkinter canvas item ID
 
     def toggle_grid_visibility(self):
         self.settings["show_grid"] = not self.settings.get("show_grid", False)
@@ -2467,31 +2469,31 @@ class SeatingChartApp:
         Uses a tolerance for easier clicking.
         """
         for guide_info in reversed(self.guides): # Check topmost guides first
-            if guide_info.get('canvas_item_id') is None:
+            if self.guides[guide_info].get('canvas_item_id') is None: #guide_info.get('canvas_item_id') is None:
                 continue # Guide not drawn or ID missing
 
             # Get current screen coordinates of the guide line
             # For Tkinter, self.canvas.coords(item_id) returns [x1, y1, x2, y2]
             try:
-                coords = self.canvas.coords(guide_info['canvas_item_id'])
+                coords = self.canvas.coords(self.guides[guide_info].get('canvas_item_id')) #guide_info['canvas_item_id'])
                 if not coords: continue
             except tk.TclError: # Item might have been deleted unexpectedly
                 continue
 
-            guide_type = guide_info['type']
+            guide_type = self.guides[guide_info].get('type')#guide_info['type']
 
             if guide_type == 'h': # Horizontal guide
                 # coords are [x1, y1, x2, y1] - check y-coordinate proximity
                 guide_screen_y = coords[1]
                 if abs(event_y - guide_screen_y) < tolerance and \
                    min(coords[0], coords[2]) <= event_x <= max(coords[0], coords[2]):
-                    return guide_info['id']
+                    return self.guides[guide_info].get('id') #guide_info['id']
             elif guide_type == 'v': # Vertical guide
                 # coords are [x1, y1, x1, y2] - check x-coordinate proximity
                 guide_screen_x = coords[0]
                 if abs(event_x - guide_screen_x) < tolerance and \
                    min(coords[1], coords[3]) <= event_y <= max(coords[1], coords[3]):
-                    return guide_info['id']
+                    return self.guides[guide_info].get('id') #guide_info['id']
         return None
 
     def on_canvas_left_press(self, event):
@@ -2567,7 +2569,7 @@ class SeatingChartApp:
                 world_coord_to_use = world_x if guide_type_to_add == 'vertical' else world_y
 
                 new_guide_data = {'id': guide_id_str, 'type': guide_type_to_add[0], 'world_coord': world_coord_to_use, 'canvas_item_id': None}
-                self.guides.append(new_guide_data)
+                self.guides[guide_id_str] = (new_guide_data)
 
                 self.draw_all_items() # Redraws everything including the new guide via self.draw_guides()
                 self.update_status(f"Added {guide_type_to_add} guide ({guide_id_str}) at {world_coord_to_use:.0f}.")
@@ -2584,7 +2586,8 @@ class SeatingChartApp:
         if not self.add_guide_mode:
             clicked_guide_id = self._get_guide_at_canvas_coords(world_event_x, world_event_y)
             if clicked_guide_id:
-                guide_info = next((g for g in self.guides if g['id'] == clicked_guide_id), None)
+                #guide_info = next((g for g in self.guides if g['id'] == clicked_guide_id), None)
+                guide_info = self.guides.get(clicked_guide_id)
                 if guide_info:
                     self.drag_data = {
                         "item_id": None, # Ensures student/furniture drag logic doesn't run
@@ -2611,14 +2614,14 @@ class SeatingChartApp:
                 self.active_ruler_guide_coord_x, _ = self.canvas_to_world_coords(event.x, event.y)
                 self.active_ruler_guide_coord_y = None
                 self.toggle_add_guide_mode("vertical", self.add_v_guide_btn)
-                self.update_status(f"Click on canvas to place vertical guide at x={self.active_ruler_guide_coord_x:.0f}")
+                self.update_status(f"Click on canvas to place vertical guide") #at x={self.active_ruler_guide_coord_x:.0f}")
                 return # Consume click
             # Vertical ruler area (left)
             elif world_event_x < self.ruler_thickness and world_event_y > self.ruler_thickness:
                 _, self.active_ruler_guide_coord_y = self.canvas_to_world_coords(event.x, event.y)
                 self.active_ruler_guide_coord_x = None
                 self.toggle_add_guide_mode("horizontal", self.add_h_guide_btn)
-                self.update_status(f"Click on canvas to place horizontal guide at y={self.active_ruler_guide_coord_y:.0f}")
+                self.update_status(f"Click on canvas to place horizontal guide") # at y={self.active_ruler_guide_coord_y:.0f}")
                 return # Consume click
 
         # Place active guide if one is pending and click is on canvas proper
@@ -2751,22 +2754,23 @@ class SeatingChartApp:
     def on_canvas_drag(self, event):
         if self.password_manager.is_locked: return
 
-        # Prevent item drag if setting is off
+        # Prevent item drag if setting is off # This is obsolete, as i changed it so that it didn't log when you drag.
         #if not self.settings.get("allow_box_dragging", True) and self.drag_data.get("item_id") and not self.drag_data.get('is_dragging_guide'):
         #    # If dragging items is disabled, but a guide drag might have been initiated, allow guide drag.
         #    return # Do not process item drag
 
         if self.drag_data.get('is_dragging_guide'):
             dragged_guide_id = self.drag_data.get('dragged_guide_id')
-            guide_info = next((g for g in self.guides if g['id'] == dragged_guide_id), None)
+            # guide_info = next((g for g in self.guides if g['id'] == dragged_guide_id), None)
+            guide_info = self.guides.get(dragged_guide_id)
             if not guide_info or guide_info.get('canvas_item_id') is None:
                 return # Guide not found or not drawn
 
             #current_event_world_x, current_event_world_y = self.canvas_to_world_coords_guides(event.x, event.y)
 
             original_guide_world_coord = self.drag_data['original_world_coord']
-            start_drag_world_x = self.drag_data['start_drag_world_x']
-            start_drag_world_y = self.drag_data['start_drag_world_y']
+            #start_drag_world_x = self.drag_data['start_drag_world_x']
+            #start_drag_world_y = self.drag_data['start_drag_world_y']
 
             new_world_coord = original_guide_world_coord
 
@@ -2860,8 +2864,8 @@ class SeatingChartApp:
 
         if self.drag_data.get('is_dragging_guide'):
             dragged_guide_id = self.drag_data.get('dragged_guide_id')
-            guide_info = next((g for g in self.guides if g['id'] == dragged_guide_id), None)
-
+            guide_info = self.guides.get(dragged_guide_id)
+            
             if guide_info:
                 # Final update of world_coord happened during on_canvas_drag
                 # Optionally, snap to grid here if desired for guides
@@ -2871,7 +2875,30 @@ class SeatingChartApp:
                 #   # Redraw this specific guide to snap position if coords changed
                 #   self.canvas.delete(guide_info['id']) # Delete by specific guide_id tag
                 #   self._draw_single_guide(guide_info) # A hypothetical method to redraw one guide
-
+                world_even_x, world_even_y = self.canvas_to_world_coords(event.x, event.y)
+                item_moves_for_command = []
+                original_pos_info = self.drag_data.get("original_world_coord", "")#.get(dragged_guide_id)
+                # Use total delta from drag_start_world for accurate final position
+                if guide_info["type"] == "v":
+                    total_dx_world = world_even_x - self.drag_data["start_drag_world_x"]
+                    new_world_x = original_pos_info + total_dx_world
+                    # current_item_type = "vguide"#original_pos_info["type"]
+                    
+                    item_id_moved = dragged_guide_id
+                    final_x_world= new_world_x
+                    item_moves_for_command.append({'id': item_id_moved, 'old_coord': original_pos_info, 'new_coord': final_x_world})
+                    
+                else:
+                    total_dy_world = world_even_y - self.drag_data["start_drag_world_y"]
+                    new_world_y = original_pos_info + total_dy_world
+                    # current_item_type = "hguide"#original_pos_info["type"]
+                    
+                    item_id_moved = dragged_guide_id
+                    final_y_world = new_world_y
+                    item_moves_for_command.append({'id': item_id_moved, 'old_coord': original_pos_info, 'new_coord': final_y_world})
+                    
+                self.execute_command(MoveGuideCommand(self, item_moves_for_command))
+                
                 self.update_status(f"Guide {guide_info['id']} position finalized at {guide_info['world_coord']:.0f}.")
                 # If guides are persistent, consider saving here or flagging for save
                 # self.save_data_wrapper(source="guide_drag_end")
@@ -3022,7 +3049,7 @@ class SeatingChartApp:
         context_menu.add_command(label="Select All Furniture", command=self.select_all_furniture)
         context_menu.add_command(label="Select All Items", command=self.select_all_items)
         context_menu.add_command(label="Deselect All", command=self.deselect_all_items)
-        if self.guides != []: context_menu.add_command(label=f"Delete all guides", command=lambda: self.delete_all_guides())
+        if self.guides != {}: context_menu.add_command(label=f"Delete all guides", command=lambda: self.delete_all_guides())
         try: context_menu.tk_popup(event.x_root, event.y_root)
         finally: context_menu.grab_release()
 
@@ -3511,17 +3538,17 @@ class SeatingChartApp:
             "_per_student_last_cleared": self._per_student_last_cleared,
             "undo_stack": serializable_undo_stack,
             "redo_stack": serializable_redo_stack,
-            "guides": [], 
+            "guides": {}, 
             "next_guide_id_num": self.next_guide_id_num
         }
 
-        guides_to_save = []
+        guides_to_save = {}
         for guide_info in self.guides:
-            guides_to_save.append({
-                'id': guide_info.get('id'),
-                'type': guide_info.get('type'),
-                'world_coord': guide_info.get('world_coord')
-            })
+            guides_to_save[guide_info] = { # guides_to_save.append({
+                'id': self.guides[guide_info].get('id'), #guide_info.get('id'),
+                'type': self.guides[guide_info].get('type'), #guide_info.get('type'),
+                'world_coord': self.guides[guide_info].get('world_coord'), #guide_info.get('world_coord')
+            }
         data_to_save["guides"] = guides_to_save
 
         try:
@@ -3640,15 +3667,15 @@ class SeatingChartApp:
 
                 # Load guides
                 loaded_guides_raw = data.get("guides", []) # Load from "guides" key
-                self.guides = [] # Initialize self.guides before populating
+                self.guides = {} # Initialize self.guides before populating
                 for guide_data_raw in loaded_guides_raw:
                     # Ensure only expected keys are loaded and canvas_item_id is reset (will be set on draw)
-                    self.guides.append({
-                        'id': guide_data_raw.get('id'),
-                        'type': guide_data_raw.get('type'),
-                        'world_coord': guide_data_raw.get('world_coord'),
+                    self.guides[guide_data_raw] = {
+                        'id': loaded_guides_raw.get(guide_data_raw)["id"], #.get('id'),
+                        'type': loaded_guides_raw.get(guide_data_raw)["type"], #guide_data_raw.get('type'),
+                        'world_coord': loaded_guides_raw.get(guide_data_raw)["world_coord"], #guide_data_raw.get('world_coord'),
                         'canvas_item_id': None
-                    })
+                    }
 
                 # Load next_guide_id_num, defaulting to 1 if not present
                 self.next_guide_id_num = data.get("next_guide_id_num", 1)
@@ -6200,6 +6227,7 @@ class SeatingChartApp:
             self.guide_line_color = self.settings.get("guides_color", "blue")
             self.draw_all_items(check_collisions_on_redraw=True)
             self.update_status("Settings updated.")
+            self._update_toggle_dragging_button_text()
             self.update_zoom_display()
             self.update_lock_button_state()
             self.toggle_student_groups_ui_visibility()

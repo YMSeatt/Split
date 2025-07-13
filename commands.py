@@ -187,6 +187,45 @@ class Command:
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp): raise NotImplementedError
 
+
+
+
+class MoveGuideCommand(Command):
+    def __init__(self, app, items_moves, timestamp=None):
+        super().__init__(app, timestamp)
+        self.items_moves = items_moves # List of dicts: {'id', 'type', 'old_x', 'old_y', 'new_x', 'new_y'}
+
+    def execute(self):
+        for item_move in self.items_moves:
+            item_id, new_coord = item_move['id'], item_move['new_coord']
+            data_source = self.app.guides
+            
+            guide_info = data_source.get(item_id)
+            if guide_info:
+                data_source[item_id]['world_coord'] = new_coord
+        self.app.update_status(f"Moved {len(self.items_moves)} guide(s).")
+        self.app.draw_all_items(check_collisions_on_redraw=True)
+
+    def undo(self):
+        for item_move in self.items_moves:
+            item_id, old_x = item_move['id'], item_move['old_coord']
+            data_source = self.app.guides
+            guide_info = data_source.get(item_id)
+            if guide_info:#item_id in data_source:
+                data_source[item_id]['world_coord'] = old_x
+        self.app.update_status(f"Undid move of {len(self.items_moves)} guide(s).")
+        self.app.draw_all_items(check_collisions_on_redraw=True)
+
+    def _get_data_for_serialization(self): return {'items_moves': self.items_moves}
+    @classmethod
+    def _from_serializable_data(cls, app, data, timestamp): return cls(app, data['items_moves'], timestamp)
+    def get_description(self):
+        return f"Move {len(self.items_moves)} guide(s)"
+
+
+
+
+
 class MoveItemsCommand(Command):
     def __init__(self, app, items_moves, timestamp=None):
         super().__init__(app, timestamp)
