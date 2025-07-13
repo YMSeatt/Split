@@ -1534,7 +1534,7 @@ class ConditionalFormattingRuleDialog(simpledialog.Dialog):
             if self.mode_vars[mode].get() != False:
                 active_modes.append(mode)
         final_rule["active_modes"] = active_modes # type: ignore
-        final_rule["active_times"] = self.rule["active_times"]
+        final_rule["active_times"] = self.rule.get("active_times") #["active_times"]
         
         fill = self.fill_color_var.get().strip()
         outline = self.outline_color_var.get().strip()

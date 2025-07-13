@@ -355,6 +355,13 @@ class SeatingChartApp:
         self.toggle_mode(initial=True) # Apply initial mode
         self.root.after(30000, self.periodic_checks)
         self.root.after(self.settings.get("autosave_interval_ms", 30000), self.autosave_data_wrapper)
+        
+        # Schedule the first time-based formatting update to align with the clock.
+        now = datetime.now()
+        seconds_until_first_minute = 60 - now.second
+        milliseconds_until_first_minute = (seconds_until_first_minute * 1000) + 50 # Add 50ms buffer
+        self.root.after(milliseconds_until_first_minute, self.update_time_based_formatting)
+
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit_protocol)
         
         if self.password_manager.is_password_set() and self.settings.get("password_on_open", False):
@@ -661,6 +668,18 @@ class SeatingChartApp:
         if self.password_manager.is_locked and not hasattr(self, '_lock_screen_active'):
             self.show_lock_screen()
         self.root.after(30000, self.periodic_checks)
+
+    def update_time_based_formatting(self):
+        """Periodically redraws all items to update time-based conditional formatting. Runs on the minute."""
+        # This check is to avoid redrawing if no time-based rules exist.
+        if any(rule.get("active_times") for rule in self.settings.get("conditional_formatting_rules", [])):
+            self.draw_all_items()
+        
+        # Schedule the next run for the start of the next minute.
+        now = datetime.now()
+        seconds_until_next_minute = 60 - now.second
+        milliseconds_until_next_minute = (seconds_until_next_minute * 1000) + 50 # Add 50ms buffer
+        self.root.after(milliseconds_until_next_minute, self.update_time_based_formatting)
 
     def show_lock_screen(self):
         if hasattr(self, '_lock_screen_active') and self._lock_screen_active.winfo_exists(): return

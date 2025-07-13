@@ -295,21 +295,20 @@ class HelpDialog(simpledialog.Dialog):
 This application helps you track student behaviors, quiz scores, and homework completion in a visual classroom layout.
 
 Key Features:
-- Visual seating chart: Drag and drop students and furniture.
+- Visual seating chart: Drag-and-drop students and furniture. Includes Rulers, a Grid, and draggable Guides for precise alignment.
+- Layout Tools: Align and distribute multiple selected items for a clean layout.
 - Behavior Logging: Quickly log predefined or custom behaviors for students.
-- Quiz Logging: Record quiz scores, including detailed marks. Supports live quiz sessions and quiz templates.
+- Quiz Logging: Record quiz scores with detailed marks. Supports live quiz sessions and quiz templates.
 - Homework Logging: Track homework completion status and scores. Supports:
     - Manual logging (simplified type/status or detailed with marks).
     - Live homework sessions ("Yes/No" for multiple assignments or "Select" for predefined statuses).
     - Customizable homework types, statuses, and mark types.
     - Homework templates.
 - Live Sessions: Conduct real-time quiz or homework checks directly on the seating chart.
-- Customization: Define your own behaviors, quiz/homework mark types, homework types/statuses, and layout/quiz/homework templates.
-- Conditional Formatting: Change student box appearance based on group or behavior/quiz data.
-- Data Export: Export logs to Excel or CSV for reporting and analysis. Includes attendance reports.
-- Data Import: Import student rosters from Excel.
-- Undo/Redo: Most actions can be undone and redone.
-- Password Protection: Secure your application data with optional auto-lock.
+- Advanced Conditional Formatting: Automatically change student box appearance based on groups, behavior counts, quiz scores, live session responses, and more. Rules can be active during specific times and in specific application modes.
+- Data Export & Import: Export logs to Excel/CSV for reporting. Import student rosters from Excel.
+- Undo/Redo & History: Most actions can be undone/redone. View the full action history and revert to any point.
+- Security: Optional password protection with auto-lock and data file encryption.
 - Data Backup & Restore: Keep your classroom data safe with ZIP backups.
 - Themes: Light and Dark mode support with customizable canvas color.
 
@@ -318,8 +317,10 @@ Navigation & Interaction Tips:
 - Canvas Zoom: Ctrl + Mouse Wheel.
 - Multi-Select: Ctrl + Left-click to select multiple items.
 - Context Menus: Right-click on items or the canvas for quick actions.
-- Edit Mode: Toggle "Edit Mode (Resize)" to resize items by dragging their bottom-right corner (when selected).
-- Combobox Scrolling: Use the mouse wheel to scroll through options in dropdown (combobox) lists.
+- Edit Mode: Toggle "Edit Mode" to resize items by dragging their bottom-right corner.
+- Layout Tools: Use the "Layout Tools" buttons (e.g., Align Top, Distribute H) when multiple items are selected.
+- Visual Guides: Toggle Rulers on (in Settings or View controls) and then use "Add V Guide" or "Add H Guide" to create alignment lines you can drag around the canvas.
+- Undo History: Use the "Show undo history" button to view all past actions and revert if needed.
 - Data Files: Your classroom data is stored locally (JSON files). Use 'File > Open Data Folder' to access them. Regularly backup using 'File > Backup All Application Data (.zip)...'.
 - Exported Layout Images: The 'Export Layout as Image' feature uses PostScript. For it to work correctly, Ghostscript needs to be installed and accessible in your system's PATH.
 """
@@ -360,8 +361,8 @@ The application operates in three main modes, selectable from the top toolbar:
        - Name the session (e.g., "Nightly Reading Check").
        - Student boxes will update to show homework status for this live session.
        - Clicking a student opens a marking dialog based on the "Live Homework Session Mode" (set in Settings > Homework):
-         - "Yes/No" Mode: Mark multiple predefined homework types (e.g., "Reading Assignment," "Math Problems") as "Yes" (done) or "No" (not done) for each student. These types are managed in Settings > Homework > "Custom Types for 'Yes/No' Mode".
-         - "Select" Mode: Choose one or more predefined statuses (e.g., "Complete," "Handed In Late," "Signed") for the current session. These options are managed in Settings > Homework > "Options for 'Select' Mode".
+         - "Yes/No" Mode: Mark multiple predefined homework types (e.g., "Reading Assignment," "Math Problems") as "Yes" (done) or "No" (not done) for each student. These types are managed in Settings > Homework > "Homework Types".
+         - "Select" Mode: Choose one or more predefined statuses (e.g., "Complete," "Handed In Late," "Signed") for the current session. These options are managed in Settings > Homework > "Manage 'Select' Mode Options...".
        - Live statuses are displayed on student boxes.
        - End the session to log all collected data.
    - Homework Templates: Create and use templates for common homework assignments (name, number of items, default marks/statuses) via Settings > Homework. These can be quickly applied during manual detailed logging.
@@ -382,31 +383,38 @@ Switching Modes:
 
 The "Settings" dialog allows extensive customization:
 
-- General: Autosave interval, grid snapping, student group feature toggle, max undo history.
-    - The canvas borders are for exporting the layout as an image. Anything beyond the lines (left or up) will not show up in the image.
-- Student Boxes: Default appearance (size, colors, font), and Conditional Formatting rules (e.g., change box color if a student is in a specific group or has many recent incidents).
+- General:
+    - Application Behavior: Autosave interval, student group feature toggle, max undo history.
+    - Canvas Management: Toggle visibility of box management tools, canvas borders, and grid. Enable/disable grid snapping, collision checks, and box dragging.
+    - Canvas View Options: Configure rulers, grid, and layout guides. Set colors for grid and guides, and control whether guides are saved to the data file.
+    - Theme & Appearance: Choose between Light, Dark, or System themes. Set a custom background color for the main seating chart canvas.
+
+- Student Boxes:
+    - Default Appearance: Set default size, colors, and font for student boxes.
+    - Conditional Formatting: Create powerful rules to change box appearance.
+        - Rule Types: Trigger formatting based on Group, Behavior Count, Quiz Score, Quiz Mark Count, Live Quiz Response, or Live Homework Status.
+        - Actions: Change fill and outline colors.
+        - Application Style: 'Override' replaces the box color, while 'Stripe' adds a colored stripe, allowing multiple rules to be visible at once.
+        - Scoping: Rules can be restricted to run only during specific times of day or when the app is in a certain mode (e.g., only apply a rule during a live quiz session).
+        - Bulk Edit: Modify the enabled status, active times, or active modes for multiple rules at once.
+
 - Behavior & Quiz:
     - Recent Incidents Display: Control how behavior/quiz logs appear on student boxes.
-    - Custom Behaviors: Add your own behavior types (Settings > Behavior/Quiz > "Manage Custom Behaviors").
-    - Behavior/Quiz Initials: Customize the initials displayed for behaviors/quizzes on student boxes (Settings > Behavior/Quiz > "Manage Initials...").
-    - Quiz Mark Types: Define categories for quiz marks (e.g., Correct, Incorrect, Bonus), their points, and if they contribute to the total or are bonus (Settings > Behavior/Quiz > "Manage Quiz Mark Types").
-    - Quiz Session Defaults: Set the default quiz name for live sessions and the default number of questions for manual quiz logging.
-    - Quiz Templates: Create and manage reusable quiz structures (name, number of questions, default marks for each mark type) (Settings > Behavior/Quiz > "Manage Quiz Templates").
+    - Customization: Manage custom behaviors, their display initials, and quiz mark types (e.g., Correct, Bonus).
+    - Defaults & Templates: Set default quiz names and question counts. Create reusable Quiz Templates for frequent assessments.
+
 - Homework:
-    - Recent Homework Display: Control if and how recent homework logs appear on student boxes (Settings > Homework > "Show Recent Homework Logs on Boxes", etc.).
-    - Custom Homework Types (for Yes/No Live Mode & Manual Logging): Define the types of homework you assign (e.g., "Reading Assignment," "Worksheet") (Settings > Homework > "Manage Custom Homework Types"). These are used for the "Yes/No" live session mode and as types in manual logging.
-    - Custom Homework Statuses (for Simplified Manual Logging): Define general statuses for the simplified manual homework log (e.g., "Done," "Not Done," "Late") (Settings > Homework > "Manage Custom Homework Statuses").
-    - Homework Log Initials: Customize initials for homework log entries displayed on student boxes (Settings > Homework > "Manage Initials for Homework Logs...").
-    - Homework Mark Types: Define categories for detailed homework marks (e.g., "Complete," "Incomplete," "Effort Score (1-5)") and their default points (Settings > Homework > "Manage Homework Mark Types").
-    - Live Homework Session:
-        - Default session name for live homework checks.
-        - Session Mode: Choose between "Yes/No" (quick marking of predefined types) or "Select" (choosing from a list of statuses).
-        - Options for "Select" Mode: Define the buttons/statuses available in "Select" live mode (e.g., "Done," "Signed," "Missing") (Settings > Homework > "Manage 'Select' Mode Options...").
-    - Enable Detailed Marks: Toggle whether the manual homework logging dialog should include detailed mark entry fields or use the simplified type/status selection (Settings > Homework > "Enable Detailed Marks for Manual Log").
-    - Homework Templates: Create and manage reusable homework assignment structures (name, number of items, pre-filled marks/statuses) (Settings > Homework > "Manage Homework Templates").
-- Data & Export: Configure default options for Excel exports (e.g., whether to create separate sheets per log type, include a summary sheet). Enable/disable Excel autosave.
-- Security: Set an application password, configure when password prompts occur (on application open, before sensitive edit actions), and set up an auto-lock timer for inactivity.
-- Theme & Appearance: Choose between Light, Dark, or System themes. Set a custom background color for the main seating chart canvas. Enable/disable text background panels on student boxes.
+    - Recent Homework Display: Control if and how recent homework logs appear on student boxes.
+    - Customization:
+        - Homework Types: Define the types of homework you assign (e.g., "Reading Assignment"). Used for both manual logging and the "Yes/No" live session mode.
+        - Homework Statuses: Define general statuses for the simplified manual log (e.g., "Done," "Late").
+        - Initials & Mark Types: Customize display initials and define mark types for detailed grading (e.g., "Completeness," "Effort Score").
+    - Live Homework Session: Configure the default session name, and choose the session mode ("Yes/No" or "Select"). Manage the options available in "Select" mode.
+    - Manual Logging: Toggle between the simplified (Type/Status) and detailed (Marks) logging dialogs.
+    - Homework Templates: Create reusable templates for common assignments.
+
+- Data & Export: Configure default options for Excel exports and set the output DPI for image exports.
+- Security: Set an application password, configure auto-lock, and enable/disable data file encryption.
 
 Remember to click "Apply" or "OK" in the Settings dialog to save your changes!
 """
@@ -423,9 +431,9 @@ Remember to click "Apply" or "OK" in the Settings dialog to save your changes!
         
 - The 'Export Layout as Image' function works, but it doesn't capture Hebrew. Just make sure to have Ghostscript installed.
 - I am still working on the homework logging and exporting - so expect to see more features, and don't be surprised if something doesn't work as expected.
-- The Conditional Formatting feature now works for quizzes, and if you have more than one rule applying to the same box, it will split the box into different sections.
+- The Conditional Formatting feature is now very powerful, supporting quizzes, homework, and live sessions. If you have more than one 'stripe' rule applying to the same box, it will split the box into different colored sections.
 - If you are trying to undo or redo a move of a box and the program keeps saying "Adjusted layout for _ items due to overlap with _______." you may need to turn off checking for collisions on box move in settings (General Tab).
-- The Help section is not updated often enough, so it may not contain up-to-date information.
+- This Help section is updated as of {self.app_version}, but new features may be added.
 
     -Yaakov Maimon
 """        
