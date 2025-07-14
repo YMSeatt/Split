@@ -5,3 +5,5 @@ darkdetect
 cryptography
 portalocker
 pywin32 ; sys_platform == 'win32'
+tkcalendar
+datetime

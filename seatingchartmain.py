@@ -542,6 +542,9 @@ class SeatingChartApp:
             "default_quiz_questions": 10,
             "quiz_score_calculation": "percentage",
             "combine_marks_for_display": True,
+            "live_quiz_questions": 5,
+            "live_quiz_initial_color": "#FF0000",
+            "live_quiz_final_color": "#00FF00",
 
             # Homework specific (New)
             "default_homework_name": "Homework Check", # Default name for manual log & live session
@@ -1621,6 +1624,33 @@ class SeatingChartApp:
 
             fill_color = style_overrides.get("fill_color", self.settings.get("student_box_fill_color"))
             outline_color_orig = style_overrides.get("outline_color", self.settings.get("student_box_outline_color"))
+
+            if self.is_live_quiz_active and student_id in self.live_quiz_scores:
+                score_info = self.live_quiz_scores[student_id]
+                total_questions = self.settings.get("live_quiz_questions", 5)
+                questions_answered = score_info['total_asked']
+
+                initial_color_hex = self.settings.get("live_quiz_initial_color", "#FF0000")
+                final_color_hex = self.settings.get("live_quiz_final_color", "#00FF00")
+
+                if questions_answered >= total_questions:
+                    outline_color_orig = final_color_hex
+                else:
+                    # Interpolate color
+                    try:
+                        initial_r, initial_g, initial_b = int(initial_color_hex[1:3], 16), int(initial_color_hex[3:5], 16), int(initial_color_hex[5:7], 16)
+                        final_r, final_g, final_b = int(final_color_hex[1:3], 16), int(final_color_hex[3:5], 16), int(final_color_hex[5:7], 16)
+
+                        progress = questions_answered / total_questions
+
+                        r = int(initial_r + (final_r - initial_r) * progress)
+                        g = int(initial_g + (final_g - initial_g) * progress)
+                        b = int(initial_b + (final_b - initial_b) * progress)
+
+                        outline_color_orig = f"#{r:02x}{g:02x}{b:02x}"
+                    except ValueError:
+                        outline_color_orig = self.settings.get("student_box_outline_color") # Fallback
+
             font_family = style_overrides.get("font_family", self.settings.get("student_font_family"))
             font_size_world = style_overrides.get("font_size", self.settings.get("student_font_size"))
             font_size_canvas = int(max(6, font_size_world * self.current_zoom_level))

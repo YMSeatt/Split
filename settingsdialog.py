@@ -446,7 +446,29 @@ class SettingsDialog(simpledialog.Dialog):
         # ttk.Checkbutton(lf_quiz, text="Combine mark counts for log display (e.g., Correct: 8/10)", variable=self.combine_marks_display_var).grid(row=4,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3) # Removed for now, logic complex
 
         ttk.Button(lf_quiz, text="Quiz Templates...", command=self.app.manage_quiz_templates_dialog).grid(row=0,column=2, padx=10, pady=3, sticky=tk.E)
+
+
         lf_quiz.grid_columnconfigure(2, weight=1)
+
+        # Live Quiz Formatting
+        lf_live_quiz_format = ttk.LabelFrame(tab_frame, text="Live Quiz Formatting", padding=10)
+        lf_live_quiz_format.grid(sticky="nsew", column=1, row=1, pady=5, padx=5)
+
+        ttk.Label(lf_live_quiz_format, text="Questions per session:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+        self.live_quiz_questions_var = tk.IntVar(value=self.settings.get("live_quiz_questions", 5))
+        ttk.Spinbox(lf_live_quiz_format, from_=1, to=100, textvariable=self.live_quiz_questions_var, width=5).grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
+
+        # Initial Color
+        ttk.Label(lf_live_quiz_format, text="Initial Outline Color:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
+        self.live_quiz_initial_color_var = tk.StringVar(value=self.settings.get("live_quiz_initial_color", "#FF0000")) # Red
+        ttk.Entry(lf_live_quiz_format, textvariable=self.live_quiz_initial_color_var, width=10).grid(row=1, column=1, sticky=tk.W, padx=5, pady=3)
+        ttk.Button(lf_live_quiz_format, text="Choose...", command=lambda v=self.live_quiz_initial_color_var: self.choose_color_for_var(v)).grid(row=1, column=2, sticky=tk.W, padx=2, pady=3)
+
+        # Final Color
+        ttk.Label(lf_live_quiz_format, text="Final Outline Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
+        self.live_quiz_final_color_var = tk.StringVar(value=self.settings.get("live_quiz_final_color", "#00FF00")) # Green
+        ttk.Entry(lf_live_quiz_format, textvariable=self.live_quiz_final_color_var, width=10).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
+        ttk.Button(lf_live_quiz_format, text="Choose...", command=lambda v=self.live_quiz_final_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
 
     def create_homework_log_tab(self, tab_frame):
         """Rebuilt homework tab with clear sections for Types and Statuses."""
@@ -867,6 +889,9 @@ class SettingsDialog(simpledialog.Dialog):
             "default_quiz_questions": 10,
             "quiz_score_calculation": "percentage",
             "combine_marks_for_display": True,
+            "live_quiz_questions": 5,
+            "live_quiz_initial_color": "#FF0000",
+            "live_quiz_final_color": "#00FF00",
 
             # Homework specific (New)
             "default_homework_name": "Homework Check", # Default name for manual log & live session
@@ -1340,6 +1365,9 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings["default_quiz_questions"] = self.def_quiz_q_var.get()
             self.settings["last_used_quiz_name_timeout_minutes"] = self.quiz_timeout_var.get()
             self.settings["show_recent_incidents_during_quiz"] = self.show_inc_quiz_var.get()
+            self.settings["live_quiz_questions"] = self.live_quiz_questions_var.get()
+            self.settings["live_quiz_initial_color"] = self.live_quiz_initial_color_var.get()
+            self.settings["live_quiz_final_color"] = self.live_quiz_final_color_var.get()
             # self.settings["combine_marks_for_display"] = self.combine_marks_display_var.get()
             # Homework Log Tab
             self.settings["show_recent_homeworks_on_boxes"] = self.show_recent_hw_var.get()
