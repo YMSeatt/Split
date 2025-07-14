@@ -589,6 +589,7 @@ class SeatingChartApp:
             "guides_stay_when_rulers_hidden": True, # New setting for guides
             "next_guide_id_num": 1, # Added in migration, also good here
             "guides_color": "blue", # Default color for guides
+            "hidden_default_homework_types": [], # New for hiding default homework types
         }
 
    
@@ -4196,8 +4197,15 @@ class SeatingChartApp:
         self.all_behaviors = DEFAULT_BEHAVIORS_LIST + [b["name"] if isinstance(b, dict) else str(b) for b in self.custom_behaviors]
 
     def update_all_homework_types(self): # NEW
-        """Combines default and custom homework types."""
-        self.all_homework_types = DEFAULT_HOMEWORK_TYPES_LIST + [item["name"] for item in self.custom_homework_types]
+        hidden_defaults = self.settings.get("hidden_default_homework_types", [])
+        # Start with default types that are not hidden
+        self.all_homework_types = [ht for ht in DEFAULT_HOMEWORK_TYPES_LIST if ht not in hidden_defaults]
+        
+        # Add custom types, ensuring no duplicates
+        custom_names = [b["name"] for b in self.custom_homework_types if isinstance(b, dict) and "name" in b]
+        for name in custom_names:
+            if name not in self.all_homework_types:
+                self.all_homework_types.append(name)
 
     def update_all_homework_statuses(self): # RENAMED
         """Combines default and custom homework statuses."""

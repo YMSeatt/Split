@@ -562,7 +562,12 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
 
 
         else:
-            
+            btn_canvas = tk.Canvas(type_frame, borderwidth=0,width=1000,height=200)
+            btn_scrollbar = ttk.Scrollbar(type_frame, orient="vertical", command=btn_canvas.yview)
+            scrollable_frame_for_buttons = ttk.Frame(btn_canvas)
+
+            scrollable_frame_for_buttons.bind("<Configure>", lambda e: btn_canvas.configure(scrollregion=btn_canvas.bbox("all")))
+            btn_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             btn_canvas.pack(side=tk.BOTTOM)
             btn_canvas.create_window((0, 0), window=scrollable_frame_for_buttons, anchor="nw")
             btn_canvas.configure(yscrollcommand=btn_scrollbar.set)

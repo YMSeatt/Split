@@ -473,7 +473,8 @@ class SettingsDialog(simpledialog.Dialog):
         
         custom_hw_types_edit_btns_frame = ttk.Frame(lf_custom_hw_types); custom_hw_types_edit_btns_frame.pack(fill=tk.X)
         ttk.Button(custom_hw_types_edit_btns_frame, text="Edit Selected", command=self.edit_selected_custom_homework_type).pack(side=tk.LEFT, padx=2)
-        ttk.Button(custom_hw_types_edit_btns_frame, text="Remove Selected", command=self.remove_selected_custom_homework_type).pack(side=tk.LEFT, padx=2)
+        ttk.Button(custom_hw_types_edit_btns_frame, text="Hide/Remove Selected", command=self.remove_selected_custom_homework_type).pack(side=tk.LEFT, padx=2)
+        ttk.Button(custom_hw_types_edit_btns_frame, text="Restore Hidden Defaults", command=self.restore_default_homework_types).pack(side=tk.LEFT, padx=10)
 
         # B: Custom Homework STATUSES (e.g., "Done", "Late")
         lf_custom_hw_statuses = ttk.LabelFrame(customization_frame, text="B: Homework Statuses", padding=10)
@@ -581,12 +582,33 @@ class SettingsDialog(simpledialog.Dialog):
 
     # --- Methods for managing the new custom lists ---
     
+    
+    
+    
     # Custom Homework TYPES
     def populate_custom_homework_types_listbox(self):
         self.custom_hw_types_listbox.delete(0, tk.END)
-        print(self.custom_homework_types_ref)
+        
+        hidden_defaults = self.settings.get("hidden_default_homework_types", [])
+        
+        # Add default types that are NOT hidden
+        for item in DEFAULT_HOMEWORK_TYPES_LIST:
+            if item not in hidden_defaults:
+                self.custom_hw_types_listbox.insert(tk.END, f"(Default) {item}")
+                self.custom_hw_types_listbox.itemconfig(tk.END, {'fg': 'gray'})
+
+        # Add custom types
         for item in self.custom_homework_types_ref:
             self.custom_hw_types_listbox.insert(tk.END, item["name"])
+
+        # Add hidden default types at the end, marked as hidden
+        for item in hidden_defaults:
+            self.custom_hw_types_listbox.insert(tk.END, f"(Hidden) {item}")
+            self.custom_hw_types_listbox.itemconfig(tk.END, {'fg': 'red'})
+        
+    
+    
+    
     
     def add_custom_homework_type(self):
         name = simpledialog.askstring("Add Homework Type", "Enter name for the new type (e.g., 'Project Milestone 1'):", parent=self)
@@ -603,21 +625,75 @@ class SettingsDialog(simpledialog.Dialog):
     def edit_selected_custom_homework_type(self):
         sel_idx = self.custom_hw_types_listbox.curselection()
         if not sel_idx: return
-        idx = sel_idx[0]; old_name = self.custom_homework_types_ref[idx]["name"]
-        new_name = simpledialog.askstring("Edit Homework Type", "Enter new name:", initialvalue=old_name, parent=self)
-        if new_name and new_name.strip():
-            new_name = new_name.strip()
-            if new_name.lower() != old_name.lower() and any(item["name"].lower() == new_name.lower() for i, item in enumerate(self.custom_homework_types_ref) if i != idx):
-                 messagebox.showwarning("Duplicate", f"Type '{new_name}' already exists.", parent=self); return
-            self.custom_homework_types_ref[idx]["name"] = new_name
-            self.settings_changed_flag = True; self.app.save_custom_homework_types(); self.populate_custom_homework_types_listbox()
+
+        selected_item_text = self.custom_hw_types_listbox.get(sel_idx[0])
+
+        # Prevent editing of default or hidden-default items
+        if selected_item_text.startswith("("):
+            messagebox.showinfo("Edit Not Allowed", "Default homework types cannot be edited.", parent=self)
+            return
+
+        # Find the index in the custom_homework_types_ref list
+        custom_item_index = -1
+        for i, item in enumerate(self.custom_homework_types_ref):
+            if item["name"] == selected_item_text:
+                custom_item_index = i
+                break
+        
+        if custom_item_index != -1:
+            old_name = self.custom_homework_types_ref[custom_item_index]["name"]
+            new_name = simpledialog.askstring("Edit Homework Type", "Enter new name:", initialvalue=old_name, parent=self)
+            if new_name and new_name.strip():
+                new_name = new_name.strip()
+                if new_name.lower() != old_name.lower() and any(item["name"].lower() == new_name.lower() for i, item in enumerate(self.custom_homework_types_ref) if i != custom_item_index):
+                     messagebox.showwarning("Duplicate", f"Type '{new_name}' already exists.", parent=self); return
+                self.custom_homework_types_ref[custom_item_index]["name"] = new_name
+                self.settings_changed_flag = True; self.app.save_custom_homework_types(); self.populate_custom_homework_types_listbox()
     
     def remove_selected_custom_homework_type(self):
         sel_idx = self.custom_hw_types_listbox.curselection()
         if not sel_idx: return
-        if messagebox.askyesno("Confirm Remove", "Remove selected homework type?", parent=self):
-            del self.custom_homework_types_ref[sel_idx[0]]
-            self.settings_changed_flag = True; self.app.save_custom_homework_types(); self.populate_custom_homework_types_listbox()
+        
+        selected_item_text = self.custom_hw_types_listbox.get(sel_idx[0])
+        
+        # Determine the type of the selected item
+        if selected_item_text.startswith("(Default) "):
+            item_name = selected_item_text.replace("(Default) ", "")
+            if messagebox.askyesno("Confirm Hide", f"Are you sure you want to hide the default homework type '{item_name}'?", parent=self):
+                if "hidden_default_homework_types" not in self.settings:
+                    self.settings["hidden_default_homework_types"] = []
+                self.settings["hidden_default_homework_types"].append(item_name)
+                self.settings_changed_flag = True
+                self.populate_custom_homework_types_listbox()
+
+        elif selected_item_text.startswith("(Hidden) "):
+            item_name = selected_item_text.replace("(Hidden) ", "")
+            if messagebox.askyesno("Confirm Restore", f"Are you sure you want to restore the hidden default homework type '{item_name}'?", parent=self):
+                if item_name in self.settings.get("hidden_default_homework_types", []):
+                    self.settings["hidden_default_homework_types"].remove(item_name)
+                    self.settings_changed_flag = True
+                    self.populate_custom_homework_types_listbox()
+
+        else: # It's a custom type
+            # Find the index in the custom_homework_types_ref list
+            custom_item_index = -1
+            for i, item in enumerate(self.custom_homework_types_ref):
+                if item["name"] == selected_item_text:
+                    custom_item_index = i
+                    break
+            
+            if custom_item_index != -1:
+                if messagebox.askyesno("Confirm Remove", f"Are you sure you want to remove the custom homework type '{selected_item_text}'?", parent=self):
+                    del self.custom_homework_types_ref[custom_item_index]
+                    self.settings_changed_flag = True
+                    self.app.save_custom_homework_types()
+                    self.populate_custom_homework_types_listbox()
+
+    def restore_default_homework_types(self):
+        if messagebox.askyesno("Confirm Restore", "Are you sure you want to restore all hidden default homework types?", parent=self):
+            self.settings["hidden_default_homework_types"] = []
+            self.settings_changed_flag = True
+            self.populate_custom_homework_types_listbox()
 
     # Custom Homework STATUSES
     def populate_custom_homework_statuses_listbox(self):
@@ -840,6 +916,7 @@ class SettingsDialog(simpledialog.Dialog):
             "guides_stay_when_rulers_hidden": True, # New setting for guides
             "next_guide_id_num": 1, # Added in migration, also good here
             "guides_color": "blue", # Default color for guides
+            "hidden_default_homework_types": [], # New for hiding default homework types
             "allow_box_dragging": True, # New setting for box dragging
             "canvas_color": "Default"
         }
@@ -970,8 +1047,8 @@ class SettingsDialog(simpledialog.Dialog):
         color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
         if color_code and color_code[1]: color_var.set(color_code[1])
         
-    """def reset_canvas_color(self, button):
-        button.set("Default")"""
+    def reset_canvas_color(self, button):
+        button.set("Default")
 
     # --- Methods for managing custom lists ---
     def populate_conditional_rules_listbox(self):
@@ -1201,7 +1278,7 @@ class SettingsDialog(simpledialog.Dialog):
         if dialog.options_changed_flag:
             self.settings["live_homework_select_mode_options"] = dialog.current_options
             self.settings_changed_flag = True
-
+    
     """def buttonbox(self):
         ttk.Button(self, text= "Ok", command=self.ok).grid(column=0,row=1)
         ttk.Button(self, text="Cancel", command=self.cancel).grid(column=1,row=1, padx=10)
