@@ -749,6 +749,7 @@ class SeatingChartApp:
                 self.update_undo_redo_buttons_state()
                 if not isinstance(command, (MarkLiveQuizQuestionCommand, MarkLiveHomeworkCommand)):
                     self.save_data_wrapper(source="undo_command")
+                self.draw_all_items()
                 self.password_manager.record_activity()
             except Exception as e:
                 messagebox.showerror("Undo Error", f"Error undoing action: {e}", parent=self.root)
@@ -765,6 +766,7 @@ class SeatingChartApp:
                 self.update_undo_redo_buttons_state()
                 if not isinstance(command, (MarkLiveQuizQuestionCommand, MarkLiveHomeworkCommand)):
                     self.save_data_wrapper(source="redo_command")
+                self.draw_all_items()
                 self.password_manager.record_activity()
             except Exception as e:
                 messagebox.showerror("Redo Error", f"Error redoing action: {e}", parent=self.root)
