@@ -3096,6 +3096,14 @@ class SeatingChartApp:
                 align_menu.add_command(label="Align Horizontal Center", command=lambda: self.align_selected_items("center_h"))
                 align_menu.add_command(label="Align Vertical Center", command=lambda: self.align_selected_items("center_v"))
                 context_menu.add_cascade(label="Align Selected", menu=align_menu); context_menu.add_separator()
+            num_students = 0
+            for item in self.selected_items:
+                if "student" in item:
+                    num_students +=1
+            if num_students > 0:
+                context_menu.add_command(label=f"Log Behavior for {num_students} students", command= lambda:self.mass_log_behavior(num_students))
+                
+                
         context_menu.add_command(label="Select All Students", command=self.select_all_students)
         context_menu.add_command(label="Select All Furniture", command=self.select_all_furniture)
         context_menu.add_command(label="Select All Items", command=self.select_all_items)
@@ -3217,6 +3225,24 @@ class SeatingChartApp:
             if item_id in self.students: self.draw_single_student(item_id)
             elif item_id in self.furniture: self.draw_single_furniture(item_id)
         if items_to_redraw: self.update_status("Selection cleared.")
+
+    def mass_log_behavior(self, num_students_selected):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Log Behavior", "Enter password to log behavior:"): return
+        
+        dialog = BehaviorDialog(self.root, f"Log Behavior for {num_students_selected} students", self.all_behaviors, self.custom_behaviors)
+        
+        if dialog.result:
+            behavior, comment = dialog.result
+            for student_id in self.selected_items:
+                if "student" in student_id:
+                    student = self.students.get(student_id)
+                    if not student: continue
+                    log_entry = {"timestamp": datetime.now().isoformat(), "student_id": student_id, "student_first_name": student["first_name"],
+                                "student_last_name": student["last_name"], "behavior": behavior, "comment": comment, "type": "behavior", "day": datetime.now().strftime('%A')}
+                    self.execute_command(LogEntryCommand(self, log_entry, student_id))
+            self.update_status(f"Behavior {behavior} logged for {num_students_selected} students")
+            self.draw_all_items(check_collisions_on_redraw=True); self.password_manager.record_activity()
 
     def change_item_size_dialog(self, item_id, item_type):
         # ... (same as v51)
