@@ -474,6 +474,16 @@ class ManualHomeworkLogDialog(simpledialog.Dialog):
         self.num_items_spinbox = ttk.Spinbox(self.num_items_frame, from_=1, to=200, textvariable=self.num_items_var, width=5)
         self.num_items_spinbox.pack(side=tk.LEFT, padx=5)
 
+
+        theheight=0
+        for i in range(0,len(combined_options),4): theheight += 75
+        btn_canvas = tk.Canvas(type_frame, borderwidth=0,width=660,height= theheight)
+        btn_scrollbar = ttk.Scrollbar(type_frame, orient="vertical", command=btn_canvas.yview)
+        scrollable_frame_for_buttons = ttk.Frame(btn_canvas)
+
+        scrollable_frame_for_buttons.bind("<Configure>", lambda e: btn_canvas.configure(scrollregion=btn_canvas.bbox("all")))
+
+
         # Marks Frame (conditionally packed by on_template_select or if log_marks_enabled)
         self.marks_widgets_frame = ttk.LabelFrame(main_frame, text="Marks Details")
         self.marks_widgets_frame.pack(pady=10, padx=5, fill=tk.BOTH, expand=True)
