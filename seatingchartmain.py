@@ -801,9 +801,11 @@ class SeatingChartApp:
 
     def setup_ui(self):
         self.main_frame = ttk.Frame(self.root, padding="5"); self.main_frame.pack(fill=tk.BOTH, expand=True)
-        top_controls_frame_row1 = ttk.Frame(self.main_frame); top_controls_frame_row1.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
-        self.undo_btn = ttk.Button(top_controls_frame_row1, text="Undo", command=self.undo_last_action, state=tk.DISABLED); self.undo_btn.pack(side=tk.LEFT, padx=2)
-        self.redo_btn = ttk.Button(top_controls_frame_row1, text="Redo", command=self.redo_last_action, state=tk.DISABLED); self.redo_btn.pack(side=tk.LEFT, padx=2)
+        top_controls_frame_row1 = ResponsiveToolbar(self.main_frame); top_controls_frame_row1.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
+        self.undo_btn = ttk.Button(top_controls_frame_row1, text="Undo", command=self.undo_last_action, state=tk.DISABLED)
+        top_controls_frame_row1.add_widget(self.undo_btn)
+        self.redo_btn = ttk.Button(top_controls_frame_row1, text="Redo", command=self.redo_last_action, state=tk.DISABLED)
+        top_controls_frame_row1.add_widget(self.redo_btn)
 
         self.file_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="File"); self.file_menu = tk.Menu(self.file_menu_btn, tearoff=0)
         self.file_menu.add_command(label="Save Now", command=self.save_data_wrapper, accelerator="Ctrl+S")
@@ -817,7 +819,8 @@ class SeatingChartApp:
         self.file_menu.add_command(label="Restore All Application Data...", command=self.restore_all_data_dialog)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Reset Application (Caution!)...", command=self.reset_application_dialog)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Exit", command=self.on_exit_protocol, accelerator="Ctrl+Q")
-        self.file_menu_btn["menu"] = self.file_menu; self.file_menu_btn.pack(side=tk.LEFT, padx=2)
+        self.file_menu_btn["menu"] = self.file_menu
+        top_controls_frame_row1.add_widget(self.file_menu_btn)
         self.update_open_last_export_folder_menu_item()
         self.root.bind_all("<Control-s>", lambda event: self.save_data_wrapper())
         self.root.bind_all("<Control-q>", lambda event: self.save_and_quit_app())
@@ -855,33 +858,39 @@ class SeatingChartApp:
         self.export_menu.add_separator()
         self.export_menu.add_command(label="Export Layout as Image (see Help)...", command=self.export_layout_as_image) #self.export_layout_as_image)
         self.export_menu.add_command(label="Generate Attendance Report...", command=self.generate_attendance_report_dialog)
-        self.export_menu_btn["menu"] = self.export_menu; self.export_menu_btn.pack(side=tk.LEFT, padx=2)
-        ttk.Button(top_controls_frame_row1, text="Settings", underline=0, command=self.open_settings_dialog).pack(side=tk.LEFT, padx=2)
+        self.export_menu_btn["menu"] = self.export_menu
+        top_controls_frame_row1.add_widget(self.export_menu_btn)
+        settings_btn = ttk.Button(top_controls_frame_row1, text="Settings", underline=0, command=self.open_settings_dialog)
+        top_controls_frame_row1.add_widget(settings_btn)
         
-        self.mode_frame = ttk.LabelFrame(top_controls_frame_row1, text="Mode", padding=2); self.mode_frame.pack(side=tk.LEFT, padx=3); self.mode_frame.pack_propagate(True)
+        self.mode_frame = ttk.LabelFrame(top_controls_frame_row1, text="Mode", padding=2)
+        top_controls_frame_row1.add_widget(self.mode_frame)
         ttk.Radiobutton(self.mode_frame, text="Behavior", underline=0, variable=self.mode_var, value="behavior", command=self.toggle_mode).pack(side=tk.LEFT)
         ttk.Radiobutton(self.mode_frame, text="Quiz", underline=0, variable=self.mode_var, value="quiz", command=self.toggle_mode).pack(side=tk.LEFT)
         ttk.Radiobutton(self.mode_frame, text="Homework", underline=0, variable=self.mode_var, value="homework", command=self.toggle_mode).pack(side=tk.LEFT) # New Homework mode
 
         self.live_quiz_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Class Quiz")
+        top_controls_frame_row1.add_widget(self.live_quiz_button_frame)
         self.start_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="Start Session", command=self.start_live_quiz_session_dialog); self.start_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
         self.end_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="End Session", command=self.end_live_quiz_session, state=tk.DISABLED); self.end_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
 
         self.live_homework_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Homework Session") # New
+        top_controls_frame_row1.add_widget(self.live_homework_button_frame)
         self.start_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="Start Session", command=self.start_live_homework_session_dialog); self.start_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
         self.end_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="End Session", command=self.end_live_homework_session, state=tk.DISABLED); self.end_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
 
         
 
-        self.top_controls_frame_row2 = ttk.Frame(self.main_frame); self.top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5))
+        self.top_controls_frame_row2 = ResponsiveToolbar(self.main_frame); self.top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5))
         
         self.zoom_var = tk.StringVar(value=str(float(self.current_zoom_level)*100))
-        view_controls_frame = ttk.LabelFrame(top_controls_frame_row1, text="View & Edit", padding=2); view_controls_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Button(view_controls_frame, text="In", command=lambda: self.zoom_canvas(1.1)).pack(side=tk.LEFT, padx=2)
+        view_controls_frame = ttk.LabelFrame(top_controls_frame_row1, text="View & Edit", padding=2)
+        top_controls_frame_row1.add_widget(view_controls_frame)
+        zoom_in_btn = ttk.Button(view_controls_frame, text="In", command=lambda: self.zoom_canvas(1.1)); zoom_in_btn.pack(side=tk.LEFT, padx=2)
         self.zoom_display_label = ttk.Entry(view_controls_frame, textvariable=self.zoom_var, width=5)
         if self.settings.get("show_zoom_level_display", True): self.zoom_display_label.pack(side=tk.LEFT, padx=1)
-        ttk.Button(view_controls_frame, text="Out", command=lambda: self.zoom_canvas(0.9)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(view_controls_frame, text="Reset", command=lambda: self.zoom_canvas(0)).pack(side=tk.LEFT, padx=2)
+        zoom_out_btn = ttk.Button(view_controls_frame, text="Out", command=lambda: self.zoom_canvas(0.9)); zoom_out_btn.pack(side=tk.LEFT, padx=2)
+        zoom_reset_btn = ttk.Button(view_controls_frame, text="Reset", command=lambda: self.zoom_canvas(0)); zoom_reset_btn.pack(side=tk.LEFT, padx=2)
         self.edit_mode_checkbutton = ttk.Checkbutton(view_controls_frame, text="Edit Mode", underline=0, variable=self.edit_mode_var, command=self.toggle_edit_mode); self.edit_mode_checkbutton.pack(side=tk.LEFT, padx=5)
         self.toggle_incidents_btn = ttk.Button(view_controls_frame, text="Hide Recent Logs", command=self.toggle_global_recent_logs_visibility); self.toggle_incidents_btn.pack(side=tk.LEFT, padx=2) # Renamed
         self.update_toggle_incidents_button_text()
@@ -900,8 +909,9 @@ class SeatingChartApp:
 
         
 
-        self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.manage_boxes_frame.pack(side=tk.LEFT, padx=2)
-        layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2); layout_tools_frame.pack(side=tk.LEFT, padx=2)
+        self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2); self.top_controls_frame_row2.add_widget(self.manage_boxes_frame)
+        layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2)
+        self.top_controls_frame_row2.add_widget(layout_tools_frame)
         ttk.Button(layout_tools_frame, text="Align Top", command=lambda: self.align_selected_items("top")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Bottom", command=lambda: self.align_selected_items("bottom")).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Align Left", command=lambda: self.align_selected_items("left")).pack(side=tk.LEFT,pady=1, padx=1)
@@ -909,23 +919,27 @@ class SeatingChartApp:
         ttk.Button(layout_tools_frame, text="Distribute H", command=lambda: self.distribute_selected_items_evenly("horizontal")).pack(side=tk.LEFT, pady=1, padx=1)
         ttk.Button(layout_tools_frame, text="Distribute V", command=lambda: self.distribute_selected_items_evenly("vertical")).pack(side=tk.LEFT, pady=1, padx=1)
 
-        templates_groups_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout & Groups", padding=2); 
-        templates_groups_frame.pack(side=tk.LEFT, padx=2)
+        templates_groups_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout & Groups", padding=2)
+        self.top_controls_frame_row2.add_widget(templates_groups_frame)
         ttk.Button(templates_groups_frame, text="Save Layout...", command=self.save_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         ttk.Button(templates_groups_frame, text="Load Layout...", command=self.load_layout_template_dialog).pack(side=tk.LEFT,pady=1, padx=1)
         self.manage_groups_btn = ttk.Button(templates_groups_frame, text="Manage Groups...", command=self.manage_student_groups_dialog); self.manage_groups_btn.pack(side=tk.LEFT,pady=1, padx=1)        
         
         # Toggle Dragging Button
         self.toggle_dragging_btn = ttk.Button(self.manage_boxes_frame, text="Disable Dragging", command=self.toggle_dragging_allowed)
-        self.toggle_dragging_btn.pack(side=tk.LEFT, padx=(2))
+        self.top_controls_frame_row2.add_widget(self.toggle_dragging_btn)
         self._update_toggle_dragging_button_text() # Initialize button text
         
-        ttk.Button(self.manage_boxes_frame, text="Show undo history", command=self.show_undo_history_dialog).pack(side=tk.LEFT, padx=2)
+        show_undo_history_btn = ttk.Button(self.manage_boxes_frame, text="Show undo history", command=self.show_undo_history_dialog)
+        self.top_controls_frame_row2.add_widget(show_undo_history_btn)
         
-        ttk.Button(self.manage_boxes_frame, text="Add Student", command=self.add_student_dialog).pack(side=tk.LEFT, padx=2)
-        ttk.Button(self.manage_boxes_frame, text="Add Furniture", command=self.add_furniture_dialog).pack(side=tk.LEFT, padx=2)
+        add_student_btn = ttk.Button(self.manage_boxes_frame, text="Add Student", command=self.add_student_dialog)
+        self.top_controls_frame_row2.add_widget(add_student_btn)
+        add_furniture_btn = ttk.Button(self.manage_boxes_frame, text="Add Furniture", command=self.add_furniture_dialog)
+        self.top_controls_frame_row2.add_widget(add_furniture_btn)
 
-        self.lock_app_btn = ttk.Button(top_controls_frame_row1, text="Lock", command=self.lock_application_ui_triggered); self.lock_app_btn.pack(side=tk.RIGHT, padx=5)
+        self.lock_app_btn = ttk.Button(top_controls_frame_row1, text="Lock", command=self.lock_application_ui_triggered)
+        top_controls_frame_row1.add_widget(self.lock_app_btn)
         self.update_lock_button_state()
         self.root.bind_all("<Control-l>", lambda e: self.lock_application_ui_triggered())
         ttk.Button(top_controls_frame_row1, text="Help", underline=3, command=self.show_help_dialog).pack(side=tk.RIGHT, padx=2)
@@ -6718,6 +6732,56 @@ class SeatingChartApp:
         #    
         #    self.root.destroy()
         #    sys.exit(0) # Ensure clean exit
+
+class ResponsiveToolbar(ttk.Frame):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.widgets = []
+        self.overflow_menu = None
+        self.overflow_button = None
+        self.parent = parent
+
+        self.parent.bind("<Configure>", self.repack_widgets)
+
+    def add_widget(self, widget, stretch=False):
+        self.widgets.append({'widget': widget, 'stretch': stretch})
+        self.repack_widgets()
+
+    def repack_widgets(self, event=None):
+        for child in self.winfo_children():
+            child.pack_forget()
+
+        available_width = self.winfo_width()
+        required_width = 0
+
+        visible_widgets = []
+        overflow_widgets = []
+
+        for widget_info in self.widgets:
+            widget = widget_info['widget']
+            widget.update_idletasks()
+            required_width += widget.winfo_reqwidth()
+            if required_width < available_width:
+                visible_widgets.append(widget_info)
+            else:
+                overflow_widgets.append(widget_info)
+
+        if overflow_widgets:
+            if not self.overflow_button:
+                self.overflow_button = ttk.Menubutton(self, text="More...")
+                self.overflow_menu = tk.Menu(self.overflow_button, tearoff=0)
+                self.overflow_button["menu"] = self.overflow_menu
+
+            self.overflow_menu.delete(0, "end")
+            for widget_info in overflow_widgets:
+                widget = widget_info['widget']
+                if isinstance(widget, ttk.Button) or isinstance(widget, ttk.Menubutton):
+                    self.overflow_menu.add_command(label=widget.cget('text'), command=widget.invoke)
+
+            visible_widgets.append({'widget': self.overflow_button, 'stretch': False})
+
+        for widget_info in visible_widgets:
+            widget_info['widget'].pack(side=tk.LEFT, padx=2)
 
 def perform_data_operations():
     """An example function that needs to write to the data file."""
