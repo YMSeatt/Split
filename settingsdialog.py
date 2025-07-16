@@ -1295,9 +1295,14 @@ class SettingsDialog(simpledialog.Dialog):
     def manage_quiz_mark_types(self):
         dialog = ManageMarkTypesDialog(self, self.settings["quiz_mark_types"], "Quiz Mark Types", DEFAULT_QUIZ_MARK_TYPES)
         if dialog.mark_types_changed: self.settings_changed_flag = True
-    def manage_homework_mark_types(self): # New
+    def manage_homework_mark_types(self):
+        # This method will be responsible for opening the dialog to manage homework mark types.
+        # We will need to create a new dialog class for this, similar to ManageQuizTemplatesDialog.
+        # For now, let's just show a placeholder message.
+        #messagebox.showinfo("Manage Homework Mark Types", "This feature is not yet implemented.", parent=self)
         dialog = ManageMarkTypesDialog(self, self.settings["homework_mark_types"], "Homework Mark Types", DEFAULT_HOMEWORK_MARK_TYPES)
-        if dialog.mark_types_changed: self.settings_changed_flag = True
+        if dialog.mark_types_changed:
+            self.settings_changed_flag = True
     def manage_live_homework_select_options(self):
         dialog = ManageLiveSelectOptionsDialog(self, self.settings.get("live_homework_select_mode_options", DEFAULT_HOMEWORK_SESSION_BUTTONS.copy()))
         if dialog.options_changed_flag:
