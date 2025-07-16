@@ -3,10 +3,10 @@
 from cryptography.fernet import Fernet
 import os
 import sys
-# from encryption_key import encryption_key as ENCRYPTION_KEY # For me.
-ENCRYPTION_KEY = b''
-if not ENCRYPTION_KEY:
-    ENCRYPTION_KEY = b'' # Enter your own encryption key here. You can generate your own with the code below:
+from encryption_key import encryption_key as ENCRYPTION_KEY # For me.
+#ENCRYPTION_KEY = b''
+#if not ENCRYPTION_KEY:
+#    ENCRYPTION_KEY = b'' # Enter your own encryption key here. You can generate your own with the code below:
 
 # def generate_key():
 #     """
@@ -24,7 +24,7 @@ def load_key():
         generate_key()
     return open(KEY_PATH, "rb").read()
 """
-# f = Fernet(ENCRYPTION_KEY)
+f = Fernet(ENCRYPTION_KEY)
 # --- Encryption and Decryption Functions ---
 
 def encrypt_data(data_string):
