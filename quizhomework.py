@@ -519,13 +519,17 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
             points_var = tk.DoubleVar(value=mt_dict.get("default_points",0.0)); widgets_row["points_var"] = points_var
             points_spin = ttk.Spinbox(self.list_frame, from_=-100, to=100, increment=0.1, textvariable=points_var, width=6); points_spin.grid(row=r_idx, column=2, padx=3)
 
-            # Contributes to Total (Bool)
-            to_total_var = tk.BooleanVar(value=mt_dict.get("contributes_to_total",True)); widgets_row["to_total_var"] = to_total_var
-            ttk.Checkbutton(self.list_frame, variable=to_total_var).grid(row=r_idx, column=3, padx=3)
+            # Contributes to Total (Bool) - Conditional
+            if "contributes_to_total" in mt_dict or "Quiz" in self.item_type_name:
+                to_total_var = tk.BooleanVar(value=mt_dict.get("contributes_to_total", True))
+                widgets_row["to_total_var"] = to_total_var
+                ttk.Checkbutton(self.list_frame, variable=to_total_var).grid(row=r_idx, column=3, padx=3)
             
-            # Is Extra Credit (Bool)
-            is_bonus_var = tk.BooleanVar(value=mt_dict.get("is_extra_credit",False)); widgets_row["is_bonus_var"] = is_bonus_var
-            ttk.Checkbutton(self.list_frame, variable=is_bonus_var).grid(row=r_idx, column=4, padx=3)
+            # Is Extra Credit (Bool) - Conditional
+            if "is_extra_credit" in mt_dict or "Quiz" in self.item_type_name:
+                is_bonus_var = tk.BooleanVar(value=mt_dict.get("is_extra_credit", False))
+                widgets_row["is_bonus_var"] = is_bonus_var
+                ttk.Checkbutton(self.list_frame, variable=is_bonus_var).grid(row=r_idx, column=4, padx=3)
 
             del_btn = ttk.Button(self.list_frame, text="X", command=lambda idx=r_idx-1: self.delete_mark_type_at_index(idx), width=3)
             del_btn.grid(row=r_idx, column=5, padx=3)
@@ -586,13 +590,16 @@ class ManageMarkTypesDialog(simpledialog.Dialog):
                 messagebox.showerror("Duplicate Name", f"Mark type name '{name}' is already used. Names must be unique.", parent=self)
                 return
 
-            updated_list.append({
+            new_item = {
                 "id": current_id,
                 "name": name,
                 "default_points": row_widgets["points_var"].get(),
-                "contributes_to_total": row_widgets["to_total_var"].get(),
-                "is_extra_credit": row_widgets["is_bonus_var"].get()
-            })
+            }
+            if "to_total_var" in row_widgets:
+                new_item["contributes_to_total"] = row_widgets["to_total_var"].get()
+            if "is_bonus_var" in row_widgets:
+                new_item["is_extra_credit"] = row_widgets["is_bonus_var"].get()
+            updated_list.append(new_item)
         
         # Check if actual changes were made before setting the flag
         if self.mark_types_ref != updated_list: # Simple list comparison

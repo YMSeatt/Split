@@ -595,11 +595,20 @@ class SettingsDialog(simpledialog.Dialog):
 
         # General Homework Settings
         self.log_hw_marks_var = tk.BooleanVar(value=self.settings.get("log_homework_marks_enabled", True))
-        ttk.Checkbutton(lf_live_hw, text="Enable Detailed Marks for Manual Homework Logging", variable=self.log_hw_marks_var).grid(row=3,column=0,columnspan=3,sticky=tk.W, padx=5,pady=3)
-        ttk.Button(lf_live_hw, text="Homework Templates...", command=self.app.manage_homework_templates_dialog).grid(row=0,column=2, padx=10, pady=3, sticky=tk.E)
-        lf_live_hw.grid_columnconfigure(2, weight=1)
+        ttk.Checkbutton(lf_live_hw, text="Enable Detailed Marks for Manual Homework Logging", variable=self.log_hw_marks_var).grid(row=4,column=0,columnspan=3,sticky=tk.W, padx=5,pady=3)
 
-        #self.on_live_hw_mode_change(None) # Show/hide mode-specific frames
+        # lf_live_hw.grid_columnconfigure(2, weight=1)
+
+        # Create a new frame for the buttons to sit side-by-side
+        buttons_frame = ttk.Frame(lf_live_hw)
+        buttons_frame.grid(row=0, column=2, rowspan=2, padx=10, pady=3, sticky="ne")
+
+        # Place the buttons within this new frame
+        ttk.Button(buttons_frame, text="Homework Templates...", command=self.app.manage_homework_templates_dialog).pack(pady=2, fill=tk.X)
+        ttk.Button(buttons_frame, text="Manage Homework Mark Types...", command=self.manage_homework_mark_types).pack(pady=2, fill=tk.X)
+
+
+        self.on_live_hw_mode_change(None) # Show/hide mode-specific frames
 
 
     # --- Methods for managing the new custom lists ---
