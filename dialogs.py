@@ -1833,6 +1833,129 @@ class AssignStudentsToGroupSubDialog(simpledialog.Dialog):
         # The self.assignments_changed flag will be checked by the parent dialog
         pass
 
+class ManageMarkTypesDialog(simpledialog.Dialog):
+    def __init__(self, parent, current_mark_types_list, item_type_display_name, default_mark_types):
+        self.mark_types_ref = current_mark_types_list # Direct reference, e.g., app.settings["quiz_mark_types"]
+        self.item_type_name = item_type_display_name # "Quiz Mark Types" or "Homework Mark Types"
+        self.default_mark_types_const = default_mark_types # The constant list for reset
+        self.mark_types_changed = False
+        super().__init__(parent, f"Manage {self.item_type_name}")
+
+    def body(self, master):
+        self.main_frame = master # To rebuild list
+        button_frame = ttk.Frame(master); button_frame.pack(fill=tk.X, pady=5)
+        ttk.Button(button_frame, text="Add New Mark Type", command=self.add_mark_type).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Reset to Defaults", command=self.reset_to_defaults).pack(side=tk.LEFT, padx=5)
+
+        self.list_frame = ttk.Frame(master); self.list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        self.populate_mark_types_ui()
+        return self.main_frame # For focus
+
+    def populate_mark_types_ui(self):
+        for widget in self.list_frame.winfo_children(): widget.destroy()
+
+        headers = ["ID", "Name", "Default Points", "To Total?", "Bonus?"]
+        for c, h_text in enumerate(headers):
+            ttk.Label(self.list_frame, text=h_text, font=("",9,"bold")).grid(row=0,column=c,padx=3,pady=3,sticky=tk.W)
+
+        self.mark_type_widgets = [] # Store refs to entry vars/widgets if needed for direct update
+
+        for r_idx, mt_dict in enumerate(self.mark_types_ref, start=1):
+            widgets_row = {}
+            # ID (display only for defaults, editable for custom?) - For now, mostly fixed post-creation
+            id_val = mt_dict.get("id", f"custom_{r_idx}")
+            widgets_row["id_label"] = ttk.Label(self.list_frame, text=id_val, width=15); widgets_row["id_label"].grid(row=r_idx, column=0, padx=3, sticky=tk.W)
+
+            # Name
+            name_var = tk.StringVar(value=mt_dict.get("name","")); widgets_row["name_var"] = name_var
+            name_entry = ttk.Entry(self.list_frame, textvariable=name_var, width=20); name_entry.grid(row=r_idx, column=1, padx=3, sticky=tk.EW)
+
+            # Default Points
+            points_var = tk.DoubleVar(value=mt_dict.get("default_points",0.0)); widgets_row["points_var"] = points_var
+            points_spin = ttk.Spinbox(self.list_frame, from_=-100, to=100, increment=0.1, textvariable=points_var, width=6); points_spin.grid(row=r_idx, column=2, padx=3)
+
+            # Contributes to Total (Bool)
+            to_total_var = tk.BooleanVar(value=mt_dict.get("contributes_to_total",True)); widgets_row["to_total_var"] = to_total_var
+            ttk.Checkbutton(self.list_frame, variable=to_total_var).grid(row=r_idx, column=3, padx=3)
+
+            # Is Extra Credit (Bool)
+            is_bonus_var = tk.BooleanVar(value=mt_dict.get("is_extra_credit",False)); widgets_row["is_bonus_var"] = is_bonus_var
+            ttk.Checkbutton(self.list_frame, variable=is_bonus_var).grid(row=r_idx, column=4, padx=3)
+
+            del_btn = ttk.Button(self.list_frame, text="X", command=lambda idx=r_idx-1: self.delete_mark_type_at_index(idx), width=3)
+            del_btn.grid(row=r_idx, column=5, padx=3)
+            self.mark_type_widgets.append(widgets_row) # Store the dict of vars/widgets for this row
+        self.list_frame.grid_columnconfigure(1, weight=1) # Allow name entry to expand
+
+
+    def add_mark_type(self):
+        if len(self.mark_types_ref) >= 90: # Or a specific limit for mark types
+            messagebox.showwarning("Limit Reached", "Maximum number of mark types reached.", parent=self); return
+
+        new_id_base = "custom_mark"
+        new_id_suffix = 1
+        while f"{new_id_base}_{new_id_suffix}" in (mt.get("id") for mt in self.mark_types_ref):
+            new_id_suffix +=1
+
+        new_mark = {
+            "id": f"{new_id_base}_{new_id_suffix}", "name": "New Mark Type", "default_points": 0.0,
+            "contributes_to_total": False, "is_extra_credit": False
+        }
+        self.mark_types_ref.append(new_mark)
+        self.mark_types_changed = True
+        self.populate_mark_types_ui()
+
+    def delete_mark_type_at_index(self, index):
+        if 0 <= index < len(self.mark_types_ref):
+            # Check if it's a default one, prevent deletion (or handle carefully)
+            # For now, allow deletion, user can reset to defaults
+            if messagebox.askyesno("Confirm Delete", f"Delete mark type '{self.mark_types_ref[index]['name']}'?", parent=self):
+                del self.mark_types_ref[index]
+                self.mark_types_changed = True
+                self.populate_mark_types_ui()
+
+    def reset_to_defaults(self):
+        if messagebox.askyesno("Confirm Reset", f"Reset all {self.item_type_name.lower()} to application defaults?", parent=self):
+            self.mark_types_ref.clear()
+            for default_item in self.default_mark_types_const:
+                self.mark_types_ref.append(default_item.copy()) # Add copies
+            self.mark_types_changed = True
+            self.populate_mark_types_ui()
+
+    def apply(self): # OK button
+        # Update the list of dicts from the UI widgets
+        updated_list = []
+        for row_widgets in self.mark_type_widgets:
+            # Get ID from label (it's not editable here, but needed for the dict)
+            current_id = row_widgets["id_label"].cget("text")
+            name = row_widgets["name_var"].get().strip()
+            if not name:
+                messagebox.showerror("Invalid Name", f"Mark type name for ID '{current_id}' cannot be empty.", parent=self)
+                # To prevent dialog closing on error, simpledialog needs validate() to return false.
+                # This is tricky here as apply() is called after validate().
+                # For now, we'll allow it but it might lead to an empty name. Better: prevent empty.
+                return # Or handle error state
+
+            # Check for duplicate names before saving
+            if any(item['name'] == name and item['id'] != current_id for item in updated_list):
+                messagebox.showerror("Duplicate Name", f"Mark type name '{name}' is already used. Names must be unique.", parent=self)
+                return
+
+            updated_list.append({
+                "id": current_id,
+                "name": name,
+                "default_points": row_widgets["points_var"].get(),
+                "contributes_to_total": row_widgets["to_total_var"].get(),
+                "is_extra_credit": row_widgets["is_bonus_var"].get()
+            })
+
+        # Check if actual changes were made before setting the flag
+        if self.mark_types_ref != updated_list: # Simple list comparison
+            self.mark_types_ref[:] = updated_list # Replace content of original list
+            self.mark_types_changed = True
+
+        # self.mark_types_changed flag is now set if there were modifications.
+
 class BulkEditConditionalRulesDialog(simpledialog.Dialog):
     def __init__(self, parent, app, rules_being_edited_copies, original_indices):
         self.app = app
