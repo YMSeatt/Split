@@ -56,7 +56,7 @@ from io import BytesIO
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v55.0"
+APP_VERSION = "v56.0"
 CURRENT_DATA_VERSION_TAG = "v10"
 
 # --- Default Configuration ---

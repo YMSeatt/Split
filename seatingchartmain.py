@@ -55,7 +55,7 @@ except ImportError:
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v55.0" # Version incremented
+APP_VERSION = "v56.0" # Version incremented
 CURRENT_DATA_VERSION_TAG = "v10" # Incremented for guide saving
 
 # --- Default Configuration ---
@@ -3910,7 +3910,7 @@ class SeatingChartApp:
         return data
 
     def _migrate_v9_data(self, data):
-        """Migration for data version 9 (APP_VERSION v54) to v10 (APP_VERSION v55)."""
+        """Migration for data version 9 (APP_VERSION v54) to v10 (APP_VERSION v56)."""
         # Key change: Addition of persistent guides.
         # These settings are no longer used as guides are part of main data.
         # data["settings"].setdefault("save_guides_to_file", True) # Removed

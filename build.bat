@@ -15,7 +15,7 @@ REM For example, if this script is in your project root and your main file is
 REM in a 'Split' subfolder, you could use "Split\__main__.py".
 set "SCRIPT_PATH=seatingchartmain.py"
 
-set "APP_NAME=BehaviorLogger v55"
+set "APP_NAME=BehaviorLogger v56"
 REM --splash "%SPLASH_PATH%" ^
 REM --- PyInstaller Command ---
 echo Running PyInstaller...
@@ -42,5 +42,5 @@ echo.
 echo Build finished. Check the 'dist' folder for your executable.
 pause
 
-@REM pyinstaller --onefile --windowed --clean -n "BehaviorLogger v55" -i "assets\LightningChocolate.png" --splash "assets\YMAPPS.png" --collect-all openpyxl --collect-all tkcalendar --collect-all sv_ttk --collect-all darkdetect --exclude-module PyQt5 --exclude-module PySide6 --exclude-module tkcap --exclude-module matplotlib --exclude-module pandas --exclude-module selenium --exclude-module pikepdf "seatingchartmain.py"
-@REM pyinstaller --onefile --windowed --clean -n "BehaviorLogger v55" -i "assets/LightningChocolate.png" --splash "assets/YMAPPS.png" --collect-all openpyxl --collect-all tkcalendar --collect-all sv_ttk --collect-all darkdetect --exclude-module PyQt5 --exclude-module PySide6 --exclude-module tkcap --exclude-module matplotlib --exclude-module pandas --exclude-module selenium --exclude-module pikepdf "seatingchartmain.py"
+@REM pyinstaller --onefile --windowed --clean -n "BehaviorLogger v56" -i "assets\LightningChocolate.png" --splash "assets\YMAPPS.png" --collect-all openpyxl --collect-all tkcalendar --collect-all sv_ttk --collect-all darkdetect --exclude-module PyQt5 --exclude-module PySide6 --exclude-module tkcap --exclude-module matplotlib --exclude-module pandas --exclude-module selenium --exclude-module pikepdf "seatingchartmain.py"
+@REM pyinstaller --onefile --windowed --clean -n "BehaviorLogger v56" -i "assets/LightningChocolate.png" --splash "assets/YMAPPS.png" --collect-all openpyxl --collect-all tkcalendar --collect-all sv_ttk --collect-all darkdetect --exclude-module PyQt5 --exclude-module PySide6 --exclude-module tkcap --exclude-module matplotlib --exclude-module pandas --exclude-module selenium --exclude-module pikepdf "seatingchartmain.py"
