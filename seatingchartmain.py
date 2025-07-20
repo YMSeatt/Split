@@ -224,7 +224,7 @@ def name_similarity_ratio(s1, s2):
 class SeatingChartApp:
     def __init__(self, root_window):
         # ... (initial part of __init__ is the same) ...
-        self.root = root_window
+        self.root = root_window 
         self.root.title(f"Classroom Behavior Tracker - {APP_NAME} - {APP_VERSION}")
         self.root.geometry("1400x980")
         self.root.state('zoomed') # Maximizes the window on Windows
@@ -801,13 +801,17 @@ class SeatingChartApp:
 
     def setup_ui(self):
         self.main_frame = ttk.Frame(self.root, padding="5"); self.main_frame.pack(fill=tk.BOTH, expand=True)
-        top_controls_frame_row1 = ScrollableToolbar(self.main_frame); top_controls_frame_row1.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
-        self.undo_btn = ttk.Button(top_controls_frame_row1.interior, text="Undo", command=self.undo_last_action, state=tk.DISABLED)
+        
+        self.top_frame = ScrollableToolbar(self.main_frame); self.top_frame.pack(side=tk.TOP, fill=tk.X, pady=(0,2))
+        
+        top_controls_frame_row1 = ttk.Frame(self.top_frame.interior); top_controls_frame_row1.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
+        
+        self.undo_btn = ttk.Button(top_controls_frame_row1, text="Undo", command=self.undo_last_action, state=tk.DISABLED)
         self.undo_btn.pack(side=tk.LEFT, padx=2)
-        self.redo_btn = ttk.Button(top_controls_frame_row1.interior, text="Redo", command=self.redo_last_action, state=tk.DISABLED)
+        self.redo_btn = ttk.Button(top_controls_frame_row1, text="Redo", command=self.redo_last_action, state=tk.DISABLED)
         self.redo_btn.pack(side=tk.LEFT, padx=2)
 
-        self.file_menu_btn = ttk.Menubutton(top_controls_frame_row1.interior, text="File"); self.file_menu = tk.Menu(self.file_menu_btn, tearoff=0)
+        self.file_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="File"); self.file_menu = tk.Menu(self.file_menu_btn, tearoff=0)
         self.file_menu.add_command(label="Save Now", command=self.save_data_wrapper, accelerator="Ctrl+S")
         self.file_menu.add_command(label="Import Students from Excel...", command=self.import_students_from_excel_dialog)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Open Data Folder", command=self.open_data_folder)
@@ -851,7 +855,7 @@ class SeatingChartApp:
         # self.edit_menu_btn["menu"] = self.edit_menu
         # self.edit_menu_btn.pack(side=tk.LEFT, padx=2)
 
-        self.export_menu_btn = ttk.Menubutton(top_controls_frame_row1.interior, text="Export Log"); self.export_menu = tk.Menu(self.export_menu_btn, tearoff=0)
+        self.export_menu_btn = ttk.Menubutton(top_controls_frame_row1, text="Export Log"); self.export_menu = tk.Menu(self.export_menu_btn, tearoff=0)
         self.export_menu.add_command(label="To Excel (.xlsx)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsx"))
         self.export_menu.add_command(label="To Excel Macro-Enabled (.xlsm)", command=lambda: self.export_log_dialog_with_filter(export_type="xlsm"))
         self.export_menu.add_command(label="To CSV Files (.zip)", command=lambda: self.export_log_dialog_with_filter(export_type="csv"))
@@ -860,31 +864,30 @@ class SeatingChartApp:
         self.export_menu.add_command(label="Generate Attendance Report...", command=self.generate_attendance_report_dialog)
         self.export_menu_btn["menu"] = self.export_menu
         self.export_menu_btn.pack(side=tk.LEFT, padx=2)
-        settings_btn = ttk.Button(top_controls_frame_row1.interior, text="Settings", underline=0, command=self.open_settings_dialog)
+        settings_btn = ttk.Button(top_controls_frame_row1, text="Settings", underline=0, command=self.open_settings_dialog)
         settings_btn.pack(side=tk.LEFT, padx=2)
         
-        self.mode_frame = ttk.LabelFrame(top_controls_frame_row1.interior, text="Mode", padding=2)
+        self.mode_frame = ttk.LabelFrame(top_controls_frame_row1, text="Mode", padding=2)
         self.mode_frame.pack(side=tk.LEFT, padx=2)
         ttk.Radiobutton(self.mode_frame, text="Behavior", underline=0, variable=self.mode_var, value="behavior", command=self.toggle_mode).pack(side=tk.LEFT)
         ttk.Radiobutton(self.mode_frame, text="Quiz", underline=0, variable=self.mode_var, value="quiz", command=self.toggle_mode).pack(side=tk.LEFT)
         ttk.Radiobutton(self.mode_frame, text="Homework", underline=0, variable=self.mode_var, value="homework", command=self.toggle_mode).pack(side=tk.LEFT) # New Homework mode
 
-        self.live_quiz_button_frame = ttk.LabelFrame(top_controls_frame_row1.interior, text="Class Quiz")
+        self.live_quiz_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Class Quiz")
         self.live_quiz_button_frame.pack(side=tk.LEFT, padx=2)
         self.start_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="Start Session", command=self.start_live_quiz_session_dialog); self.start_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
         self.end_live_quiz_btn = ttk.Button(self.live_quiz_button_frame, text="End Session", command=self.end_live_quiz_session, state=tk.DISABLED); self.end_live_quiz_btn.pack(side=tk.LEFT, padx=3, pady=3)
 
-        self.live_homework_button_frame = ttk.LabelFrame(top_controls_frame_row1.interior, text="Homework Session") # New
+        self.live_homework_button_frame = ttk.LabelFrame(top_controls_frame_row1, text="Homework Session") # New
         self.live_homework_button_frame.pack(side=tk.LEFT, padx=2)
         self.start_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="Start Session", command=self.start_live_homework_session_dialog); self.start_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
         self.end_live_homework_btn = ttk.Button(self.live_homework_button_frame, text="End Session", command=self.end_live_homework_session, state=tk.DISABLED); self.end_live_homework_btn.pack(side=tk.LEFT, padx=3, pady=3)
 
         
 
-        self.top_controls_frame_row2 = ScrollableToolbar(self.main_frame); self.top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5))
         
         self.zoom_var = tk.StringVar(value=str(float(self.current_zoom_level)*100))
-        view_controls_frame = ttk.LabelFrame(top_controls_frame_row1.interior, text="View & Edit", padding=2)
+        view_controls_frame = ttk.LabelFrame(top_controls_frame_row1, text="View & Edit", padding=2)
         view_controls_frame.pack(side=tk.LEFT, padx=2)
         zoom_in_btn = ttk.Button(view_controls_frame, text="In", command=lambda: self.zoom_canvas(1.1)); zoom_in_btn.pack(side=tk.LEFT, padx=2)
         self.zoom_display_label = ttk.Entry(view_controls_frame, textvariable=self.zoom_var, width=5)
@@ -907,17 +910,18 @@ class SeatingChartApp:
         self.add_h_guide_btn = ttk.Button(view_controls_frame, text="Add H Guide", command=lambda: self.toggle_add_guide_mode("horizontal", self.add_h_guide_btn))
         self.add_h_guide_btn.pack(side=tk.LEFT, padx=2)
 
-        self.lock_app_btn = ttk.Button(top_controls_frame_row1.interior, text="Lock", command=self.lock_application_ui_triggered)
+        self.lock_app_btn = ttk.Button(top_controls_frame_row1, text="Lock", command=self.lock_application_ui_triggered)
         self.lock_app_btn.pack(side=tk.LEFT, padx=2)
         self.update_lock_button_state()
         self.root.bind_all("<Control-l>", lambda e: self.lock_application_ui_triggered())
-        ttk.Button(top_controls_frame_row1.interior, text="Help", underline=3, command=self.show_help_dialog).pack(side=tk.RIGHT, padx=2)
+        ttk.Button(top_controls_frame_row1, text="Help", underline=3, command=self.show_help_dialog).pack(side=tk.RIGHT, padx=2)
         
+        self.top_controls_frame_row2 = ttk.Frame(self.top_frame.interior, height=1); self.top_controls_frame_row2.pack(side=tk.BOTTOM, expand=False, fill=tk.X, pady=(2, 5), anchor="sw")
 
-        # --- Row 2 Widgets (parented to self.top_controls_frame_row2.interior) ---
-        self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2.interior)
+        # --- Row 2 Widgets (parented to self.top_controls_frame_row2) ---
+        self.manage_boxes_frame = ttk.Frame(self.top_controls_frame_row2)
         self.manage_boxes_frame.pack(side=tk.LEFT, padx=2)
-
+        
         layout_tools_frame = ttk.LabelFrame(self.manage_boxes_frame, text="Layout Tools", padding=2)
         layout_tools_frame.pack(side=tk.LEFT, padx=2)
         ttk.Button(layout_tools_frame, text="Align Top", command=lambda: self.align_selected_items("top")).pack(side=tk.LEFT,pady=1, padx=1)
@@ -934,16 +938,16 @@ class SeatingChartApp:
         self.manage_groups_btn = ttk.Button(templates_groups_frame, text="Manage Groups...", command=self.manage_student_groups_dialog); self.manage_groups_btn.pack(side=tk.LEFT,pady=1, padx=1)        
         
         # Toggle Dragging Button
-        self.toggle_dragging_btn = ttk.Button(self.top_controls_frame_row2.interior, text="Disable Dragging", command=self.toggle_dragging_allowed)
+        self.toggle_dragging_btn = ttk.Button(self.top_controls_frame_row2, text="Disable Dragging", command=self.toggle_dragging_allowed)
         self.toggle_dragging_btn.pack(side=tk.LEFT, padx=2)
         self._update_toggle_dragging_button_text() # Initialize button text
         
-        show_undo_history_btn = ttk.Button(self.top_controls_frame_row2.interior, text="Show undo history", command=self.show_undo_history_dialog)
+        show_undo_history_btn = ttk.Button(self.top_controls_frame_row2, text="Show undo history", command=self.show_undo_history_dialog)
         show_undo_history_btn.pack(side=tk.LEFT, padx=2)
         
-        add_student_btn = ttk.Button(self.top_controls_frame_row2.interior, text="Add Student", command=self.add_student_dialog)
+        add_student_btn = ttk.Button(self.top_controls_frame_row2, text="Add Student", command=self.add_student_dialog)
         add_student_btn.pack(side=tk.LEFT, padx=2)
-        add_furniture_btn = ttk.Button(self.top_controls_frame_row2.interior, text="Add Furniture", command=self.add_furniture_dialog)
+        add_furniture_btn = ttk.Button(self.top_controls_frame_row2, text="Add Furniture", command=self.add_furniture_dialog)
         add_furniture_btn.pack(side=tk.LEFT, padx=2)
         
         self.zoom_display_label.bind("<FocusOut>", lambda e: self.update_zoom_display2())
@@ -953,13 +957,14 @@ class SeatingChartApp:
 
         self.theme_auto(init=True)
             
-        self.canvas_frame = ttk.Frame(self.main_frame); self.canvas_frame.pack(fill=tk.BOTH, after=self.top_controls_frame_row2, expand=True)
+        self.canvas_frame = ttk.Frame(self.main_frame); self.canvas_frame.pack(fill=tk.BOTH, after=self.top_frame, expand=True)
         self.h_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas_xview_custom)
         self.v_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.VERTICAL, command=self.canvas_yview_custom) #else "#1F1F1F"
         self.canvas = tk.Canvas(self.canvas_frame, bg=self.canvas_color, relief=tk.SUNKEN, borderwidth=1, xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set) # type: ignore
         self.canvas.bind("<Configure>", self.on_canvas_configure)
         self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X); self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y); self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.canvas.config(scrollregion=(0, 0, self.canvas_orig_width * self.current_zoom_level, self.canvas_orig_height * self.current_zoom_level))
+        
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_left_press); self.canvas.bind("<ButtonPress-3>", self.on_canvas_right_press)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag); self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
         self.canvas.bind("<Control-Button-1>", self.on_canvas_ctrl_click); self.canvas.bind("<KeyPress-Delete>", self.on_delete_key_press); self.canvas.bind("<BackSpace>", self.on_delete_key_press)
@@ -6233,8 +6238,8 @@ class SeatingChartApp:
         self.draw_all_items(check_collisions_on_redraw=False) # Redraw to show/hide indicators
 
     def toggle_manage_boxes_visibility(self):
-        if self.edit_mode_var.get() or self.settings.get("always_show_box_management", False): self.top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5), before=self.canvas_frame) # type: ignore
-        else: self.top_controls_frame_row2.pack_forget()
+        if self.edit_mode_var.get() or self.settings.get("always_show_box_management", False): self.top_controls_frame_row2.pack(side=tk.TOP, fill=tk.X, pady=(2, 5)); self.top_frame.height_adjusted = 110
+        else: self.top_controls_frame_row2.pack_forget(); self.top_frame.height_adjusted = 50
             
     def manage_quiz_templates_dialog(self):
         if self.password_manager.is_locked:
@@ -6740,8 +6745,9 @@ class ScrollableToolbar(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         
+        self.height_adjusted = 50
         # The canvas that will contain the scrollable content
-        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0, height=self.height_adjusted)
         
         # The scrollbar
         self.scrollbar = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
@@ -6769,6 +6775,7 @@ class ScrollableToolbar(ttk.Frame):
     def _on_frame_configure(self, event=None):
         """Update the scrollregion of the canvas."""
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.canvas.configure(height=self.height_adjusted)
 
     def _bind_mousewheel(self, event):
         """Bind mousewheel for horizontal scrolling."""
