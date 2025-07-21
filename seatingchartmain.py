@@ -6817,6 +6817,7 @@ if __name__ == "__main__":
         pyi_splash.update_text("Loading UI...")
     except ImportError:
         pyi_splash = None # Will be None when not running from a PyInstaller bundle
+    except RuntimeError: pass
 
     root = tk.Tk()
     # Apply a theme if available and desired
