@@ -232,6 +232,8 @@ class SettingsDialog(simpledialog.Dialog):
         # Autosave interval
         ttk.Label(lf, text="Autosave Interval (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.autosave_interval_var = tk.IntVar(value=self.settings.get("autosave_interval_ms", 30000) // 1000)
+
+        self.autosave_interval_var.trace_add("write", lambda *args, var=self.autosave_interval_var, key="autosave_interval_ms": self.on_setting_change(var, "autosave_interval_ms", *args))
         ttk.Spinbox(lf, from_=10, to=300, increment=10, textvariable=self.autosave_interval_var, width=5).grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
 
 
@@ -312,6 +314,44 @@ class SettingsDialog(simpledialog.Dialog):
         # Allow Box Dragging
         self.allow_box_dragging_var = tk.BooleanVar(value=self.settings.get("allow_box_dragging", True))
         ttk.Checkbutton(cmf, text="Allow dragging of student/furniture boxes", variable=self.allow_box_dragging_var).grid(row=16, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+
+
+    def on_setting_change(self, var, key, *args):
+        # This function will be called with variable name, index, and mode.
+        # We need to get the value before the change happens.
+        # The easiest way to do this is to check if the trace is being fired
+        # for the first time. If so, we store the current value.
+        # However, a simpler approach for this use case is to get the old value
+        # from our initial snapshot.
+
+        try:
+            new_value = var.get()
+        except tk.TclError:
+            # This can happen if the widget is destroyed
+            return
+
+        old_value = self.initial_settings_snapshot.get(key)
+
+        # For integer variables that are tied to milliseconds
+        if key == "autosave_interval_ms" and old_value is not None:
+            old_value = old_value // 1000
+
+        if new_value != old_value:
+            # Make sure we're not creating a duplicate action
+            if self.undo_stack and self.undo_stack[-1]['key'] == key and self.undo_stack[-1]['redo_value'] == new_value:
+                return
+
+            action = {
+                'key': key,
+                'undo_value': old_value,
+                'redo_value': new_value,
+                'undo': lambda: var.set(old_value),
+                'redo': lambda: var.set(new_value)
+            }
+            self.push_undo(action)
+            self.settings[key] = new_value
+            self.settings_changed_flag = True
+            self.initial_settings_snapshot[key] = new_value
 
         # Canvas View Options (Rulers, Grid)
         lf_view_options = ttk.LabelFrame(tab_frame, text="Canvas View Options", padding=10)
