@@ -1,6 +1,9 @@
 import unittest
 import sys
 import os
+import tkinter as tk
+from unittest.mock import MagicMock
+import datetime
 
 # Ensure the application's root directory is in the Python path
 # to allow for direct imports of your modules.
@@ -8,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from data_encryption import encrypt_data, decrypt_data
 from other import PasswordManager
-from seatingchartmain import name_similarity_ratio
+from seatingchartmain import name_similarity_ratio, SeatingChartApp, levenshtein_distance
 
 
 class TestDataEncryption(unittest.TestCase):
@@ -114,6 +117,119 @@ class TestUtilityFunctions(unittest.TestCase):
         self.assertEqual(name_similarity_ratio("", ""), 1.0)
         self.assertEqual(name_similarity_ratio("test", ""), 0.0)
 
+
+class TestSeatingChartApp(unittest.TestCase):
+    def setUp(self):
+        # Create a mock Tk root window
+        self.root = MagicMock()
+
+        # Mock the SeatingChartApp
+        self.app = SeatingChartApp(self.root)
+
+    def tearDown(self):
+        self.app.file_lock_manager.release_lock()
+        self.root.destroy()
+
+    def test_get_default_settings(self):
+        settings = self.app._get_default_settings()
+        self.assertIsInstance(settings, dict)
+        self.assertIn("show_recent_incidents_on_boxes", settings)
+        self.assertEqual(settings["show_recent_incidents_on_boxes"], True)
+
+    def test_get_new_student_id(self):
+        id1, next_id1 = self.app.get_new_student_id()
+        self.assertEqual(id1, "student_1")
+        self.assertEqual(next_id1, 2)
+        self.app.next_student_id_num = next_id1
+        id2, next_id2 = self.app.get_new_student_id()
+        self.assertEqual(id2, "student_2")
+        self.assertEqual(next_id2, 3)
+
+    def test_get_new_furniture_id(self):
+        id1, next_id1 = self.app.get_new_furniture_id()
+        self.assertEqual(id1, "furniture_1")
+        self.assertEqual(next_id1, 2)
+        self.app.next_furniture_id_num = next_id1
+        id2, next_id2 = self.app.get_new_furniture_id()
+        self.assertEqual(id2, "furniture_2")
+        self.assertEqual(next_id2, 3)
+
+    def test_get_new_group_id(self):
+        id1, next_id1 = self.app.get_new_group_id()
+        self.assertEqual(id1, "group_1")
+        self.assertEqual(next_id1, 2)
+        self.app.next_group_id_num = next_id1
+        id2, next_id2 = self.app.get_new_group_id()
+        self.assertEqual(id2, "group_2")
+        self.assertEqual(next_id2, 3)
+
+    def test_get_new_quiz_template_id(self):
+        id1, next_id1 = self.app.get_new_quiz_template_id()
+        self.assertEqual(id1, "quiztemplate_1")
+        self.assertEqual(next_id1, 2)
+        self.app.next_quiz_template_id_num = next_id1
+        id2, next_id2 = self.app.get_new_quiz_template_id()
+        self.assertEqual(id2, "quiztemplate_2")
+        self.assertEqual(next_id2, 3)
+
+    def test_get_new_homework_template_id(self):
+        id1, next_id1 = self.app.get_new_homework_template_id()
+        self.assertEqual(id1, "hwtemplate_1")
+        self.assertEqual(next_id1, 2)
+        self.app.next_homework_template_id_num = next_id1
+        id2, next_id2 = self.app.get_new_homework_template_id()
+        self.assertEqual(id2, "hwtemplate_2")
+        self.assertEqual(next_id2, 3)
+
+    def test_get_new_custom_homework_type_id(self):
+        id1, next_id1 = self.app.get_new_custom_homework_type_id()
+        self.assertEqual(id1, "hwtype_1")
+        self.assertEqual(next_id1, 2)
+        self.app.settings["next_custom_homework_type_id_num"] = next_id1
+        id2, next_id2 = self.app.get_new_custom_homework_type_id()
+        self.assertEqual(id2, "hwtype_2")
+        self.assertEqual(next_id2, 3)
+
+    def test_calculate_quiz_score_percentage(self):
+        log_entry = {
+            "type": "quiz",
+            "marks_data": {"mark_correct": 8, "mark_incorrect": 2},
+            "num_questions": 10,
+        }
+        score = self.app._calculate_quiz_score_percentage(log_entry)
+        self.assertEqual(score, 80.0)
+
+        log_entry = {
+            "type": "quiz",
+            "score_details": {"correct": 5, "total_asked": 10},
+        }
+        score = self.app._calculate_quiz_score_percentage(log_entry)
+        self.assertEqual(score, 50.0)
+
+    def test_generate_attendance_data(self):
+        self.app.students = {
+            "student_1": {"id": "student_1", "full_name": "John Doe"},
+            "student_2": {"id": "student_2", "full_name": "Jane Doe"},
+        }
+        self.app.behavior_log = [
+            {"student_id": "student_1", "timestamp": "2023-10-26T10:00:00"},
+            {"student_id": "student_2", "timestamp": "2023-10-27T10:00:00"},
+        ]
+        start_date = datetime.date(2023, 10, 26)
+        end_date = datetime.date(2023, 10, 27)
+        student_ids = ["student_1", "student_2"]
+        attendance = self.app.generate_attendance_data(start_date, end_date, student_ids)
+        self.assertEqual(attendance[start_date]["student_1"], "P")
+        self.assertEqual(attendance[start_date]["student_2"], "A")
+        self.assertEqual(attendance[end_date]["student_1"], "A")
+        self.assertEqual(attendance[end_date]["student_2"], "P")
+
+    def test_levenshtein_distance(self):
+        self.assertEqual(levenshtein_distance("kitten", "sitting"), 3)
+        self.assertEqual(levenshtein_distance("saturday", "sunday"), 3)
+        self.assertEqual(levenshtein_distance("", "test"), 4)
+        self.assertEqual(levenshtein_distance("test", ""), 4)
+        self.assertEqual(levenshtein_distance("test", "test"), 0)
 
 if __name__ == '__main__':
     unittest.main()

@@ -3,7 +3,7 @@
 from cryptography.fernet import Fernet
 import os
 import sys
-from encryption_key import encryption_key as ENCRYPTION_KEY # For me.
+ENCRYPTION_KEY = Fernet.generate_key()
 #ENCRYPTION_KEY = b''
 #if not ENCRYPTION_KEY:
 #    ENCRYPTION_KEY = b'' # Enter your own encryption key here. You can generate your own with the code below:
