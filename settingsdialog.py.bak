@@ -189,7 +189,6 @@ class SettingsDialog(simpledialog.Dialog):
         # Undo/Redo stacks for settings changes
         self.undo_stack = []
         self.redo_stack = []
-        self.load_undo_history()
 
         super().__init__(parent, f"Settings - {APP_NAME}")
 
@@ -232,7 +231,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.notebook.grid_propagate(True)
 
         # --- Status Bar ---
-        self.status_bar = ttk.Label(self.master_frame, text="", anchor=tk.W)
+        self.status_bar = ttk.Label(master, text="", anchor=tk.W)
         self.status_bar.grid(row=1, column=0, columnspan=2, sticky='ew', padx=5, pady=(5,0))
 
         # No specific focus needed, first field in first tab will get it.
@@ -365,7 +364,8 @@ class SettingsDialog(simpledialog.Dialog):
                 'key': key,
                 'undo_value': old_value,
                 'redo_value': new_value,
-                'var_name': var._name,
+                'undo': lambda: var.set(old_value),
+                'redo': lambda: var.set(new_value),
                 'tab': self.notebook.tab(self.notebook.select(), "text")
             }
             self.push_undo(action)
@@ -1439,59 +1439,25 @@ class SettingsDialog(simpledialog.Dialog):
         if not self.undo_stack:
             return
         action = self.undo_stack.pop()
-        var = self.nametowidget(action['var_name'])
-        var.set(action['undo_value'])
+        action['undo']()
         self.redo_stack.append(action)
         self.update_undo_redo_buttons()
         self.settings_changed_flag = True
-        self.update_status(f"Undo: {action['key']}")
-        for i in range(self.notebook.index('end')):
-            if self.notebook.tab(i, "text") == action['tab']:
-                self.notebook.select(i)
-                break
 
     def redo(self):
         if not self.redo_stack:
             return
         action = self.redo_stack.pop()
-        var = self.nametowidget(action['var_name'])
-        var.set(action['redo_value'])
+        action['redo']()
         self.undo_stack.append(action)
         self.update_undo_redo_buttons()
         self.settings_changed_flag = True
-        self.update_status(f"Redo: {action['key']}")
-        for i in range(self.notebook.index('end')):
-            if self.notebook.tab(i, "text") == action['tab']:
-                self.notebook.select(i)
-                break
 
     def update_undo_redo_buttons(self):
         self.undo_button.config(state=tk.NORMAL if self.undo_stack else tk.DISABLED)
         self.redo_button.config(state=tk.NORMAL if self.redo_stack else tk.DISABLED)
 
-    def update_status(self, message):
-        self.status_bar.config(text=message)
-
-    def load_undo_history(self):
-        try:
-            with open(get_app_data_path("settings_undo_history.json"), 'r') as f:
-                history = json.load(f)
-                self.undo_stack = history.get('undo', [])
-                self.redo_stack = history.get('redo', [])
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.undo_stack = []
-            self.redo_stack = []
-
-    def save_undo_history(self):
-        history = {
-            'undo': self.undo_stack,
-            'redo': self.redo_stack
-        }
-        with open(get_app_data_path("settings_undo_history.json"), 'w') as f:
-            json.dump(history, f)
-
     def apply(self): # OK button of SettingsDialog
-        self.save_undo_history()
         if self.reset == False: # If reset button was not pressed
             # General Tab
             self.settings["autosave_interval_ms"] = self.autosave_interval_var.get() * 1000
