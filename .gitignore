@@ -105,3 +105,4 @@ diff_scroll.py
 daf_yomi_downloader.log
 BehaviorLogger v56.spec
 SettingsDialog.py
+settings_undo_history.json

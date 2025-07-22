@@ -4,6 +4,7 @@ from tkinter import ttk, simpledialog, messagebox, colorchooser, font as tkfont
 import os
 import sys
 from turtle import color
+import json
 #from datetime import datetime, timedelta, date as datetime_date
 #from openpyxl import Workbook, load_workbook
 #from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
@@ -335,6 +336,41 @@ class SettingsDialog(simpledialog.Dialog):
         self.allow_box_dragging_var.trace_add("write", lambda *args, var=self.allow_box_dragging_var, key="allow_box_dragging": self.on_setting_change(var, key, *args))
         ttk.Checkbutton(cmf, text="Allow dragging of student/furniture boxes", variable=self.allow_box_dragging_var).grid(row=16, column=0, columnspan=2, sticky='W', padx=5, pady=3)
 
+        # Canvas View Options (Rulers, Grid)
+        lf_view_options = ttk.LabelFrame(tab_frame, text="Canvas View Options", padding=10)
+        lf_view_options.pack(fill=tk.BOTH, padx=5, pady=10)
+
+        self.show_rulers_var = tk.BooleanVar(value=self.settings.get("show_rulers", False))
+        self.show_rulers_var.trace_add("write", lambda *args, var=self.show_rulers_var, key="show_rulers": self.on_setting_change(var, key, *args))
+        ttk.Checkbutton(lf_view_options, text="Show Rulers", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+
+        self.show_grid_var = tk.BooleanVar(value=self.settings.get("show_grid", False))
+        self.show_grid_var.trace_add("write", lambda *args, var=self.show_grid_var, key="show_grid": self.on_setting_change(var, key, *args))
+        ttk.Checkbutton(lf_view_options, text="Show Grid", variable=self.show_grid_var).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
+
+        ttk.Label(lf_view_options, text="Grid Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
+        self.grid_color_var = tk.StringVar(value=self.settings.get("grid_color", "#d3d3d3"))
+        self.grid_color_var.trace_add("write", lambda *args, var=self.grid_color_var, key="grid_color": self.on_setting_change(var, key, *args))
+        ttk.Entry(lf_view_options, textvariable=self.grid_color_var, width=12).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
+        ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.grid_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
+
+        # New Guide Settings
+        self.save_guides_var = tk.BooleanVar(value=self.settings.get("save_guides_to_file", True))
+        self.save_guides_var.trace_add("write", lambda *args, var=self.save_guides_var, key="save_guides_to_file": self.on_setting_change(var, key, *args))
+        ttk.Checkbutton(lf_view_options, text="Save Guides with Layout Data", variable=self.save_guides_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+
+        self.persist_guides_toggle_var = tk.BooleanVar(value=self.settings.get("guides_stay_when_rulers_hidden", True))
+        self.persist_guides_toggle_var.trace_add("write", lambda *args, var=self.persist_guides_toggle_var, key="guides_stay_when_rulers_hidden": self.on_setting_change(var, key, *args))
+        ttk.Checkbutton(lf_view_options, text="Keep Guides in Memory when 'Toggle Rulers' is Off", variable=self.persist_guides_toggle_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+
+        # Guide Color Settings
+        self.guides_color_var = tk.StringVar(value=self.settings.get("guides_color", "blue"))
+        self.guides_color_var.trace_add("write", lambda *args, var=self.guides_color_var, key="guides_color": self.on_setting_change(var, key, *args))
+        ttk.Label(lf_view_options, text="Guide Color:").grid(row=0, column=3, sticky=tk.W, padx=5, pady=3)
+        ttk.Entry(lf_view_options, textvariable=self.guides_color_var, width=12).grid(row=0, padx=3, column=4)
+        ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.guides_color_var: self.choose_color_for_var(v)).grid(row=0, column=5, sticky=tk.W, padx=2, pady=3)
+        ttk.Button(lf_view_options, text="Default", command=lambda v=self.guides_color_var: self.reset_color_for_var(v, "blue")).grid(row=0, column=6, sticky=tk.W, padx=2, pady=3)
+
 
     def on_setting_change(self, var, key, *args):
         # This function will be called with variable name, index, and mode.
@@ -373,41 +409,6 @@ class SettingsDialog(simpledialog.Dialog):
             self.settings_changed_flag = True
             self.initial_settings_snapshot[key] = new_value
             self.update_status(f"Setting '{key}' changed.")
-
-        # Canvas View Options (Rulers, Grid)
-        lf_view_options = ttk.LabelFrame(tab_frame, text="Canvas View Options", padding=10)
-        lf_view_options.pack(fill=tk.BOTH, padx=5, pady=10)
-
-        self.show_rulers_var = tk.BooleanVar(value=self.settings.get("show_rulers", False))
-        self.show_rulers_var.trace_add("write", lambda *args, var=self.show_rulers_var, key="show_rulers": self.on_setting_change(var, key, *args))
-        ttk.Checkbutton(lf_view_options, text="Show Rulers", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
-
-        self.show_grid_var = tk.BooleanVar(value=self.settings.get("show_grid", False))
-        self.show_grid_var.trace_add("write", lambda *args, var=self.show_grid_var, key="show_grid": self.on_setting_change(var, key, *args))
-        ttk.Checkbutton(lf_view_options, text="Show Grid", variable=self.show_grid_var).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
-
-        ttk.Label(lf_view_options, text="Grid Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
-        self.grid_color_var = tk.StringVar(value=self.settings.get("grid_color", "#d3d3d3"))
-        self.grid_color_var.trace_add("write", lambda *args, var=self.grid_color_var, key="grid_color": self.on_setting_change(var, key, *args))
-        ttk.Entry(lf_view_options, textvariable=self.grid_color_var, width=12).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
-        ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.grid_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
-
-        # New Guide Settings
-        self.save_guides_var = tk.BooleanVar(value=self.settings.get("save_guides_to_file", True))
-        self.save_guides_var.trace_add("write", lambda *args, var=self.save_guides_var, key="save_guides_to_file": self.on_setting_change(var, key, *args))
-        ttk.Checkbutton(lf_view_options, text="Save Guides with Layout Data", variable=self.save_guides_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
-
-        self.persist_guides_toggle_var = tk.BooleanVar(value=self.settings.get("guides_stay_when_rulers_hidden", True))
-        self.persist_guides_toggle_var.trace_add("write", lambda *args, var=self.persist_guides_toggle_var, key="guides_stay_when_rulers_hidden": self.on_setting_change(var, key, *args))
-        ttk.Checkbutton(lf_view_options, text="Keep Guides in Memory when 'Toggle Rulers' is Off", variable=self.persist_guides_toggle_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
-
-        # Guide Color Settings
-        self.guides_color_var = tk.StringVar(value=self.settings.get("guides_color", "blue"))
-        self.guides_color_var.trace_add("write", lambda *args, var=self.guides_color_var, key="guides_color": self.on_setting_change(var, key, *args))
-        ttk.Label(lf_view_options, text="Guide Color:").grid(row=0, column=3, sticky=tk.W, padx=5, pady=3)
-        ttk.Entry(lf_view_options, textvariable=self.guides_color_var, width=12).grid(row=0, padx=3, column=4)
-        ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.guides_color_var: self.choose_color_for_var(v)).grid(row=0, column=5, sticky=tk.W, padx=2, pady=3)
-        ttk.Button(lf_view_options, text="Default", command=lambda v=self.guides_color_var: self.reset_color_for_var(v, "blue")).grid(row=0, column=6, sticky=tk.W, padx=2, pady=3)
 
 
     def create_student_display_tab(self, tab_frame):
