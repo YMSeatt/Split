@@ -6293,7 +6293,7 @@ class SeatingChartApp:
         if hasattr(self, 'canvas') and self.canvas:
             self.canvas.configure(bg=self.canvas_color)
     
-    def theme_set(self, theme=None):
+    def theme_set(self, theme=None): 
         if self.type_theme == "sv_ttk":
             if self.theme_style_using == "System":
                 sv_ttk.set_theme(darkdetect.theme())
