@@ -185,6 +185,11 @@ class SettingsDialog(simpledialog.Dialog):
         self.custom_canvas_color = tk.StringVar(value= custom_canvas_color if custom_canvas_color != None else "Default")
         self.settings_changed_flag = False
         self.initial_settings_snapshot = {k: (v.copy() if isinstance(v, (dict, list)) else v) for k,v in current_settings.items()}
+
+        # Undo/Redo stacks for settings changes
+        self.undo_stack = []
+        self.redo_stack = []
+
         super().__init__(parent, f"Settings - {APP_NAME}")
 
     def body(self, master):
@@ -1358,12 +1363,48 @@ class SettingsDialog(simpledialog.Dialog):
         if dialog.options_changed_flag:
             self.settings["live_homework_select_mode_options"] = dialog.current_options
             self.settings_changed_flag = True
-    
-    """def buttonbox(self):
-        ttk.Button(self, text= "Ok", command=self.ok).grid(column=0,row=1)
-        ttk.Button(self, text="Cancel", command=self.cancel).grid(column=1,row=1, padx=10)
-    """
-    
+    def buttonbox(self):
+        box = ttk.Frame(self)
+
+        self.undo_button = ttk.Button(box, text="Undo", command=self.undo, state=tk.DISABLED)
+        self.undo_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.redo_button = ttk.Button(box, text="Redo", command=self.redo, state=tk.DISABLED)
+        self.redo_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE).pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(box, text="Cancel", width=10, command=self.cancel).pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.bind("<Escape>", self.cancel)
+
+        box.pack()
+
+    def push_undo(self, action):
+        self.undo_stack.append(action)
+        self.redo_stack.clear()
+        self.update_undo_redo_buttons()
+
+    def undo(self):
+        if not self.undo_stack:
+            return
+        action = self.undo_stack.pop()
+        action['undo']()
+        self.redo_stack.append(action)
+        self.update_undo_redo_buttons()
+        self.settings_changed_flag = True
+
+    def redo(self):
+        if not self.redo_stack:
+            return
+        action = self.redo_stack.pop()
+        action['redo']()
+        self.undo_stack.append(action)
+        self.update_undo_redo_buttons()
+        self.settings_changed_flag = True
+
+    def update_undo_redo_buttons(self):
+        self.undo_button.config(state=tk.NORMAL if self.undo_stack else tk.DISABLED)
+        self.redo_button.config(state=tk.NORMAL if self.redo_stack else tk.DISABLED)
     
     def apply(self): # OK button of SettingsDialog
         if self.reset == False: # If reset button was not pressed
