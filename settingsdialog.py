@@ -3,7 +3,6 @@ from tkinter import ttk, simpledialog, messagebox, colorchooser, font as tkfont
 
 import os
 import sys
-from turtle import color
 import json
 #from datetime import datetime, timedelta, date as datetime_date
 #from openpyxl import Workbook, load_workbook
@@ -11,7 +10,6 @@ import json
 #from openpyxl.utils import get_column_letter
 
 from dialogs import PasswordPromptDialog, ConditionalFormattingRuleDialog
-import other
 from quizhomework import ManageInitialsDialog, ManageMarkTypesDialog, ManageLiveSelectOptionsDialog
 #from seatingchartmain import SeatingChartApp
 

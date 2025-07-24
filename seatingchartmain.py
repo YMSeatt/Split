@@ -277,12 +277,8 @@ class SeatingChartApp:
 
         self.canvas_frame = None; self.canvas = None; self.h_scrollbar = None; self.v_scrollbar = None
         self.status_bar_label = None; self.zoom_display_label = None
-        if "tcl" in sys.modules:
-            self.mode_var = tk.StringVar(value=self.settings["current_mode"])
-            self.edit_mode_var = tk.BooleanVar(value=False)
-        else:
-            self.mode_var = None
-            self.edit_mode_var = None
+        self.mode_var = tk.StringVar(value=self.settings["current_mode"])
+        self.edit_mode_var = tk.BooleanVar(value=False)
 
         self.drag_data = {"x": 0, "y": 0, "item_id": None, "item_type": None,
                           "start_x_world": 0, "start_y_world": 0, # Start of drag in world coords
@@ -349,13 +345,12 @@ class SeatingChartApp:
 
         self.load_data() # Loads main data, including settings
         self._ensure_next_ids()
-        if "tcl" in sys.modules:
-            self.theme_auto(init=True)
+        self.theme_auto(init=True)
 
-            self.guide_line_color = self.settings.get("guides_color", "blue")
-            self.setup_ui()
-            # self.root.after_idle(self.draw_all_items) # Defer initial draw until window is mapped
-            self.update_status(f"Application started. Data loaded from: {os.path.dirname(DATA_FILE)}") # type: ignore
+        self.guide_line_color = self.settings.get("guides_color", "blue")
+        self.setup_ui()
+        # self.root.after_idle(self.draw_all_items) # Defer initial draw until window is mapped
+        self.update_status(f"Application started. Data loaded from: {os.path.dirname(DATA_FILE)}") # type: ignore
         self.update_undo_redo_buttons_state()
         self.toggle_mode(initial=True) # Apply initial mode
         self.root.after(30000, self.periodic_checks)
@@ -535,7 +530,7 @@ class SeatingChartApp:
             # }
             "student_groups_enabled": True,
             "show_zoom_level_display": True,
-            "available_fonts": sorted(list(tkfont.families())) if "tcl" in sys.modules else [],
+            "available_fonts": sorted(list(tkfont.families())),
 
             # Quiz specific
             "default_quiz_name": "Pop Quiz",
@@ -1063,10 +1058,9 @@ class SeatingChartApp:
     def toggle_mode(self, initial=False):
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Change Mode", "Enter password to change mode:"):
-                if self.mode_var:
-                    self.mode_var.set(self.settings["current_mode"]); return
+                self.mode_var.set(self.settings["current_mode"]); return
 
-        new_mode = self.mode_var.get() if self.mode_var else self.settings["current_mode"]
+        new_mode = self.mode_var.get()
         old_mode = self.settings["current_mode"]
 
         if old_mode == "quiz" and new_mode != "quiz" and self.is_live_quiz_active:
@@ -3956,10 +3950,7 @@ class SeatingChartApp:
             data["settings"].setdefault("show_zoom_level_display", True)
             data["settings"].setdefault("next_group_id_num", 1) # Initialize if missing
             data["settings"].setdefault("next_quiz_template_id_num", 1) # Initialize if missing
-            if "tcl" in sys.modules:
-                data["settings"].setdefault("available_fonts", sorted(list(tkfont.families())))
-            else:
-                data["settings"].setdefault("available_fonts", [])
+            data["settings"].setdefault("available_fonts", sorted(list(tkfont.families())))
             data["settings"].setdefault("default_quiz_questions", 10)
             data["settings"].setdefault("quiz_score_calculation", "percentage")
             data["settings"].setdefault("combine_marks_for_display", True)
@@ -6315,19 +6306,18 @@ class SeatingChartApp:
         else:
             style = ttk.Style(self.root)
             
-            style.theme_use(f"{self.type_theme[:10]}-{self.theme_style_using.lower()}")
+            style.theme_use(f"{self.type_theme[9:]}-{self.theme_style_using.lower()}")
     
     def theme_auto(self, init=False):
-        if "tcl" in sys.modules:
-            self.theme_set()
-            if self.custom_canvas_color != "Default" and self.custom_canvas_color != None: self.canvas_color = self.custom_canvas_color
-            elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
-            elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
-            else: self.canvas_color = "lightgrey"
-
-            if not init == True:
-                print(init, self.canvas_color, self.custom_canvas_color)
-                self.canvas.configure(bg=self.canvas_color) # type: ignore
+        self.theme_set()
+        if self.custom_canvas_color != "Default" and self.custom_canvas_color != None: self.canvas_color = self.custom_canvas_color
+        elif self.theme_style_using == "Dark": self.canvas_color = "#1F1F1F"
+        elif self.theme_style_using == "System": self.canvas_color = "lightgrey" if darkdetect.theme() == "Light" else "#1F1F1F"
+        else: self.canvas_color = "lightgrey"
+        
+        if not init == True:
+            print(init, self.canvas_color, self.custom_canvas_color)
+            self.canvas.configure(bg=self.canvas_color) # type: ignore
 
     def open_settings_dialog(self):
         if self.password_manager.is_locked:
