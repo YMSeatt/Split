@@ -6306,7 +6306,7 @@ class SeatingChartApp:
         else:
             style = ttk.Style(self.root)
             
-            style.theme_use(f"{self.type_theme[9:]}-{self.theme_style_using.lower()}")
+            style.theme_use(self.type_theme)
     
     def theme_auto(self, init=False):
         self.theme_set()
@@ -6846,7 +6846,7 @@ if __name__ == "__main__":
     except: pass
 
     # Close the splash screen once the main app is initialized and ready
-    if pyi_splash:
-        pyi_splash.close()
-
+    try: pyi_splash.close()
+    except: pass
+    
     root.mainloop()
