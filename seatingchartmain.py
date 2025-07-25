@@ -6306,7 +6306,7 @@ class SeatingChartApp:
         else:
             style = ttk.Style(self.root)
             
-            style.theme_use(self.type_theme)
+            style.theme_use(self.type_theme if "sun-valley" not in self.type_theme else f"{self.type_theme[:10]}-{self.theme_style_using.lower()}")
     
     def theme_auto(self, init=False):
         self.theme_set()
