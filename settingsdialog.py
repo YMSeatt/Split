@@ -183,6 +183,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.styles.append("sun-valley (Default)")
         self.custom_canvas_color = tk.StringVar(value= custom_canvas_color if custom_canvas_color != None else "Default")
         self.settings_changed_flag = False
+        self._is_undoing_or_redoing = False # Flag to prevent re-entrant calls during undo/redo
         self.initial_settings_snapshot = {k: (v.copy() if isinstance(v, (dict, list)) else v) for k,v in current_settings.items()}
 
         # Undo/Redo stacks for settings changes
@@ -242,24 +243,24 @@ class SettingsDialog(simpledialog.Dialog):
         # Autosave interval
         ttk.Label(lf, text="Autosave Interval (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.autosave_interval_var = tk.IntVar(value=self.settings.get("autosave_interval_ms", 30000) // 1000, name='autosave_interval_var')
-        self.autosave_interval_var.trace_add("write", lambda *args, var=self.autosave_interval_var, key="autosave_interval_ms": self.on_setting_change(var, "autosave_interval_ms", *args))
+        self.autosave_interval_var.trace_add("write", lambda *args: self.on_setting_change(self.autosave_interval_var, "autosave_interval_ms", *args))
         ttk.Spinbox(lf, from_=10, to=300, increment=10, textvariable=self.autosave_interval_var, width=5).grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
 
 
         # Student Groups Enabled
         self.groups_enabled_var = tk.BooleanVar(value=self.settings.get("student_groups_enabled", True), name='groups_enabled_var')
-        self.groups_enabled_var.trace_add("write", lambda *args, var=self.groups_enabled_var, key="student_groups_enabled": self.on_setting_change(var, key, *args))
+        self.groups_enabled_var.trace_add("write", lambda *args: self.on_setting_change(self.groups_enabled_var, "student_groups_enabled", *args))
         ttk.Checkbutton(lf, text="Enable Student Groups Feature", variable=self.groups_enabled_var).grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
 
         # Zoom Level Display
         self.show_zoom_var = tk.BooleanVar(value=self.settings.get("show_zoom_level_display", True), name='show_zoom_var')
-        self.show_zoom_var.trace_add("write", lambda *args, var=self.show_zoom_var, key="show_zoom_level_display": self.on_setting_change(var, key, *args))
+        self.show_zoom_var.trace_add("write", lambda *args: self.on_setting_change(self.show_zoom_var, "show_zoom_level_display", *args))
         ttk.Checkbutton(lf, text="Show Zoom Level % Display on Main Screen", variable=self.show_zoom_var).grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
 
         # Max Undo History Days
         ttk.Label(lf, text="Max Undo History (days):").grid(row=10, column=0, sticky=tk.W, padx=5, pady=3)
         self.max_undo_days_var = tk.IntVar(value=self.settings.get("max_undo_history_days", MAX_UNDO_HISTORY_DAYS), name='max_undo_days_var')
-        self.max_undo_days_var.trace_add("write", lambda *args, var=self.max_undo_days_var, key="max_undo_history_days": self.on_setting_change(var, key, *args))
+        self.max_undo_days_var.trace_add("write", lambda *args: self.on_setting_change(self.max_undo_days_var, "max_undo_history_days", *args))
         ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5).grid(row=10, column=1, sticky=tk.W, padx=5, pady=3)
 
 
@@ -287,13 +288,13 @@ class SettingsDialog(simpledialog.Dialog):
         cmf = ttk.LabelFrame(tab_frame, text="Canvas Management", padding=10); cmf.pack(padx=5, fill=tk.BOTH)
         # Student box management visibility
         self.show_management_var = tk.BooleanVar(value=self.settings.get("always_show_box_management", False), name='show_management_var')
-        self.show_management_var.trace_add("write", lambda *args, var=self.show_management_var, key="always_show_box_management": self.on_setting_change(var, key, *args))
+        self.show_management_var.trace_add("write", lambda *args: self.on_setting_change(self.show_management_var, "always_show_box_management", *args))
         ttk.Checkbutton(cmf, text="Always show box management tools", variable=self.show_management_var).grid(row=5, column=0, columnspan=2, sticky='W', padx=5, pady=3)
 
 
         # Check for collisions on redraw
         self.check_for_collisions_var = tk.BooleanVar(value=self.settings.get("check_for_collisions", True), name='check_for_collisions_var')
-        self.check_for_collisions_var.trace_add("write", lambda *args, var=self.check_for_collisions_var, key="check_for_collisions": self.on_setting_change(var, key, *args))
+        self.check_for_collisions_var.trace_add("write", lambda *args: self.on_setting_change(self.check_for_collisions_var, "check_for_collisions", *args))
         ttk.Checkbutton(cmf, text="Check for collisions on box move", variable=self.check_for_collisions_var).grid(row=6, column=0, columnspan=2, sticky='W', padx=5, pady=3)
 
         # Canvas Color
@@ -310,20 +311,20 @@ class SettingsDialog(simpledialog.Dialog):
 
         # Grid snap
         self.grid_snap_var = tk.BooleanVar(value=self.settings.get("grid_snap_enabled", False), name='grid_snap_var')
-        self.grid_snap_var.trace_add("write", lambda *args, var=self.grid_snap_var, key="grid_snap_enabled": self.on_setting_change(var, key, *args))
+        self.grid_snap_var.trace_add("write", lambda *args: self.on_setting_change(self.grid_snap_var, "grid_snap_enabled", *args))
         ttk.Checkbutton(cmf, text="Enable Snap to Grid during Drag", variable=self.grid_snap_var).grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
         ttk.Label(cmf, text="Grid Size (pixels):").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
         self.grid_size_var = tk.IntVar(value=self.settings.get("grid_size", DEFAULT_GRID_SIZE), name='grid_size_var')
-        self.grid_size_var.trace_add("write", lambda *args, var=self.grid_size_var, key="grid_size": self.on_setting_change(var, key, *args))
+        self.grid_size_var.trace_add("write", lambda *args: self.on_setting_change(self.grid_size_var, "grid_size", *args))
         ttk.Spinbox(cmf, from_=5, to=100, increment=5, textvariable=self.grid_size_var, width=5).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
 
         # Canvas Border Visibility
         self.canvas_border_var = tk.BooleanVar(value=self.settings.get("show_canvas_border_lines", False), name='canvas_border_var')
-        self.canvas_border_var.trace_add("write", lambda *args, var=self.canvas_border_var, key="show_canvas_border_lines": self.on_setting_change(var, key, *args))
+        self.canvas_border_var.trace_add("write", lambda *args: self.on_setting_change(self.canvas_border_var, "show_canvas_border_lines", *args))
         ttk.Checkbutton(cmf, text="Show canvas borders (see help)", variable=self.canvas_border_var, command=self.force_canvas_border_visi).grid(row=15, column=0, sticky=tk.W, padx=5, pady=3)
 
         self.force_canvas_border_var = tk.BooleanVar(value=self.settings.get("force_canvas_border_lines", False), name='force_canvas_border_var')
-        self.force_canvas_border_var.trace_add("write", lambda *args, var=self.force_canvas_border_var, key="force_canvas_border_lines": self.on_setting_change(var, key, *args))
+        self.force_canvas_border_var.trace_add("write", lambda *args: self.on_setting_change(self.force_canvas_border_var, "force_canvas_border_lines", *args))
         self.force_canvas_border_btn = ttk.Checkbutton(cmf, text="Always show canvas borders", variable=self.force_canvas_border_var)
         self.force_canvas_border_btn.grid(row=15, column=1, sticky=tk.W, padx=5, pady=3)
 
@@ -331,7 +332,7 @@ class SettingsDialog(simpledialog.Dialog):
 
         # Allow Box Dragging
         self.allow_box_dragging_var = tk.BooleanVar(value=self.settings.get("allow_box_dragging", True), name='allow_box_dragging_var')
-        self.allow_box_dragging_var.trace_add("write", lambda *args, var=self.allow_box_dragging_var, key="allow_box_dragging": self.on_setting_change(var, key, *args))
+        self.allow_box_dragging_var.trace_add("write", lambda *args: self.on_setting_change(self.allow_box_dragging_var, "allow_box_dragging", *args))
         ttk.Checkbutton(cmf, text="Allow dragging of student/furniture boxes", variable=self.allow_box_dragging_var).grid(row=16, column=0, columnspan=2, sticky='W', padx=5, pady=3)
 
         # Canvas View Options (Rulers, Grid)
@@ -339,75 +340,85 @@ class SettingsDialog(simpledialog.Dialog):
         lf_view_options.pack(fill=tk.BOTH, padx=5, pady=10)
 
         self.show_rulers_var = tk.BooleanVar(value=self.settings.get("show_rulers", False), name='show_rulers_var')
-        self.show_rulers_var.trace_add("write", lambda *args, var=self.show_rulers_var, key="show_rulers": self.on_setting_change(var, key, *args))
+        self.show_rulers_var.trace_add("write", lambda *args: self.on_setting_change(self.show_rulers_var, "show_rulers", *args))
         ttk.Checkbutton(lf_view_options, text="Show Rulers", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
 
         self.show_grid_var = tk.BooleanVar(value=self.settings.get("show_grid", False), name='show_grid_var')
-        self.show_grid_var.trace_add("write", lambda *args, var=self.show_grid_var, key="show_grid": self.on_setting_change(var, key, *args))
+        self.show_grid_var.trace_add("write", lambda *args: self.on_setting_change(self.show_grid_var, "show_grid", *args))
         ttk.Checkbutton(lf_view_options, text="Show Grid", variable=self.show_grid_var).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
 
         ttk.Label(lf_view_options, text="Grid Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
         self.grid_color_var = tk.StringVar(value=self.settings.get("grid_color", "#d3d3d3"), name='grid_color_var')
-        self.grid_color_var.trace_add("write", lambda *args, var=self.grid_color_var, key="grid_color": self.on_setting_change(var, key, *args))
+        self.grid_color_var.trace_add("write", lambda *args: self.on_setting_change(self.grid_color_var, "grid_color", *args))
         ttk.Entry(lf_view_options, textvariable=self.grid_color_var, width=12).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
         ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.grid_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
 
         # New Guide Settings
         self.save_guides_var = tk.BooleanVar(value=self.settings.get("save_guides_to_file", True), name='save_guides_var')
-        self.save_guides_var.trace_add("write", lambda *args, var=self.save_guides_var, key="save_guides_to_file": self.on_setting_change(var, key, *args))
+        self.save_guides_var.trace_add("write", lambda *args: self.on_setting_change(self.save_guides_var, "save_guides_to_file", *args))
         ttk.Checkbutton(lf_view_options, text="Save Guides with Layout Data", variable=self.save_guides_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
 
         self.persist_guides_toggle_var = tk.BooleanVar(value=self.settings.get("guides_stay_when_rulers_hidden", True), name='persist_guides_toggle_var')
-        self.persist_guides_toggle_var.trace_add("write", lambda *args, var=self.persist_guides_toggle_var, key="guides_stay_when_rulers_hidden": self.on_setting_change(var, key, *args))
+        self.persist_guides_toggle_var.trace_add("write", lambda *args: self.on_setting_change(self.persist_guides_toggle_var, "guides_stay_when_rulers_hidden", *args))
         ttk.Checkbutton(lf_view_options, text="Keep Guides in Memory when 'Toggle Rulers' is Off", variable=self.persist_guides_toggle_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
 
         # Guide Color Settings
         self.guides_color_var = tk.StringVar(value=self.settings.get("guides_color", "blue"), name='guides_color_var')
-        self.guides_color_var.trace_add("write", lambda *args, var=self.guides_color_var, key="guides_color": self.on_setting_change(var, key, *args))
+        self.guides_color_var.trace_add("write", lambda *args: self.on_setting_change(self.guides_color_var, "guides_color", *args))
         ttk.Label(lf_view_options, text="Guide Color:").grid(row=0, column=3, sticky=tk.W, padx=5, pady=3)
         ttk.Entry(lf_view_options, textvariable=self.guides_color_var, width=12).grid(row=0, padx=3, column=4)
         ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.guides_color_var: self.choose_color_for_var(v)).grid(row=0, column=5, sticky=tk.W, padx=2, pady=3)
         ttk.Button(lf_view_options, text="Default", command=lambda v=self.guides_color_var: self.reset_color_for_var(v, "blue")).grid(row=0, column=6, sticky=tk.W, padx=2, pady=3)
 
-
     def on_setting_change(self, var, key, *args):
-        # This function will be called with variable name, index, and mode.
-        # We need to get the value before the change happens.
-        # The easiest way to do this is to check if the trace is being fired
-        # for the first time. If so, we store the current value.
-        # However, a simpler approach for this use case is to get the old value
-        # from our initial snapshot.
-
+        """
+        Handles changes from a Tk variable, creates an undo action, and updates the internal state.
+        """
+        # Prevent re-entrant calls when a setting is changed programmatically by undo/redo
+        if self._is_undoing_or_redoing:
+            return
+        
         try:
-            new_value = var.get()
+            # This is the new value from the widget (e.g., an int from a Spinbox)
+            new_widget_value = var.get()
         except tk.TclError:
-            # This can happen if the widget is destroyed
+            # This can happen if the widget is destroyed during shutdown
             return
 
-        old_value = self.initial_settings_snapshot.get(key)
+        # Get the previous value from our snapshot, which holds the "true" data model state.
+        # This value is in the "storage" format (e.g., milliseconds for autosave).
+        old_storage_value = self.initial_settings_snapshot.get(key)
 
-        # For integer variables that are tied to milliseconds
-        if key == "autosave_interval_ms" and old_value is not None:
-            old_value = old_value // 1000
+        # Convert the old "storage" value to a "widget" value for a valid comparison.
+        if key == "autosave_interval_ms" and old_storage_value is not None:
+            old_widget_value = old_storage_value // 1000
+        else:
+            old_widget_value = old_storage_value
 
-        if new_value != old_value:
-            # Make sure we're not creating a duplicate action
-            if self.undo_stack and self.undo_stack[-1]['key'] == key and self.undo_stack[-1]['redo_value'] == new_value:
-                return
-
+        # If the value has actually changed, create an undo action
+        if new_widget_value != old_widget_value:
+            # The action dictionary stores values in the "widget" format
             action = {
                 'key': key,
-                'undo_value': old_value,
-                'redo_value': new_value,
+                'undo_value': old_widget_value,
+                'redo_value': new_widget_value,
                 'var_name': var._name,
                 'tab': self.notebook.tab(self.notebook.select(), "text")
             }
             self.push_undo(action)
-            self.settings[key] = new_value
-            self.settings_changed_flag = True
-            self.initial_settings_snapshot[key] = new_value
-            self.update_status(f"Setting '{key}' changed.")
 
+            # Convert the new "widget" value to its "storage" format before saving
+            if key == "autosave_interval_ms":
+                new_storage_value = new_widget_value * 1000
+            else:
+                new_storage_value = new_widget_value
+
+            # Update the main settings dictionary and the snapshot with the new "storage" value
+            self.settings[key] = new_storage_value
+            self.initial_settings_snapshot[key] = new_storage_value
+            
+            self.settings_changed_flag = True
+            self.update_status(f"Setting '{key}' changed.")
 
     def create_student_display_tab(self, tab_frame):
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
@@ -415,11 +426,11 @@ class SettingsDialog(simpledialog.Dialog):
         # Default size
         ttk.Label(lf_defaults, text="Default Width:").grid(row=0,column=0,sticky=tk.W,padx=5,pady=3)
         self.def_stud_w_var = tk.IntVar(value=self.settings.get("default_student_box_width", DEFAULT_STUDENT_BOX_WIDTH), name='def_stud_w_var')
-        self.def_stud_w_var.trace_add("write", lambda *args, var=self.def_stud_w_var, key="default_student_box_width": self.on_setting_change(var, key, *args))
+        self.def_stud_w_var.trace_add("write", lambda *args: self.on_setting_change(self.def_stud_w_var, "default_student_box_width", *args))
         ttk.Spinbox(lf_defaults, from_=MIN_STUDENT_BOX_WIDTH, to=500, textvariable=self.def_stud_w_var, width=5).grid(row=0,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Label(lf_defaults, text="Default Height:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
         self.def_stud_h_var = tk.IntVar(value=self.settings.get("default_student_box_height", DEFAULT_STUDENT_BOX_HEIGHT), name='def_stud_h_var')
-        self.def_stud_h_var.trace_add("write", lambda *args, var=self.def_stud_h_var, key="default_student_box_height": self.on_setting_change(var, key, *args))
+        self.def_stud_h_var.trace_add("write", lambda *args: self.on_setting_change(self.def_stud_h_var, "default_student_box_height", *args))
         ttk.Spinbox(lf_defaults, from_=MIN_STUDENT_BOX_HEIGHT, to=300, textvariable=self.def_stud_h_var, width=5).grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
         # Default colors and font
         self.create_color_font_settings_ui(lf_defaults, 2, "student_box_fill_color", "student_box_outline_color", "student_font_family", "student_font_size", "student_font_color")
@@ -431,24 +442,24 @@ class SettingsDialog(simpledialog.Dialog):
 
         ttk.Label(lf_defaults, text="Quiz Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
         self.quiz_log_font_size_var = tk.IntVar(value=self.settings.get("quiz_log_font_size", DEFAULT_FONT_SIZE), name='quiz_log_font_size_var')
-        self.quiz_log_font_size_var.trace_add("write", lambda *args, var=self.quiz_log_font_size_var, key="quiz_log_font_size": self.on_setting_change(var, key, *args))
+        self.quiz_log_font_size_var.trace_add("write", lambda *args: self.on_setting_change(self.quiz_log_font_size_var, "quiz_log_font_size", *args))
         ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.quiz_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
         row_after_defaults += 1
 
         ttk.Label(lf_defaults, text="Homework Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
         self.homework_log_font_size_var = tk.IntVar(value=self.settings.get("homework_log_font_size", DEFAULT_FONT_SIZE - 1), name='homework_log_font_size_var')
-        self.homework_log_font_size_var.trace_add("write", lambda *args, var=self.homework_log_font_size_var, key="homework_log_font_size": self.on_setting_change(var, key, *args))
+        self.homework_log_font_size_var.trace_add("write", lambda *args: self.on_setting_change(self.homework_log_font_size_var, "homework_log_font_size", *args))
         ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.homework_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
         row_after_defaults += 1
 
         # Setting for text background panel
         self.enable_text_panel_var = tk.BooleanVar(value=self.settings.get("enable_text_background_panel", True), name='enable_text_panel_var')
-        self.enable_text_panel_var.trace_add("write", lambda *args, var=self.enable_text_panel_var, key="enable_text_background_panel": self.on_setting_change(var, key, *args))
+        self.enable_text_panel_var.trace_add("write", lambda *args: self.on_setting_change(self.enable_text_panel_var, "enable_text_background_panel", *args))
         ttk.Checkbutton(lf_defaults, text="Enable text background panel on student boxes\n(improves legibility on colored stripes)",
                         variable=self.enable_text_panel_var).grid(row=15, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
 
         self.enable_text_panel_always_var = tk.BooleanVar(value=self.settings.get("always_show_text_background_panel", False), name='enable_text_panel_always_var')
-        self.enable_text_panel_always_var.trace_add("write", lambda *args, var=self.enable_text_panel_always_var, key="always_show_text_background_panel": self.on_setting_change(var, key, *args))
+        self.enable_text_panel_always_var.trace_add("write", lambda *args: self.on_setting_change(self.enable_text_panel_always_var, "always_show_text_background_panel", *args))
         ttk.Checkbutton(lf_defaults, text="Force enable text background panel on student boxes.\n(Not only when colored)",
                         variable=self.enable_text_panel_always_var).grid(row=16, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
 
@@ -470,21 +481,21 @@ class SettingsDialog(simpledialog.Dialog):
         # Recent Incidents Display
         lf_recent = ttk.LabelFrame(tab_frame, text="Recent Incidents on Student Boxes (Behavior/Quiz)", padding=10); lf_recent.grid(sticky="nsew",column=0,row=0, pady=5)
         self.show_recent_var = tk.BooleanVar(value=self.settings.get("show_recent_incidents_on_boxes", True), name='show_recent_var')
-        self.show_recent_var.trace_add("write", lambda *args, var=self.show_recent_var, key="show_recent_incidents_on_boxes": self.on_setting_change(var, key, *args))
+        self.show_recent_var.trace_add("write", lambda *args: self.on_setting_change(self.show_recent_var, "show_recent_incidents_on_boxes", *args))
         ttk.Checkbutton(lf_recent, text="Show recent incidents on student boxes", variable=self.show_recent_var).grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
         ttk.Label(lf_recent, text="Number to show:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
         self.num_recent_var = tk.IntVar(value=self.settings.get("num_recent_incidents_to_show", 2), name='num_recent_var')
-        self.num_recent_var.trace_add("write", lambda *args, var=self.num_recent_var, key="num_recent_incidents_to_show": self.on_setting_change(var, key, *args))
+        self.num_recent_var.trace_add("write", lambda *args: self.on_setting_change(self.num_recent_var, "num_recent_incidents_to_show", *args))
         ttk.Spinbox(lf_recent, from_=0, to=10, textvariable=self.num_recent_var, width=3).grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Label(lf_recent, text="Time window (hours):").grid(row=2,column=0,sticky=tk.W,padx=5,pady=3)
         self.time_window_var = tk.IntVar(value=self.settings.get("recent_incident_time_window_hours", 24), name='time_window_var')
-        self.time_window_var.trace_add("write", lambda *args, var=self.time_window_var, key="recent_incident_time_window_hours": self.on_setting_change(var, key, *args))
+        self.time_window_var.trace_add("write", lambda *args: self.on_setting_change(self.time_window_var, "recent_incident_time_window_hours", *args))
         ttk.Spinbox(lf_recent, from_=1, to=168, textvariable=self.time_window_var, width=4).grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
         self.show_full_recent_var = tk.BooleanVar(value=self.settings.get("show_full_recent_incidents", False), name='show_full_recent_var')
-        self.show_full_recent_var.trace_add("write", lambda *args, var=self.show_full_recent_var, key="show_full_recent_incidents": self.on_setting_change(var, key, *args))
+        self.show_full_recent_var.trace_add("write", lambda *args: self.on_setting_change(self.show_full_recent_var, "show_full_recent_incidents", *args))
         ttk.Checkbutton(lf_recent, text="Show full behavior names (not initials)", variable=self.show_full_recent_var).grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
         self.reverse_order_var = tk.BooleanVar(value=self.settings.get("reverse_incident_order", True), name='reverse_order_var')
-        self.reverse_order_var.trace_add("write", lambda *args, var=self.reverse_order_var, key="reverse_incident_order": self.on_setting_change(var, key, *args))
+        self.reverse_order_var.trace_add("write", lambda *args: self.on_setting_change(self.reverse_order_var, "reverse_incident_order", *args))
         ttk.Checkbutton(lf_recent, text="Show most recent incident last (chronological)", variable=self.reverse_order_var).grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
 
         # Custom Behaviors
@@ -506,21 +517,21 @@ class SettingsDialog(simpledialog.Dialog):
         lf_quiz = ttk.LabelFrame(tab_frame, text="Quiz Logging & Session Settings", padding=10); lf_quiz.grid(sticky="nsew",column=0,row=1, pady=5)
         ttk.Label(lf_quiz, text="Default Quiz Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.def_quiz_name_var = tk.StringVar(value=self.settings.get("default_quiz_name", "Pop Quiz"), name='def_quiz_name_var')
-        self.def_quiz_name_var.trace_add("write", lambda *args, var=self.def_quiz_name_var, key="default_quiz_name": self.on_setting_change(var, key, *args))
+        self.def_quiz_name_var.trace_add("write", lambda *args: self.on_setting_change(self.def_quiz_name_var, "default_quiz_name", *args))
         ttk.Entry(lf_quiz, textvariable=self.def_quiz_name_var, width=20).grid(row=0,column=1,sticky=tk.W,padx=5,pady=3)
 
         ttk.Label(lf_quiz, text="Default #Questions (Manual Log):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
         self.def_quiz_q_var = tk.IntVar(value=self.settings.get("default_quiz_questions",10), name='def_quiz_q_var')
-        self.def_quiz_q_var.trace_add("write", lambda *args, var=self.def_quiz_q_var, key="default_quiz_questions": self.on_setting_change(var, key, *args))
+        self.def_quiz_q_var.trace_add("write", lambda *args: self.on_setting_change(self.def_quiz_q_var, "default_quiz_questions", *args))
         ttk.Spinbox(lf_quiz, from_=1, to=100, textvariable=self.def_quiz_q_var, width=5).grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
 
         ttk.Label(lf_quiz, text="Quiz Name Memory Timeout (mins):").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
         self.quiz_timeout_var = tk.IntVar(value=self.settings.get("last_used_quiz_name_timeout_minutes", 60), name='quiz_timeout_var')
-        self.quiz_timeout_var.trace_add("write", lambda *args, var=self.quiz_timeout_var, key="last_used_quiz_name_timeout_minutes": self.on_setting_change(var, key, *args))
+        self.quiz_timeout_var.trace_add("write", lambda *args: self.on_setting_change(self.quiz_timeout_var, "last_used_quiz_name_timeout_minutes", *args))
         ttk.Spinbox(lf_quiz, from_=0, to=1440, textvariable=self.quiz_timeout_var, width=5).grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
 
         self.show_inc_quiz_var = tk.BooleanVar(value=self.settings.get("show_recent_incidents_during_quiz", True), name='show_inc_quiz_var')
-        self.show_inc_quiz_var.trace_add("write", lambda *args, var=self.show_inc_quiz_var, key="show_recent_incidents_during_quiz": self.on_setting_change(var, key, *args))
+        self.show_inc_quiz_var.trace_add("write", lambda *args: self.on_setting_change(self.show_inc_quiz_var, "show_recent_incidents_during_quiz", *args))
         ttk.Checkbutton(lf_quiz, text="Show recent behaviors during live quiz", variable=self.show_inc_quiz_var).grid(row=3,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
 
         self.combine_marks_display_var = tk.BooleanVar(value=self.settings.get("combine_marks_for_display", True))
@@ -537,20 +548,20 @@ class SettingsDialog(simpledialog.Dialog):
 
         ttk.Label(lf_live_quiz_format, text="Questions per session:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.live_quiz_questions_var = tk.IntVar(value=self.settings.get("live_quiz_questions", 5), name='live_quiz_questions_var')
-        self.live_quiz_questions_var.trace_add("write", lambda *args, var=self.live_quiz_questions_var, key="live_quiz_questions": self.on_setting_change(var, key, *args))
+        self.live_quiz_questions_var.trace_add("write", lambda *args: self.on_setting_change(self.live_quiz_questions_var, "live_quiz_questions", *args))
         ttk.Spinbox(lf_live_quiz_format, from_=1, to=100, textvariable=self.live_quiz_questions_var, width=5).grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
 
         # Initial Color
         ttk.Label(lf_live_quiz_format, text="Initial Outline Color:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
         self.live_quiz_initial_color_var = tk.StringVar(value=self.settings.get("live_quiz_initial_color", "#FF0000"), name='live_quiz_initial_color_var') # Red
-        self.live_quiz_initial_color_var.trace_add("write", lambda *args, var=self.live_quiz_initial_color_var, key="live_quiz_initial_color": self.on_setting_change(var, key, *args))
+        self.live_quiz_initial_color_var.trace_add("write", lambda *args: self.on_setting_change(self.live_quiz_initial_color_var, "live_quiz_initial_color", *args))
         ttk.Entry(lf_live_quiz_format, textvariable=self.live_quiz_initial_color_var, width=10).grid(row=1, column=1, sticky=tk.W, padx=5, pady=3)
         ttk.Button(lf_live_quiz_format, text="Choose...", command=lambda v=self.live_quiz_initial_color_var: self.choose_color_for_var(v)).grid(row=1, column=2, sticky=tk.W, padx=2, pady=3)
 
         # Final Color
         ttk.Label(lf_live_quiz_format, text="Final Outline Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
         self.live_quiz_final_color_var = tk.StringVar(value=self.settings.get("live_quiz_final_color", "#00FF00"), name='live_quiz_final_color_var') # Green
-        self.live_quiz_final_color_var.trace_add("write", lambda *args, var=self.live_quiz_final_color_var, key="live_quiz_final_color": self.on_setting_change(var, key, *args))
+        self.live_quiz_final_color_var.trace_add("write", lambda *args: self.on_setting_change(self.live_quiz_final_color_var, "live_quiz_final_color", *args))
         ttk.Entry(lf_live_quiz_format, textvariable=self.live_quiz_final_color_var, width=10).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
         ttk.Button(lf_live_quiz_format, text="Choose...", command=lambda v=self.live_quiz_final_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
 
@@ -609,21 +620,21 @@ class SettingsDialog(simpledialog.Dialog):
         lf_recent_hw = ttk.LabelFrame(tab_frame, text="Recent Homework on Student Boxes", padding=10)
         lf_recent_hw.grid(sticky="nsew",column=0,row=0, pady=0, padx=10)
         self.show_recent_hw_var = tk.BooleanVar(value=self.settings.get("show_recent_homeworks_on_boxes", True), name='show_recent_hw_var')
-        self.show_recent_hw_var.trace_add("write", lambda *args, var=self.show_recent_hw_var, key="show_recent_homeworks_on_boxes": self.on_setting_change(var, key, *args))
+        self.show_recent_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.show_recent_hw_var, "show_recent_homeworks_on_boxes", *args))
         ttk.Checkbutton(lf_recent_hw, text="Show recent homework logs on student boxes", variable=self.show_recent_hw_var).grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
         ttk.Label(lf_recent_hw, text="Number to show:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
         self.num_recent_hw_var = tk.IntVar(value=self.settings.get("num_recent_homeworks_to_show", 2), name='num_recent_hw_var')
-        self.num_recent_hw_var.trace_add("write", lambda *args, var=self.num_recent_hw_var, key="num_recent_homeworks_to_show": self.on_setting_change(var, key, *args))
+        self.num_recent_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.num_recent_hw_var, "num_recent_homeworks_to_show", *args))
         ttk.Spinbox(lf_recent_hw, from_=0, to=10, textvariable=self.num_recent_hw_var, width=3).grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Label(lf_recent_hw, text="Time window (hours):").grid(row=2,column=0,sticky=tk.W,padx=5,pady=3)
         self.time_window_hw_var = tk.IntVar(value=self.settings.get("recent_homework_time_window_hours", 24), name='time_window_hw_var')
-        self.time_window_hw_var.trace_add("write", lambda *args, var=self.time_window_hw_var, key="recent_homework_time_window_hours": self.on_setting_change(var, key, *args))
+        self.time_window_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.time_window_hw_var, "recent_homework_time_window_hours", *args))
         ttk.Spinbox(lf_recent_hw, from_=1, to=168, textvariable=self.time_window_hw_var, width=4).grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
         self.show_full_recent_hw_var = tk.BooleanVar(value=self.settings.get("show_full_recent_homeworks", False), name='show_full_recent_hw_var')
-        self.show_full_recent_hw_var.trace_add("write", lambda *args, var=self.show_full_recent_hw_var, key="show_full_recent_homeworks": self.on_setting_change(var, key, *args))
+        self.show_full_recent_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.show_full_recent_hw_var, "show_full_recent_homeworks", *args))
         ttk.Checkbutton(lf_recent_hw, text="Show full homework names (not initials)", variable=self.show_full_recent_hw_var).grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
         self.reverse_hw_order_var = tk.BooleanVar(value=self.settings.get("reverse_homework_order", True), name='reverse_hw_order_var')
-        self.reverse_hw_order_var.trace_add("write", lambda *args, var=self.reverse_hw_order_var, key="reverse_homework_order": self.on_setting_change(var, key, *args))
+        self.reverse_hw_order_var.trace_add("write", lambda *args: self.on_setting_change(self.reverse_hw_order_var, "reverse_homework_order", *args))
         ttk.Checkbutton(lf_recent_hw, text="Show most recent homework last (chronological)", variable=self.reverse_hw_order_var).grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
         """
         # Custom Homework Log Behaviors (for manual logging options like "Done", "Not Done")
@@ -647,12 +658,12 @@ class SettingsDialog(simpledialog.Dialog):
         lf_live_hw.grid(sticky="nsew", column=0, row=1, pady=0, padx=5)
         ttk.Label(lf_live_hw, text="Default Session Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.def_hw_session_name_var = tk.StringVar(value=self.settings.get("default_homework_name", "Homework Check"), name='def_hw_session_name_var')
-        self.def_hw_session_name_var.trace_add("write", lambda *args, var=self.def_hw_session_name_var, key="default_homework_name": self.on_setting_change(var, key, *args))
+        self.def_hw_session_name_var.trace_add("write", lambda *args: self.on_setting_change(self.def_hw_session_name_var, "default_homework_name", *args))
         ttk.Entry(lf_live_hw, textvariable=self.def_hw_session_name_var, width=20).grid(row=0,column=1,sticky=tk.W,padx=5,pady=3)
 
         ttk.Label(lf_live_hw, text="Session Mode:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
         self.live_hw_mode_var = tk.StringVar(value=self.settings.get("live_homework_session_mode", "Yes/No"), name='live_hw_mode_var')
-        self.live_hw_mode_var.trace_add("write", lambda *args, var=self.live_hw_mode_var, key="live_homework_session_mode": self.on_setting_change(var, key, *args))
+        self.live_hw_mode_var.trace_add("write", lambda *args: self.on_setting_change(self.live_hw_mode_var, "live_homework_session_mode", *args))
         hw_mode_combo = ttk.Combobox(lf_live_hw, textvariable=self.live_hw_mode_var, values=["Yes/No", "Select"], state="readonly", width=10)
         hw_mode_combo.grid(row=1, column=1, sticky=tk.W, padx=5, pady=3)
         hw_mode_combo.bind("<<ComboboxSelected>>", self.on_live_hw_mode_change)
@@ -686,7 +697,7 @@ class SettingsDialog(simpledialog.Dialog):
 
         # General Homework Settings
         self.log_hw_marks_var = tk.BooleanVar(value=self.settings.get("log_homework_marks_enabled", True), name='log_hw_marks_var')
-        self.log_hw_marks_var.trace_add("write", lambda *args, var=self.log_hw_marks_var, key="log_homework_marks_enabled": self.on_setting_change(var, key, *args))
+        self.log_hw_marks_var.trace_add("write", lambda *args: self.on_setting_change(self.log_hw_marks_var, "log_homework_marks_enabled", *args))
         ttk.Checkbutton(lf_live_hw, text="Enable Detailed Marks for Manual Homework Logging", variable=self.log_hw_marks_var).grid(row=4,column=0,columnspan=3,sticky=tk.W, padx=5,pady=3)
 
         # lf_live_hw.grid_columnconfigure(2, weight=1)
@@ -870,21 +881,21 @@ class SettingsDialog(simpledialog.Dialog):
     def create_data_export_tab(self, tab_frame):
         lf_excel = ttk.LabelFrame(tab_frame, text="Excel Export Defaults", padding=10); lf_excel.pack(fill=tk.X, pady=5)
         self.excel_sep_sheets_var = tk.BooleanVar(value=self.settings.get("excel_export_separate_sheets_by_default", True), name='excel_sep_sheets_var')
-        self.excel_sep_sheets_var.trace_add("write", lambda *args, var=self.excel_sep_sheets_var, key="excel_export_separate_sheets_by_default": self.on_setting_change(var, key, *args))
+        self.excel_sep_sheets_var.trace_add("write", lambda *args: self.on_setting_change(self.excel_sep_sheets_var, "excel_export_separate_sheets_by_default", *args))
         ttk.Checkbutton(lf_excel, text="Separate log types into different sheets by default", variable=self.excel_sep_sheets_var).pack(anchor=tk.W, padx=5, pady=2)
         self.excel_inc_summary_var = tk.BooleanVar(value=self.settings.get("excel_export_include_summaries_by_default", True), name='excel_inc_summary_var')
-        self.excel_inc_summary_var.trace_add("write", lambda *args, var=self.excel_inc_summary_var, key="excel_export_include_summaries_by_default": self.on_setting_change(var, key, *args))
+        self.excel_inc_summary_var.trace_add("write", lambda *args: self.on_setting_change(self.excel_inc_summary_var, "excel_export_include_summaries_by_default", *args))
         ttk.Checkbutton(lf_excel, text="Include summary sheet by default", variable=self.excel_inc_summary_var).pack(anchor=tk.W, padx=5, pady=2)
 
         lf_autosave_excel = ttk.LabelFrame(tab_frame, text="Excel Log Autosave (Experimental)", padding=10); lf_autosave_excel.pack(fill=tk.X, pady=5)
         self.enable_excel_autosave_var = tk.BooleanVar(value=self.settings.get("enable_excel_autosave", False), name='enable_excel_autosave_var')
-        self.enable_excel_autosave_var.trace_add("write", lambda *args, var=self.enable_excel_autosave_var, key="enable_excel_autosave": self.on_setting_change(var, key, *args))
+        self.enable_excel_autosave_var.trace_add("write", lambda *args: self.on_setting_change(self.enable_excel_autosave_var, "enable_excel_autosave", *args))
         ttk.Checkbutton(lf_autosave_excel, text=f"Enable autosaving log to Excel file ({os.path.basename(AUTOSAVE_EXCEL_FILE)})", variable=self.enable_excel_autosave_var).pack(anchor=tk.W, padx=5, pady=2)
         ttk.Label(lf_autosave_excel, text="Note: This uses current export filters if set, or exports all data. File is overwritten each time.").pack(anchor=tk.W, padx=5, pady=2)
 
         lf_export_image = ttk.LabelFrame(tab_frame, text="Image Exporting", padding=10); lf_export_image.pack(fill=tk.X, pady=5)
         self.dpi_image_export_var = tk.StringVar(value=self.settings.get("output_dpi", 600), name='dpi_image_export_var')
-        self.dpi_image_export_var.trace_add("write", lambda *args, var=self.dpi_image_export_var, key="output_dpi": self.on_setting_change(var, key, *args))
+        self.dpi_image_export_var.trace_add("write", lambda *args: self.on_setting_change(self.dpi_image_export_var, "output_dpi", *args))
         ttk.Label(lf_export_image, text="Set output dpi for image exports:").pack(anchor=tk.W, padx=5, pady=2)
         self.export_image_spin = ttk.Spinbox(lf_export_image, to=900, values=['300', '600', '900']); self.export_image_spin.pack(anchor=tk.W, padx=5, pady=2)
         self.export_image_spin.set(self.dpi_image_export_var.get())
@@ -916,18 +927,18 @@ class SettingsDialog(simpledialog.Dialog):
         lf_pw_options = ttk.LabelFrame(tab_frame, text="Password Options", padding=10)
         lf_pw_options.pack(fill=tk.X, pady=5)
         self.pw_on_open_var = tk.BooleanVar(value=self.settings.get("password_on_open", False), name='pw_on_open_var')
-        self.pw_on_open_var.trace_add("write", lambda *args, var=self.pw_on_open_var, key="password_on_open": self.on_setting_change(var, key, *args))
+        self.pw_on_open_var.trace_add("write", lambda *args: self.on_setting_change(self.pw_on_open_var, "password_on_open", *args))
         ttk.Checkbutton(lf_pw_options, text="Require password on application open", variable=self.pw_on_open_var).pack(anchor=tk.W, padx=5, pady=2)
         self.pw_on_edit_var = tk.BooleanVar(value=self.settings.get("password_on_edit_action", False), name='pw_on_edit_var')
-        self.pw_on_edit_var.trace_add("write", lambda *args, var=self.pw_on_edit_var, key="password_on_edit_action": self.on_setting_change(var, key, *args))
+        self.pw_on_edit_var.trace_add("write", lambda *args: self.on_setting_change(self.pw_on_edit_var, "password_on_edit_action", *args))
         ttk.Checkbutton(lf_pw_options, text="Require password for sensitive actions (add/edit/delete items, layout changes)", variable=self.pw_on_edit_var).pack(anchor=tk.W, padx=5, pady=2)
 
         auto_lock_frame = ttk.Frame(lf_pw_options); auto_lock_frame.pack(fill=tk.X, pady=2)
         self.pw_auto_lock_var = tk.BooleanVar(value=self.settings.get("password_auto_lock_enabled", False), name='pw_auto_lock_var')
-        self.pw_auto_lock_var.trace_add("write", lambda *args, var=self.pw_auto_lock_var, key="password_auto_lock_enabled": self.on_setting_change(var, key, *args))
+        self.pw_auto_lock_var.trace_add("write", lambda *args: self.on_setting_change(self.pw_auto_lock_var, "password_auto_lock_enabled", *args))
         ttk.Checkbutton(auto_lock_frame, text="Auto-lock application after inactivity for", variable=self.pw_auto_lock_var).pack(side=tk.LEFT, anchor=tk.W, padx=5)
         self.pw_auto_lock_timeout_var = tk.IntVar(value=self.settings.get("password_auto_lock_timeout_minutes", 15), name='pw_auto_lock_timeout_var')
-        self.pw_auto_lock_timeout_var.trace_add("write", lambda *args, var=self.pw_auto_lock_timeout_var, key="password_auto_lock_timeout_minutes": self.on_setting_change(var, key, *args))
+        self.pw_auto_lock_timeout_var.trace_add("write", lambda *args: self.on_setting_change(self.pw_auto_lock_timeout_var, "password_auto_lock_timeout_minutes", *args))
         ttk.Spinbox(auto_lock_frame, from_=1, to=120, textvariable=self.pw_auto_lock_timeout_var, width=4).pack(side=tk.LEFT, padx=2)
         ttk.Label(auto_lock_frame, text="minutes").pack(side=tk.LEFT)
 
@@ -936,7 +947,7 @@ class SettingsDialog(simpledialog.Dialog):
         lf_encryption = ttk.LabelFrame(tab_frame, text="Data Encryption", padding=10)
         lf_encryption.pack(fill=tk.X, pady=5)
         self.encrypt_data_var = tk.BooleanVar(value=self.settings.get("encrypt_data_files", True), name='encrypt_data_var')
-        self.encrypt_data_var.trace_add("write", lambda *args, var=self.encrypt_data_var, key="encrypt_data_files": self.on_setting_change(var, key, *args))
+        self.encrypt_data_var.trace_add("write", lambda *args: self.on_setting_change(self.encrypt_data_var, "encrypt_data_files", *args))
         ttk.Checkbutton(lf_encryption, text="Encrypt data files on save (This does NOT protect from deletion)", variable=self.encrypt_data_var).pack(anchor=tk.W, padx=5, pady=2)
 
     def create_other_settings_tab(self, tab_frame):
@@ -965,14 +976,12 @@ class SettingsDialog(simpledialog.Dialog):
             "show_full_recent_incidents": False,
             "reverse_incident_order": True,
             "selected_recent_behaviors_filter": None, # List of behavior names, or None for all
-
             "show_recent_homeworks_on_boxes": True, # New
             "num_recent_homeworks_to_show": 2, # New
             "recent_homework_time_window_hours": 24, # New
             "show_full_recent_homeworks": False, # New
             "reverse_homework_order": True, # New
             "selected_recent_homeworks_filter": None, # New
-
             "autosave_interval_ms": 30000,
             "default_student_box_width": DEFAULT_STUDENT_BOX_WIDTH,
             "default_student_box_height": DEFAULT_STUDENT_BOX_HEIGHT,
@@ -1032,12 +1041,10 @@ class SettingsDialog(simpledialog.Dialog):
             "next_quiz_template_id_num": 1,
             "next_homework_template_id_num": 1, # New
             "next_custom_homework_type_id_num": 1, # For custom homework types in Yes/No mode
-
             # Internal state storage (prefixed with underscore)
             "_last_used_quiz_name_for_session": "", # Stores last used quiz name for manual log
             "_last_used_quiz_name_timestamp_for_session": None, # Timestamp for quiz name timeout
             "_last_used_q_num_for_session": 10, # Stores last used num questions for manual quiz log
-
             "_last_used_homework_name_for_session": "", # Stores last used homework name for manual log
             "_last_used_homework_name_timestamp_for_session": None, # Timestamp for homework name timeout
             "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
@@ -1121,41 +1128,47 @@ class SettingsDialog(simpledialog.Dialog):
     def create_color_font_settings_ui(self, parent_frame, start_row, fill_key, outline_key, font_fam_key, font_size_key, font_color_key):
         # Fill Color
         ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
-        fill_var = tk.StringVar(value=self.settings.get(fill_key, DEFAULT_BOX_FILL_COLOR))
+        fill_var = tk.StringVar(value=self.settings.get(fill_key, DEFAULT_BOX_FILL_COLOR), name=f"{fill_key}_var")
         setattr(self, f"{fill_key}_var", fill_var) # Store var on self
+        fill_var.trace_add("write", lambda *args: self.on_setting_change(fill_var, fill_key, *args))
         ttk.Entry(parent_frame, textvariable=fill_var, width=12).grid(row=start_row,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Button(parent_frame, text="Choose...", command=lambda v=fill_var: self.choose_color_for_var(v)).grid(row=start_row,column=2,sticky=tk.W,padx=2,pady=3)
         # Outline Color
         ttk.Label(parent_frame, text="Default Outline Color:").grid(row=start_row+1,column=0,sticky=tk.W,padx=5,pady=3)
-        outline_var = tk.StringVar(value=self.settings.get(outline_key, DEFAULT_BOX_OUTLINE_COLOR))
+        outline_var = tk.StringVar(value=self.settings.get(outline_key, DEFAULT_BOX_OUTLINE_COLOR), name=f"{outline_key}_var")
         setattr(self, f"{outline_key}_var", outline_var)
+        outline_var.trace_add("write", lambda *args: self.on_setting_change(outline_var, outline_key, *args))
         ttk.Entry(parent_frame, textvariable=outline_var, width=12).grid(row=start_row+1,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Button(parent_frame, text="Choose...", command=lambda v=outline_var: self.choose_color_for_var(v)).grid(row=start_row+1,column=2,sticky=tk.W,padx=2,pady=3)
         # Font Family
         ttk.Label(parent_frame, text="Default Font Family:").grid(row=start_row+2,column=0,sticky=tk.W,padx=5,pady=3)
-        font_fam_var = tk.StringVar(value=self.settings.get(font_fam_key, DEFAULT_FONT_FAMILY))
+        font_fam_var = tk.StringVar(value=self.settings.get(font_fam_key, DEFAULT_FONT_FAMILY), name=f"{font_fam_key}_var")
         setattr(self, f"{font_fam_key}_var", font_fam_var)
+        font_fam_var.trace_add("write", lambda *args: self.on_setting_change(font_fam_var, font_fam_key, *args))
         available_fonts = self.settings.get("available_fonts", [DEFAULT_FONT_FAMILY])
         ff_combo = ttk.Combobox(parent_frame, textvariable=font_fam_var, values=available_fonts, width=20, state="readonly")
         ff_combo.grid(row=start_row+2,column=1,columnspan=2,sticky=tk.EW,padx=5,pady=3)
         ff_combo.bind("<MouseWheel>", lambda event: "break") # Prevent main canvas scroll
         # Font Size
         ttk.Label(parent_frame, text="Names Font Size (pts):").grid(row=start_row+3,column=0,sticky=tk.W,padx=5,pady=3)
-        font_size_var = tk.IntVar(value=self.settings.get(font_size_key, DEFAULT_FONT_SIZE))
+        font_size_var = tk.IntVar(value=self.settings.get(font_size_key, DEFAULT_FONT_SIZE), name=f"{font_size_key}_var")
         setattr(self, f"{font_size_key}_var", font_size_var)
+        font_size_var.trace_add("write", lambda *args: self.on_setting_change(font_size_var, font_size_key, *args))
         ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=font_size_var, width=5).grid(row=start_row+3,column=1,sticky=tk.W,padx=5,pady=3)
         # Font Color
         ttk.Label(parent_frame, text="Default Font Color:").grid(row=start_row+4,column=0,sticky=tk.W,padx=5,pady=3)
-        font_color_var = tk.StringVar(value=self.settings.get(font_color_key, DEFAULT_FONT_COLOR))
+        font_color_var = tk.StringVar(value=self.settings.get(font_color_key, DEFAULT_FONT_COLOR), name=f"{font_color_key}_var")
         setattr(self, f"{font_color_key}_var", font_color_var)
+        font_color_var.trace_add("write", lambda *args: self.on_setting_change(font_color_var, font_color_key, *args))
         ttk.Entry(parent_frame, textvariable=font_color_var, width=12).grid(row=start_row+4,column=1,sticky=tk.W,padx=5,pady=3)
         ttk.Button(parent_frame, text="Choose...", command=lambda v=font_color_var: self.choose_color_for_var(v)).grid(row=start_row+4,column=2,sticky=tk.W,padx=2,pady=3)
         ttk.Button(parent_frame, text="Reset", command=lambda v=font_color_var: self.reset_color_for_var(v, DEFAULT_FONT_COLOR)).grid(row=start_row+4,column=3,sticky=tk.W,padx=2,pady=3)
 
         # Behaviors Font Size
         ttk.Label(parent_frame, text="Behaviors Font Size (pts):").grid(row=start_row+5,column=0,sticky=tk.W,padx=5,pady=3)
-        behavior_font_size_var = tk.IntVar(value=self.settings.get('behavior_font_size', DEFAULT_FONT_SIZE))
+        behavior_font_size_var = tk.IntVar(value=self.settings.get('behavior_font_size', DEFAULT_FONT_SIZE), name='behavior_font_size_var')
         setattr(self, 'behavior_font_size_var', behavior_font_size_var)
+        behavior_font_size_var.trace_add("write", lambda *args: self.on_setting_change(behavior_font_size_var, 'behavior_font_size', *args))
         ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=behavior_font_size_var, width=5).grid(row=start_row+5,column=1,sticky=tk.W,padx=5,pady=3)
 
     def reset_color_for_var(self, color_var, default): # Helper for color reset buttons in settings
@@ -1440,10 +1453,29 @@ class SettingsDialog(simpledialog.Dialog):
         if not self.undo_stack:
             return
         action = self.undo_stack.pop()
-        # var = self.nametowidget(action['var_name'])
-        # OR if variable directly accessible as attribute:
-        var = getattr(self, action['var_name'])  #Access attribute safely using getattr
-        var.set(action['undo_value'])
+        
+        self._is_undoing_or_redoing = True
+        try:
+            var = getattr(self, action['var_name'])
+            
+            # The action stores widget values, so we can set the var directly.
+            widget_value_to_restore = action['undo_value']
+            var.set(widget_value_to_restore)
+
+            # We must also update our internal data model to match.
+            # Convert widget value back to storage value.
+            key = action['key']
+            if key == "autosave_interval_ms":
+                storage_value_to_restore = widget_value_to_restore * 1000
+            else:
+                storage_value_to_restore = widget_value_to_restore
+                
+            self.settings[key] = storage_value_to_restore
+            self.initial_settings_snapshot[key] = storage_value_to_restore
+
+        finally:
+            self._is_undoing_or_redoing = False
+
         self.redo_stack.append(action)
         self.update_undo_redo_buttons()
         self.settings_changed_flag = True
@@ -1457,9 +1489,28 @@ class SettingsDialog(simpledialog.Dialog):
         if not self.redo_stack:
             return
         action = self.redo_stack.pop()
-        # var = self.nametowidget(action['var_name'])
-        var = getattr(self, action['var_name'])  #Access attribute safely using getattr
-        var.set(action['redo_value'])
+
+        self._is_undoing_or_redoing = True
+        try:
+            var = getattr(self, action['var_name'])
+
+            # The action stores widget values.
+            widget_value_to_restore = action['redo_value']
+            var.set(widget_value_to_restore)
+
+            # Update internal data model.
+            key = action['key']
+            if key == "autosave_interval_ms":
+                storage_value_to_restore = widget_value_to_restore * 1000
+            else:
+                storage_value_to_restore = widget_value_to_restore
+
+            self.settings[key] = storage_value_to_restore
+            self.initial_settings_snapshot[key] = storage_value_to_restore
+
+        finally:
+            self._is_undoing_or_redoing = False
+
         self.undo_stack.append(action)
         self.update_undo_redo_buttons()
         self.settings_changed_flag = True
@@ -1497,196 +1548,23 @@ class SettingsDialog(simpledialog.Dialog):
     def apply(self): # OK button of SettingsDialog
         self.save_undo_history()
         if self.reset == False: # If reset button was not pressed
-            # General Tab
-            self.settings["autosave_interval_ms"] = self.autosave_interval_var.get() * 1000
-            self.settings["grid_snap_enabled"] = self.grid_snap_var.get()
-            self.settings["grid_size"] = self.grid_size_var.get()
-            self.settings["student_groups_enabled"] = self.groups_enabled_var.get()
-            self.settings["show_zoom_level_display"] = self.show_zoom_var.get()
-            self.settings["max_undo_history_days"] = self.max_undo_days_var.get()
+            # The settings dictionary has already been updated by on_setting_change.
+            # We just need to handle a few things that aren't tied to that mechanism.
             self.settings["theme"] = self.theme.get()
             self.settings["canvas_color"] = self.custom_canvas_color.get()
             self.app.theme_style_using = self.theme2
             self.settings["type_theme"] = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
             self.app.type_theme = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
             self.app.custom_canvas_color = self.custom_canvas_color.get()
-            self.settings["always_show_box_management"] = self.show_management_var.get()
-            self.settings["check_for_collisions"] = self.check_for_collisions_var.get()
-            self.settings["show_canvas_border_lines"] = self.canvas_border_var.get()
-            self.settings["force_canvas_border_lines"] = self.force_canvas_border_var.get()
-            self.settings["allow_box_dragging"] = self.allow_box_dragging_var.get()
-
-            # Canvas View Options from General Tab
-            self.settings["show_rulers"] = self.show_rulers_var.get()
-            self.settings["show_grid"] = self.show_grid_var.get()
-            self.settings["grid_color"] = self.grid_color_var.get()
-            self.settings["save_guides_to_file"] = self.save_guides_var.get()
-            self.settings["guides_stay_when_rulers_hidden"] = self.persist_guides_toggle_var.get()
-            self.settings["guides_color"] = self.guides_color_var.get()
-
-            #print("Theme2", self.theme2)
-            #print(self.theme.get(), "Get")
-            # Student Display Tab
-            self.settings["default_student_box_width"]=self.def_stud_w_var.get()
-            self.settings["default_student_box_height"]=self.def_stud_h_var.get()
-            self.settings["student_box_fill_color"]=self.student_box_fill_color_var.get()
-            self.settings["student_box_outline_color"]=self.student_box_outline_color_var.get()
-            self.settings["student_font_family"]=self.student_font_family_var.get()
-            self.settings["student_font_size"]=self.student_font_size_var.get()
-            self.settings["behavior_font_size"]=self.behavior_font_size_var.get()
-            self.settings["student_font_color"]=self.student_font_color_var.get()
-
-            self.settings["quiz_log_font_size"] = self.quiz_log_font_size_var.get()
-            self.settings["homework_log_font_size"] = self.homework_log_font_size_var.get()
-            self.settings["enable_text_background_panel"] = self.enable_text_panel_var.get() # New setting
-            self.settings["always_show_text_background_panel"] = self.enable_text_panel_always_var.get()
-            # Behavior/Quiz Log Tab
-            self.settings["show_recent_incidents_on_boxes"] = self.show_recent_var.get()
-            self.settings["num_recent_incidents_to_show"] = self.num_recent_var.get()
-            self.settings["recent_incident_time_window_hours"] = self.time_window_var.get()
-            self.settings["show_full_recent_incidents"] = self.show_full_recent_var.get()
-            self.settings["reverse_incident_order"] = self.reverse_order_var.get()
-            self.settings["default_quiz_name"] = self.def_quiz_name_var.get()
-            self.settings["default_quiz_questions"] = self.def_quiz_q_var.get()
-            self.settings["last_used_quiz_name_timeout_minutes"] = self.quiz_timeout_var.get()
-            self.settings["show_recent_incidents_during_quiz"] = self.show_inc_quiz_var.get()
-            self.settings["live_quiz_questions"] = self.live_quiz_questions_var.get()
-            self.settings["live_quiz_initial_color"] = self.live_quiz_initial_color_var.get()
-            self.settings["live_quiz_final_color"] = self.live_quiz_final_color_var.get()
-            # self.settings["combine_marks_for_display"] = self.combine_marks_display_var.get()
-            # Homework Log Tab
-            self.settings["show_recent_homeworks_on_boxes"] = self.show_recent_hw_var.get()
-            self.settings["num_recent_homeworks_to_show"] = self.num_recent_hw_var.get()
-            self.settings["recent_homework_time_window_hours"] = self.time_window_hw_var.get()
-            self.settings["show_full_recent_homeworks"] = self.show_full_recent_hw_var.get()
-            self.settings["reverse_homework_order"] = self.reverse_hw_order_var.get()
-            self.settings["default_homework_name"] = self.def_hw_session_name_var.get()
-            self.settings["live_homework_session_mode"] = self.live_hw_mode_var.get()
-            self.settings["log_homework_marks_enabled"] = self.log_hw_marks_var.get()
-            # Data & Export Tab
-            self.settings["excel_export_separate_sheets_by_default"] = self.excel_sep_sheets_var.get()
-            self.settings["excel_export_include_summaries_by_default"] = self.excel_inc_summary_var.get()
-            self.settings["enable_excel_autosave"] = self.enable_excel_autosave_var.get()
             self.settings["output_dpi"] = self.export_image_spin.get()
-            # Security Tab
-            self.settings["password_on_open"] = self.pw_on_open_var.get()
-            self.settings["password_on_edit_action"] = self.pw_on_edit_var.get()
-            self.settings["password_auto_lock_enabled"] = self.pw_auto_lock_var.get()
-            self.settings["password_auto_lock_timeout_minutes"] = self.pw_auto_lock_timeout_var.get()
-            self.settings["encrypt_data_files"] = self.encrypt_data_var.get()
-        else:
+
+        else: # Handle reset
             self.app.type_theme = "sun-valley-light" # Reset to default theme
-            self.settings = {}
-            print("Default")
             self.settings = self._get_default_settings()
-
-            self.settings = {
-                "show_recent_incidents_on_boxes": True,
-                "num_recent_incidents_to_show": 2,
-                "recent_incident_time_window_hours": 24,
-                "show_full_recent_incidents": False,
-                "reverse_incident_order": True,
-                "selected_recent_behaviors_filter": None, # List of behavior names, or None for all
-
-                "show_recent_homeworks_on_boxes": True, # New
-                "num_recent_homeworks_to_show": 2, # New
-                "recent_homework_time_window_hours": 24, # New
-                "show_full_recent_homeworks": False, # New
-                "reverse_homework_order": True, # New
-                "selected_recent_homeworks_filter": None, # New
-
-                "autosave_interval_ms": 30000,
-                "default_student_box_width": DEFAULT_STUDENT_BOX_WIDTH,
-                "default_student_box_height": DEFAULT_STUDENT_BOX_HEIGHT,
-                "student_box_fill_color": DEFAULT_BOX_FILL_COLOR,
-                "student_box_outline_color": DEFAULT_BOX_OUTLINE_COLOR,
-                "student_font_family": DEFAULT_FONT_FAMILY,
-                "student_font_size": DEFAULT_FONT_SIZE,
-                "student_font_color": DEFAULT_FONT_COLOR,
-                "grid_snap_enabled": False,
-                "grid_size": DEFAULT_GRID_SIZE,
-                "current_mode": "behavior", # "behavior", "quiz", or "homework"
-                "max_undo_history_days": MAX_UNDO_HISTORY_DAYS,
-                "student_groups_enabled": True,
-                "show_zoom_level_display": True,
-                "available_fonts": sorted(list(tkfont.families())),
-
-                # Quiz specific
-                "default_quiz_name": "Pop Quiz",
-                "last_used_quiz_name_timeout_minutes": 60, # Timeout for remembering quiz name
-                "show_recent_incidents_during_quiz": True,
-                "live_quiz_score_font_color": DEFAULT_QUIZ_SCORE_FONT_COLOR,
-                "live_quiz_score_font_style_bold": DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD,
-                "quiz_mark_types": DEFAULT_QUIZ_MARK_TYPES.copy(),
-                "default_quiz_questions": 10,
-                "quiz_score_calculation": "percentage",
-                "combine_marks_for_display": True,
-
-                # Homework specific (New)
-                "default_homework_name": "Homework Check", # Default name for manual log & live session
-                "last_used_homework_name_timeout_minutes": 60, # Timeout for remembering homework name (manual log)
-                "behavior_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for behavior log text
-                "quiz_log_font_size": DEFAULT_FONT_SIZE,       # Specific font size for quiz log text
-                "homework_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for homework log text
-                "live_homework_session_mode": "Yes/No", # "Yes/No" or "Select"
-                "log_homework_marks_enabled": True, # Enable/disable detailed marks for manual log
-                "homework_mark_types": DEFAULT_HOMEWORK_MARK_TYPES.copy(),
-                "default_homework_items_for_yes_no_mode": 5, # For live session "Yes/No"
-                "live_homework_score_font_color": DEFAULT_HOMEWORK_SCORE_FONT_COLOR,
-                "live_homework_score_font_style_bold": DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD,
-
-
-                # Password settings
-                "app_password_hash": None,
-                "password_on_open": False,
-                "password_on_edit_action": False,
-                "password_auto_lock_enabled": False,
-                "password_auto_lock_timeout_minutes": 15,
-                "encrypt_data_files": True,
-
-                # Next ID counters (managed by _ensure_next_ids but good to have defaults)
-                "next_student_id_num": 1,
-                "next_furniture_id_num": 1,
-                "next_group_id_num": 1,
-                "next_quiz_template_id_num": 1,
-                "next_homework_template_id_num": 1, # New
-                "next_custom_homework_type_id_num": 1, # For custom homework types in Yes/No mode
-
-                # Internal state storage (prefixed with underscore)
-                "_last_used_quiz_name_for_session": "", # Stores last used quiz name for manual log
-                "_last_used_quiz_name_timestamp_for_session": None, # Timestamp for quiz name timeout
-                "_last_used_q_num_for_session": 10, # Stores last used num questions for manual quiz log
-
-                "_last_used_homework_name_for_session": "", # Stores last used homework name for manual log
-                "_last_used_homework_name_timestamp_for_session": None, # Timestamp for homework name timeout
-                "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
-                "theme": "System", # Newer
-                "type_theme": "sun-valley-light", # Newer
-                "enable_text_background_panel": True, # Default for the new setting
-                "show_rulers": False, # Default for rulers
-                "show_grid": False, # Default for grid visibility
-                "grid_color": "#000000", # Default light gray for grid lines
-                "save_guides_to_file": True, # New setting for guides
-                "guides_stay_when_rulers_hidden": True, # New setting for guides
-                "next_guide_id_num": 1, # Added in migration, also good here
-                "guides_color": "blue", # Default color for guides
-                "allow_box_dragging": True, # New setting for box dragging
-                "canvas_color": "Default"
-            }
-
-
             self.app.custom_canvas_color = "Default"
-        # Check if any significant setting actually changed by comparing with snapshot
-        for key, initial_val in self.initial_settings_snapshot.items():
-            current_val = self.settings.get(key)
-            if isinstance(current_val, (list, dict)): # For mutable types, content comparison is needed
-                if initial_val != current_val: # This might not catch all deep changes if not careful
-                    self.settings_changed_flag = True; break
-            elif initial_val != current_val:
-                self.settings_changed_flag = True; break
-        # If any custom list (behaviors, marks, etc.) was modified, their specific dialogs
-        # would have set self.settings_changed_flag = True already.
-        self.result = self.settings_changed_flag # Simpledialog will check this
+            
+        # The settings_changed_flag is now the source of truth
+        self.result = self.settings_changed_flag
 
 
 
