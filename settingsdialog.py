@@ -12,6 +12,7 @@ import json
 from dialogs import PasswordPromptDialog, ConditionalFormattingRuleDialog
 from quizhomework import ManageInitialsDialog, ManageMarkTypesDialog, ManageLiveSelectOptionsDialog
 #from seatingchartmain import SeatingChartApp
+from data_encryption import decrypt_data, encrypt_data, _read_and_decrypt_file, _encrypt_and_write_file
 
 
 # --- Application Constants ---
@@ -1529,10 +1530,12 @@ class SettingsDialog(simpledialog.Dialog):
 
     def load_undo_history(self):
         try:
-            with open(get_app_data_path("settings_undo_history.json"), 'r') as f:
-                history = json.load(f)
-                self.undo_stack = history.get('undo', [])
-                self.redo_stack = history.get('redo', [])
+            loaded_data = _read_and_decrypt_file(get_app_data_path("settings_undo_history.json"))
+            history = loaded_data
+            # with open(get_app_data_path("settings_undo_history.json"), 'r') as f:
+            #     history = json.load(f)
+            self.undo_stack = history.get('undo', [])
+            self.redo_stack = history.get('redo', [])
         except (FileNotFoundError, json.JSONDecodeError):
             self.undo_stack = []
             self.redo_stack = []
@@ -1542,8 +1545,35 @@ class SettingsDialog(simpledialog.Dialog):
             'undo': self.undo_stack,
             'redo': self.redo_stack
         }
-        with open(get_app_data_path("settings_undo_history.json"), 'w') as f:
-            json.dump(history, f)
+        _encrypt_and_write_file(get_app_data_path("settings_undo_history.json"), history, self.settings.get("encrypt_data_files", True))
+        # with open(get_app_data_path("settings_undo_history.json"), 'w') as f:
+        #     json.dump(history, f)
+
+    def _read_and_decrypt_file(self, file_path):
+        """Reads a file, attempts to decrypt it, and loads the JSON data."""
+        if not os.path.exists(file_path):
+            return None
+        try:
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+            
+            if not file_content: # File is empty
+                return None
+
+            try:
+                # Attempt to decrypt first
+                decrypted_data_string = decrypt_data(file_content)
+            except cryptography.fernet.InvalidToken:
+                # If decryption fails, it's likely plaintext (or corrupt)
+                # Assume it's a UTF-8 encoded string.
+                decrypted_data_string = file_content.decode('utf-8')
+
+            return json.loads(decrypted_data_string)
+
+        except (json.JSONDecodeError, IOError, UnicodeDecodeError) as e:
+            print(f"Error loading and decoding file {os.path.basename(file_path)}: {e}")
+            return None
+
 
     def apply(self): # OK button of SettingsDialog
         self.save_undo_history()
