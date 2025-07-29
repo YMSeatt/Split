@@ -1455,6 +1455,10 @@ class SettingsDialog(simpledialog.Dialog):
         except (FileNotFoundError, json.JSONDecodeError):
             self.undo_stack = []
             self.redo_stack = []
+        except AttributeError:
+            self.undo_stack = []
+            self.redo_stack = []
+
 
     def save_undo_history(self):
         history = {

@@ -6340,23 +6340,6 @@ class ScrollableToolbar(ttk.Frame):
         """Handle horizontal scrolling with the mousewheel."""
         self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
 
-def perform_data_operations():
-    """An example function that needs to write to the data file."""
-    # Before you write to the file, unlock it.
-    unlock_file(DATA_FILE)
-
-    # Now you can safely write to the file
-    try:
-        with open(DATA_FILE, "a") as f:
-            f.write("Adding new data during program execution.\n")
-        print("Successfully wrote to data file.")
-    except Exception as e:
-        print(f"Failed to write to data file: {e}")
-    
-    # Note: We will lock the file in the 'finally' block of main()
-    # to ensure it's always locked on exit.
-
-
 
 
 
