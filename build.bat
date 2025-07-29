@@ -15,7 +15,7 @@ REM For example, if this script is in your project root and your main file is
 REM in a 'Split' subfolder, you could use "Split\__main__.py".
 set "SCRIPT_PATH=seatingchartmain.py"
 
-set "APP_NAME=BehaviorLogger v56"
+set "APP_NAME=BehaviorLogger v57"
 REM --splash "%SPLASH_PATH%" ^
 REM --- PyInstaller Command ---
 echo Running PyInstaller...

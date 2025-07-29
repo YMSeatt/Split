@@ -66,7 +66,7 @@ except ImportError:
 
 # --- Application Constants ---
 APP_NAME = "BehaviorLogger"
-APP_VERSION = "v56.0" # Version incremented
+APP_VERSION = "v57.0" # Version incremented
 CURRENT_DATA_VERSION_TAG = "v10" # Incremented for new homework/marks features
 
 # --- Default Configuration ---
