@@ -477,7 +477,6 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Button(rule_btns_frame, text="Remove Selected", command=self.remove_selected_conditional_rule).pack(side=tk.LEFT, padx=2)
         ttk.Button(rule_btns_frame, text="Bulk Edit Selected...", command=self.bulk_edit_selected_rules).pack(side=tk.LEFT, padx=10)
 
-
     def create_behavior_log_tab(self, tab_frame):
         # Recent Incidents Display
         lf_recent = ttk.LabelFrame(tab_frame, text="Recent Incidents on Student Boxes (Behavior/Quiz)", padding=10); lf_recent.grid(sticky="nsew",column=0,row=0, pady=5)
@@ -713,13 +712,8 @@ class SettingsDialog(simpledialog.Dialog):
 
 
         self.on_live_hw_mode_change(None) # Show/hide mode-specific frames
-
-
+        
     # --- Methods for managing the new custom lists ---
-
-
-
-
     # Custom Homework TYPES
     def populate_custom_homework_types_listbox(self):
         self.custom_hw_types_listbox.delete(0, tk.END)
@@ -740,10 +734,6 @@ class SettingsDialog(simpledialog.Dialog):
         for item in hidden_defaults:
             self.custom_hw_types_listbox.insert(tk.END, f"(Hidden) {item}")
             self.custom_hw_types_listbox.itemconfig(tk.END, {'fg': 'red'})
-
-
-
-
 
     def add_custom_homework_type(self):
         name = simpledialog.askstring("Add Homework Type", "Enter name for the new type (e.g., 'Project Milestone 1'):", parent=self)
@@ -864,8 +854,6 @@ class SettingsDialog(simpledialog.Dialog):
         if messagebox.askyesno("Confirm Remove", "Remove selected homework status?", parent=self):
             del self.custom_homework_statuses_ref[sel_idx[0]]
             self.settings_changed_flag = True; self.app.save_custom_homework_statuses(); self.populate_custom_homework_statuses_listbox()
-
-
 
     def on_live_hw_mode_change(self, event):
         mode = self.live_hw_mode_var.get()
@@ -1064,9 +1052,6 @@ class SettingsDialog(simpledialog.Dialog):
             "canvas_color": "Default"
         }
 
-
-
-
     def theme_set(self, event):
         #print(self.app.theme_style_using, "old")
         self.app.theme_style_using = self.theme.get()
@@ -1123,7 +1108,6 @@ class SettingsDialog(simpledialog.Dialog):
                     messagebox.showinfo("Password Removed", "Application password has been removed.", parent=self)
         else:
             messagebox.showinfo("No Password", "No application password is currently set.", parent=self)
-
 
     # --- UI Helper for color/font settings ---
     def create_color_font_settings_ui(self, parent_frame, start_row, fill_key, outline_key, font_fam_key, font_size_key, font_color_key):
@@ -1296,11 +1280,8 @@ class SettingsDialog(simpledialog.Dialog):
             # self.update_status("Bulk edit cancelled or no changes made.") # No status bar here
             pass
 
-
     def force_canvas_border_visi(self):
         self.force_canvas_border_btn.configure(state="normal" if self.canvas_border_var.get() == True else 'disabled')
-
-
 
     def _manage_custom_list_generic(self, listbox, custom_list_ref, item_type_name, add_func_name, edit_func_name):
         # This is a placeholder for a more generic dialog if needed, for now specific ones are used
@@ -1341,75 +1322,7 @@ class SettingsDialog(simpledialog.Dialog):
         if messagebox.askyesno("Confirm Remove", "Remove selected custom behavior?", parent=self):
             del self.custom_behaviors_ref[sel_idx[0]]
             self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
-    """
-    # Custom Homework Log Behaviors (for Manual Homework Log dialog options)
-    def populate_custom_homework_log_behaviors_listbox(self):
-        self.custom_hw_log_behaviors_listbox.delete(0, tk.END)
-        for item in self.custom_homework_log_behaviors_ref:
-            self.custom_hw_log_behaviors_listbox.insert(tk.END, item["name"])
-    def add_custom_homework_log_behavior(self):
-        if len(self.custom_homework_log_behaviors_ref) >= MAX_CUSTOM_TYPES:
-             messagebox.showwarning("Limit Reached", f"Maximum of {MAX_CUSTOM_TYPES} custom homework log options allowed.", parent=self); return
-        name = simpledialog.askstring("Add Homework Log Option", "Enter name for the new option (e.g., 'Excellent Effort'):", parent=self)
-        if name and name.strip():
-            name = name.strip()
-            if any(item["name"] == name for item in self.custom_homework_log_behaviors_ref):
-                 messagebox.showwarning("Duplicate", f"Option '{name}' already exists.", parent=self); return
-            self.custom_homework_log_behaviors_ref.append({"name": name})
-            self.settings_changed_flag = True; self.app.save_custom_homework_log_behaviors(); self.populate_custom_homework_log_behaviors_listbox()
-    def edit_selected_custom_homework_log_behavior(self):
-        sel_idx = self.custom_hw_log_behaviors_listbox.curselection()
-        if not sel_idx: messagebox.showinfo("No Selection", "Please select an option to edit.", parent=self); return
-        idx = sel_idx[0]; old_name = self.custom_homework_log_behaviors_ref[idx]["name"]
-        new_name = simpledialog.askstring("Edit Homework Log Option", "Enter new name:", initialvalue=old_name, parent=self)
-        if new_name and new_name.strip():
-            new_name = new_name.strip()
-            if new_name != old_name and any(item["name"] == new_name for i, item in enumerate(self.custom_homework_log_behaviors_ref) if i != idx):
-                 messagebox.showwarning("Duplicate", f"Option '{new_name}' already exists.", parent=self); return
-            self.custom_homework_log_behaviors_ref[idx]["name"] = new_name
-            self.settings_changed_flag = True; self.app.save_custom_homework_log_behaviors(); self.populate_custom_homework_log_behaviors_listbox()
-    def remove_selected_custom_homework_log_behavior(self):
-        sel_idx = self.custom_hw_log_behaviors_listbox.curselection()
-        if not sel_idx: messagebox.showinfo("No Selection", "Please select an option to remove.", parent=self); return
-        if messagebox.askyesno("Confirm Remove", "Remove selected homework log option?", parent=self):
-            del self.custom_homework_log_behaviors_ref[sel_idx[0]]
-            self.settings_changed_flag = True; self.app.save_custom_homework_log_behaviors(); self.populate_custom_homework_log_behaviors_listbox()
-
-    # Custom Homework Session Types (for Live Homework "Yes/No" mode)
-    def populate_custom_homework_session_types_listbox(self):
-        self.custom_hw_session_types_listbox.delete(0, tk.END)
-        for item in self.custom_homework_session_types_ref: # list of {"id", "name"}
-            self.custom_hw_session_types_listbox.insert(tk.END, item["name"])
-    def add_custom_homework_session_type(self):
-        if len(self.custom_homework_session_types_ref) >= MAX_CUSTOM_TYPES:
-             messagebox.showwarning("Limit Reached", f"Maximum of {MAX_CUSTOM_TYPES} custom homework types for sessions allowed.", parent=self); return
-        name = simpledialog.askstring("Add Homework Session Type", "Enter name for the new type (e.g., 'Project Milestone 1'):", parent=self)
-        if name and name.strip():
-            name = name.strip()
-            if any(item["name"] == name for item in self.custom_homework_session_types_ref):
-                 messagebox.showwarning("Duplicate", f"Type '{name}' already exists.", parent=self); return
-            type_id_str, next_id_val = self.app.get_new_custom_homework_type_id()
-            self.app.settings["next_custom_homework_type_id_num"] = next_id_val # Commit ID usage
-            self.custom_homework_session_types_ref.append({"id": type_id_str, "name": name})
-            self.settings_changed_flag = True; self.app.save_custom_homework_session_types(); self.populate_custom_homework_session_types_listbox()
-    def edit_selected_custom_homework_session_type(self):
-        sel_idx = self.custom_hw_session_types_listbox.curselection()
-        if not sel_idx: messagebox.showinfo("No Selection", "Please select a type to edit.", parent=self); return
-        idx = sel_idx[0]; old_name = self.custom_homework_session_types_ref[idx]["name"]
-        new_name = simpledialog.askstring("Edit Homework Session Type", "Enter new name:", initialvalue=old_name, parent=self)
-        if new_name and new_name.strip():
-            new_name = new_name.strip()
-            if new_name != old_name and any(item["name"] == new_name for i, item in enumerate(self.custom_homework_session_types_ref) if i != idx):
-                 messagebox.showwarning("Duplicate", f"Type '{new_name}' already exists.", parent=self); return
-            self.custom_homework_session_types_ref[idx]["name"] = new_name
-            self.settings_changed_flag = True; self.app.save_custom_homework_session_types(); self.populate_custom_homework_session_types_listbox()
-    def remove_selected_custom_homework_session_type(self):
-        sel_idx = self.custom_hw_session_types_listbox.curselection()
-        if not sel_idx: messagebox.showinfo("No Selection", "Please select a type to remove.", parent=self); return
-        if messagebox.askyesno("Confirm Remove", "Remove selected homework session type?", parent=self):
-            del self.custom_homework_session_types_ref[sel_idx[0]]
-            self.settings_changed_flag = True; self.app.save_custom_homework_session_types(); self.populate_custom_homework_session_types_listbox()
-    """
+    
     def manage_behavior_initials(self):
         dialog = ManageInitialsDialog(self, self.settings["behavior_initial_overrides"], self.app.all_behaviors, "Behavior/Quiz")
         if dialog.initials_changed: self.settings_changed_flag = True
@@ -1442,6 +1355,9 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Button(box, text="Cancel", width=10, command=self.cancel).pack(side=tk.LEFT, padx=5, pady=5)
 
         self.bind("<Escape>", self.cancel)
+        self.bind_all("<Control-z>", lambda event: self.undo())
+        self.bind_all("<Control-y>", lambda event: self.redo())
+        self.bind_all("<Control-Shift-Z>", lambda event: self.redo())
 
         box.pack()
 

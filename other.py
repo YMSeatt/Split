@@ -357,37 +357,11 @@ class HelpDialog(simpledialog.Dialog):
 
         whats_new_text.insert("end", f"What's New in Version {self.app_version}:\n\n")
 
-        whats_new_text.insert("end", "- Real-Time Conditional Formatting:\n", "bold")
-        whats_new_text.insert("end", "  - Conditional formatting rules based on time will now update automatically, precisely on the minute, every minute. This ensures that time-sensitive visual cues (like a box changing color during a specific class period) are always accurate without needing a manual refresh.\n\n")
-
-        whats_new_text.insert("end", "- Advanced Conditional Formatting Rules:\n", "bold")
-        whats_new_text.insert("end", "  - Live Quiz & Homework Rules:", "bold")
-        whats_new_text.insert("end", " Create rules that react instantly to live session events. Change a student's box color based on their answer in a live quiz or their status in a live homework check.\n")
-        whats_new_text.insert("end", "  - Time & Mode Scoping:", "bold")
-        whats_new_text.insert("end", " Rules can now be configured to be active only during specific times of the day (e.g., \"9:00 AM\" to \"10:30 AM\") or only when the application is in a certain mode (e.g., \"Quiz Mode\").\n")
-        whats_new_text.insert("end", "  - Stripe & Override Styles:", "bold")
-        whats_new_text.insert("end", " Choose how a rule is displayed. \"Override\" changes the entire box color, while \"Stripe\" adds a colored stripe, allowing multiple rules to be visualized simultaneously on the same student box.\n")
-        whats_new_text.insert("end", "  - Bulk Editing:", "bold")
-        whats_new_text.insert("end", " Efficiently manage your rules by enabling, disabling, or modifying the active times/modes for multiple rules at once.\n\n")
-
-        whats_new_text.insert("end", "- Enhanced Homework & Quiz Logging:\n", "bold")
-        whats_new_text.insert("end", "  - Live Homework Sessions:", "bold")
-        whats_new_text.insert("end", " Added a \"Select\" mode for live homework sessions, allowing you to pick from a list of predefined statuses (e.g., \"Late,\" \"Signed\").\n")
-        whats_new_text.insert("end", "  - Homework Templates:", "bold")
-        whats_new_text.insert("end", " Create and reuse templates for common homework assignments to speed up manual logging.\n")
-        whats_new_text.insert("end", "  - Quiz Templates:", "bold")
-        whats_new_text.insert("end", " Similarly, define and apply templates for recurring quizzes.\n\n")
-
-        whats_new_text.insert("end", "- Improved UI & UX:\n", "bold")
-        whats_new_text.insert("end", "  - Layout Guides:", "bold")
-        whats_new_text.insert("end", " Added draggable vertical and horizontal guides to help with precise alignment of classroom items.\n")
-        whats_new_text.insert("end", "  - Box Dragging Toggle:", "bold")
-        whats_new_text.insert("end", " You can now disable the dragging of student/furniture boxes to prevent accidental layout changes.\n")
-        #whats_new_text.insert("end", "  - Clearer Help Sections:", "bold")
-        #whats_new_text.insert("end", " The help dialog has been reorganized into tabs for easier navigation.\n\n")
+        whats_new_text.insert("end", "  - Settings:", "bold")
+        whats_new_text.insert("end", " Added undo/redo functionality in settings. You can use the buttons or Ctrl+z, Ctrl+Shift+Z, and Ctrl+y\n\n")
 
         whats_new_text.insert("end", "- General Improvements:\n", "bold")
-        whats_new_text.insert("end", "  - Numerous bug fixes and performance enhancements.\n")
+        whats_new_text.insert("end", "  - Bug fixes and performance enhancements.\n")
 
         whats_new_text.config(state="disabled")
         whats_new_text.pack(pady=5, fill="both", expand=True)

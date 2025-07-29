@@ -5867,6 +5867,12 @@ class SeatingChartApp:
         # Store a copy of settings for potential revert or detailed change tracking for undo (complex)
         # For now, settings dialog applies changes directly and saves.
         # old_settings_snapshot = self.settings.copy() # For a potential future SettingsChangeCommand
+        
+        # Unbind root so that shorcuts can work in settings
+        self.root.unbind_all("<Control-z>")
+        self.root.unbind_all("<Control-y>")
+        self.root.unbind_all("<Control-Shift-Z>")
+        
         dialog = SettingsDialog(self.root, self.settings, self.custom_behaviors, self.all_behaviors, self,
                                 self.custom_homework_statuses, self.all_homework_statuses, # Homework log behaviors
                                 self.custom_homework_types, self.all_homework_session_types, # Homework session types (Yes/No mode)
@@ -5893,6 +5899,10 @@ class SeatingChartApp:
                 self.update_status("Settings dialog closed, no changes applied through dialog confirm.")
             except: pass
         
+        # Rebind root after settings closes
+        self.root.bind_all("<Control-z>", lambda event: self.undo_last_action())
+        self.root.bind_all("<Control-y>", lambda event: self.redo_last_action())
+        self.root.bind_all("<Control-Shift-Z>", lambda event: self.redo_last_action()) # Common alternative for redo        
 
         self.password_manager.record_activity()
 
