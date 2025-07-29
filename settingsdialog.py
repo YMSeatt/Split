@@ -1450,8 +1450,12 @@ class SettingsDialog(simpledialog.Dialog):
             history = loaded_data
             # with open(get_app_data_path("settings_undo_history.json"), 'r') as f:
             #     history = json.load(f)
-            self.undo_stack = history.get('undo', [])
-            self.redo_stack = history.get('redo', [])
+            if history is not None:
+                self.undo_stack = history.get('undo', [])
+                self.redo_stack = history.get('redo', [])
+            else:
+                self.undo_stack = []
+                self.redo_stack = []
         except (FileNotFoundError, json.JSONDecodeError):
             self.undo_stack = []
             self.redo_stack = []

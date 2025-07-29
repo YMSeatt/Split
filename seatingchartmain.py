@@ -809,6 +809,7 @@ class SeatingChartApp:
         self.file_menu.add_command(label="Backup All Application Data (.zip)...", command=self.backup_all_data_dialog)
         self.file_menu.add_command(label="Restore All Application Data...", command=self.restore_all_data_dialog)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Reset Application (Caution!)...", command=self.reset_application_dialog)
+        self.file_menu.add_command(label="Import data from json (Caution!)...", command=self.import_data)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Exit", command=self.on_exit_protocol, accelerator="Ctrl+Q")
         self.file_menu_btn["menu"] = self.file_menu
         self.file_menu_btn.pack(side=tk.LEFT, padx=2)
@@ -1087,7 +1088,7 @@ class SeatingChartApp:
             if not self.prompt_for_password("Unlock to Toggle Edit Mode", "Enter password to change edit mode:"):
                 self.edit_mode_var.set(not self.edit_mode_var.get()); return
         is_edit_mode = self.edit_mode_var.get()
-        self.update_status(f"Edit Mode {'Enabled' if is_edit_mode else 'Disabled'}. Click item corners to resize.")
+        self.update_status(f"Edit Mode {'Enabled. Click item corners to resize' if is_edit_mode else 'Disabled'}.")
         self.toggle_manage_boxes_visibility()
         self.draw_all_items(check_collisions_on_redraw=True)
         self.password_manager.record_activity()
@@ -3615,6 +3616,23 @@ class SeatingChartApp:
         self.save_data_wrapper(source="toggle_dragging_button") # Save settings immediately
         # No redraw needed unless there's a visual cue for draggable state on items themselves
         self.password_manager.record_activity()
+    
+    
+    def import_data(self):
+        if not self.prompt_for_password("Unlock to import data", "Enter password to import data:", True):
+            return
+        
+        if messagebox.askokcancel("Import data", "Import data from JSON? This will reset application data!", icon='warning'):
+            file_path = filedialog.askopenfilename(title="Import JSON", filetypes=[("JSON", "*.json"), ("All Files", "*.*")])
+            if file_path:
+                try:
+                    self.load_data(file_path=file_path)
+                except Exception as e:
+                    messagebox.showerror("Error loading data", f"Error loading data from json {e}:", icon="error")
+                finally:
+                    self.draw_all_items()
+                    self.reload_canvas()
+            
     
     def load_data(self, file_path=None, is_restore=False):
         # ... (updated migration chain)

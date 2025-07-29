@@ -2,7 +2,6 @@
 
 from cryptography.fernet import Fernet
 import os
-import sys
 from encryption_key import encryption_key as ENCRYPTION_KEY # For me.
 import json
 import cryptography.fernet
