@@ -223,7 +223,8 @@ class SeatingChartApp:
         self.root = root_window 
         self.root.title(f"Classroom Behavior Tracker - {APP_NAME} - {APP_VERSION}")
         self.root.geometry("1400x980")
-        self.root.state('zoomed') # Maximizes the window on Windows
+        if sys.platform == "win32":
+            self.root.state('zoomed') # Maximizes the window on Windows
         self.file_lock_manager = FileLockManager(LOCK_FILE_PATH)
         if not self.file_lock_manager.acquire_lock():
             self.root.destroy()
@@ -340,6 +341,7 @@ class SeatingChartApp:
         self.update_all_homework_session_types() # This now depends on the others
 
         self.load_data() # Loads main data, including settings
+        self.settings["available_fonts"] = sorted(list(tkfont.families()))
         self._ensure_next_ids()
         self.theme_auto(init=True)
 
@@ -520,7 +522,7 @@ class SeatingChartApp:
             # }
             "student_groups_enabled": True,
             "show_zoom_level_display": True,
-            "available_fonts": sorted(list(tkfont.families())),
+            "available_fonts": [], # Updated: populated later
 
             # Quiz specific
             "default_quiz_name": "Pop Quiz",
@@ -3623,6 +3625,13 @@ class SeatingChartApp:
             return
         
         if messagebox.askokcancel("Import data", "Import data from JSON? This will reset application data!", icon='warning'):
+            try:
+                self.backup_all_data_dialog(force=True)
+                messagebox.showinfo("Backup Created", "A backup of your current data has been created in the application's data folder.", parent=self.root)
+            except Exception as e:
+                messagebox.showerror("Backup Error", f"Could not create a backup. Import aborted. Error: {e}", parent=self.root)
+                return
+
             file_path = filedialog.askopenfilename(title="Import JSON", filetypes=[("JSON", "*.json"), ("All Files", "*.*")])
             if file_path:
                 try:

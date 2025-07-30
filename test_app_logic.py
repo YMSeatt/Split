@@ -121,8 +121,7 @@ class TestUtilityFunctions(unittest.TestCase):
 class TestSeatingChartApp(unittest.TestCase):
     def setUp(self):
         # Create a mock Tk root window
-        self.root = MagicMock()
-
+        self.root = tk.Tk()
         # Mock the SeatingChartApp
         self.app = SeatingChartApp(self.root)
 
