@@ -1,2 +1,4 @@
 rich
 textual
+openpyxl
+portalocker
