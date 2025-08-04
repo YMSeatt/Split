@@ -1,4 +1,5 @@
 import math
+from datetime import datetime
 from textual.app import App, ComposeResult
 from textual.containers import Container, Vertical
 from textual.screen import ModalScreen
@@ -260,6 +261,53 @@ class ClassroomApp(App):
                     self.execute_command(command)
 
         self.push_screen(LogBehaviorScreen(behaviors=self.classroom.get_all_behaviors()), callback)
+
+    def action_log_quiz_score(self) -> None:
+        """Pushes a screen to log a quiz score for a student."""
+        def callback(data: dict):
+            if data:
+                student = self.classroom.get_student(data["student_id"])
+                if student:
+                    log_entry = {
+                        "timestamp": datetime.now().isoformat(),
+                        "student_id": data["student_id"],
+                        "student_first_name": student["first_name"],
+                        "student_last_name": student["last_name"],
+                        "behavior": data["quiz_name"],
+                        "comment": data["comment"],
+                        "marks_data": data["marks_data"],
+                        "num_questions": data["num_questions"],
+                        "type": "quiz",
+                        "day": datetime.now().strftime('%A')
+                    }
+                    command = LogEntryCommand(self, log_entry, data["student_id"])
+                    self.execute_command(command)
+        self.push_screen(LogQuizScreen(), callback)
+
+    def action_log_homework(self) -> None:
+        """Pushes a screen to log a homework entry for a student."""
+        def callback(data: dict):
+            if data:
+                student = self.classroom.get_student(data["student_id"])
+                if student:
+                    log_entry = {
+                        "timestamp": datetime.now().isoformat(),
+                        "student_id": data["student_id"],
+                        "student_first_name": student["first_name"],
+                        "student_last_name": student["last_name"],
+                        "behavior": f"{data['homework_type']}: {data['status']}",
+                        "homework_type": data['homework_type'],
+                        "homework_status": data['status'],
+                        "comment": data["comment"],
+                        "type": "homework",
+                        "day": datetime.now().strftime('%A')
+                    }
+                    command = LogHomeworkEntryCommand(self, log_entry, data["student_id"])
+                    self.execute_command(command)
+        self.push_screen(LogHomeworkScreen(
+            types=self.classroom.get_all_homework_types(),
+            statuses=self.classroom.get_all_homework_statuses()
+        ), callback)
 
     def action_lock_application(self):
         if self.password_manager.is_password_set():
