@@ -3,6 +3,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Container, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Header, Footer, Input, Static, DataTable, Label, Select
+
 from classroom import Classroom
 from security import FileLockManager, PasswordManager
 from commands import (
