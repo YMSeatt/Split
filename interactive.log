@@ -1,0 +1,8 @@
+2025-08-04 18:18:42,557 - INFO - Interactive session started.
+2025-08-04 18:18:42,565 - INFO - User input: add-student "Test Student"
+2025-08-04 18:18:42,565 - INFO - Executing command: add-student with name: Test Student
+2025-08-04 18:18:42,568 - INFO - User input: list-students
+2025-08-04 18:18:42,568 - INFO - Executing command: list-students with name: None
+2025-08-04 18:18:42,570 - INFO - User input: exit
+2025-08-04 18:18:42,570 - INFO - Exit command received. Ending session.
+2025-08-04 18:18:42,570 - INFO - Interactive session finished.
