@@ -267,8 +267,15 @@ class SettingsDialog(simpledialog.Dialog):
         general_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(general_tab, text="General")
         self.create_general_tab(general_tab)
 
-        # After creating all tabs, I'll call update_all_widget_states to set the initial state
+        self.create_security_tab(security_tab)
+
+        # --- Sharing Tab ---
+        sharing_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(sharing_tab, text="Sharing")
+        self.create_sharing_tab(sharing_tab)
+
+        # After creating all tabs, call update_all_widget_states to set the initial state
         self.update_all_widget_states()
+
 
         # --- Student Display Tab ---
         student_display_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(student_display_tab, text="Student Boxes")
