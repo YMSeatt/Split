@@ -188,70 +188,6 @@ class SettingsDialog(simpledialog.Dialog):
         self.initial_settings_snapshot = {k: (v.copy() if isinstance(v, (dict, list)) else v) for k,v in current_settings.items()}
 
         self.widget_map = {}
-        self.shareable_settings = {
-            "General": {
-                "autosave_interval_ms": "Autosave Interval",
-                "student_groups_enabled": "Enable Student Groups",
-                "show_zoom_level_display": "Show Zoom Level Display",
-                "max_undo_history_days": "Max Undo History Days",
-                "always_show_box_management": "Always Show Box Management Tools",
-                "check_for_collisions": "Check for Collisions on Box Move",
-                "grid_snap_enabled": "Enable Snap to Grid",
-                "grid_size": "Grid Size",
-                "show_rulers": "Show Rulers",
-                "show_grid": "Show Grid",
-                "grid_color": "Grid Color",
-                "save_guides_to_file": "Save Guides with Layout Data",
-                "guides_stay_when_rulers_hidden": "Keep Guides in Memory when Rulers are Off",
-                "guides_color": "Guide Color",
-                "allow_box_dragging": "Allow Dragging of Boxes",
-            },
-            "Student Box Appearance": {
-                "default_student_box_width": "Default Width",
-                "default_student_box_height": "Default Height",
-                "student_box_fill_color": "Default Fill Color",
-                "student_box_outline_color": "Default Outline Color",
-                "student_font_family": "Default Font Family",
-                "student_font_size": "Names Font Size",
-                "student_font_color": "Default Font Color",
-                "behavior_log_font_size": "Behaviors Font Size",
-                "quiz_log_font_size": "Quiz Log/Score Font Size",
-                "homework_log_font_size": "Homework Log/Score Font Size",
-                "enable_text_background_panel": "Enable Text Background Panel",
-                "always_show_text_background_panel": "Force Enable Text Background Panel",
-            },
-            "Behavior & Quiz Display": {
-                "show_recent_incidents_on_boxes": "Show Recent Incidents on Student Boxes",
-                "num_recent_incidents_to_show": "Number to Show",
-                "recent_incident_time_window_hours": "Time Window (hours)",
-                "show_full_recent_incidents": "Show Full Behavior Names",
-                "reverse_incident_order": "Show Most Recent Incident Last",
-                "default_quiz_name": "Default Quiz Name",
-                "default_quiz_questions": "Default #Questions (Manual Log)",
-                "last_used_quiz_name_timeout_minutes": "Quiz Name Memory Timeout (mins)",
-                "show_recent_incidents_during_quiz": "Show Recent Behaviors During Live Quiz",
-                "live_quiz_questions": "Live Quiz Questions per Session",
-                "live_quiz_initial_color": "Live Quiz Initial Outline Color",
-                "live_quiz_final_color": "Live Quiz Final Outline Color",
-            },
-            "Homework Display & Logging": {
-                "show_recent_homeworks_on_boxes": "Show Recent Homework Logs on Student Boxes",
-                "num_recent_homeworks_to_show": "Number to Show",
-                "recent_homework_time_window_hours": "Time Window (hours)",
-                "show_full_recent_homeworks": "Show Full Homework Names",
-                "reverse_homework_order": "Show Most Recent Homework Last",
-                "default_homework_name": "Default Homework/Session Name",
-                "live_homework_session_mode": "Live Homework Session Mode",
-                "log_homework_marks_enabled": "Enable Detailed Marks for Manual Homework Logging",
-            },
-            "Data & Export": {
-                "excel_export_separate_sheets_by_default": "Separate Log Types into Different Sheets",
-                "excel_export_include_summaries_by_default": "Include Summary Sheet in Export",
-                "enable_excel_autosave": "Enable Excel Log Autosave",
-                "output_dpi": "Image Export DPI",
-            }
-        }
-
         # Undo/Redo stacks for settings changes
         self.undo_stack = []
         self.redo_stack = []
@@ -287,13 +223,8 @@ class SettingsDialog(simpledialog.Dialog):
         security_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(security_tab, text="Security")
         self.create_security_tab(security_tab)
 
-        # --- Sharing Tab ---
-        sharing_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(sharing_tab, text="Sharing")
-        self.create_sharing_tab(sharing_tab)
-
         # After creating all tabs, call update_all_widget_states to set the initial state
         self.update_all_widget_states()
-
 
         self.notebook.grid(column=0,row=0,columnspan=2)
         self.notebook.grid_propagate(True)
@@ -315,6 +246,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.autosave_spinbox.grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
         self.autosave_global_label = ttk.Label(lf, text="", foreground="blue")
         self.autosave_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf, "autosave_interval_ms", row=0, column=3)
         self.widget_map["autosave_interval_ms"] = {"widget": self.autosave_spinbox, "label_widget": self.autosave_global_label}
 
         # Student Groups Enabled
@@ -324,6 +256,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.groups_enabled_cb.grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
         self.groups_global_label = ttk.Label(lf, text="", foreground="blue")
         self.groups_global_label.grid(row=3, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf, "student_groups_enabled", row=3, column=3)
         self.widget_map["student_groups_enabled"] = {"widget": self.groups_enabled_cb, "label_widget": self.groups_global_label}
 
         # Zoom Level Display
@@ -333,6 +266,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.show_zoom_cb.grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
         self.zoom_global_label = ttk.Label(lf, text="", foreground="blue")
         self.zoom_global_label.grid(row=4, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf, "show_zoom_level_display", row=4, column=3)
         self.widget_map["show_zoom_level_display"] = {"widget": self.show_zoom_cb, "label_widget": self.zoom_global_label}
 
         # Max Undo History Days
@@ -343,6 +277,7 @@ class SettingsDialog(simpledialog.Dialog):
         self.max_undo_days_spinbox.grid(row=10, column=1, sticky=tk.W, padx=5, pady=3)
         self.undo_global_label = ttk.Label(lf, text="", foreground="blue")
         self.undo_global_label.grid(row=10, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf, "max_undo_history_days", row=10, column=3)
         self.widget_map["max_undo_history_days"] = {"widget": self.max_undo_days_spinbox, "label_widget": self.undo_global_label}
 
 
@@ -371,13 +306,19 @@ class SettingsDialog(simpledialog.Dialog):
         # Student box management visibility
         self.show_management_var = tk.BooleanVar(value=self.settings.get("always_show_box_management", False), name='show_management_var')
         self.show_management_var.trace_add("write", lambda *args: self.on_setting_change(self.show_management_var, "always_show_box_management", *args))
-        ttk.Checkbutton(cmf, text="Always show box management tools", variable=self.show_management_var).grid(row=5, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+        self.show_management_cb = ttk.Checkbutton(cmf, text="Always show box management tools", variable=self.show_management_var)
+        self.show_management_cb.grid(row=5, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+        self.create_sharing_toggle(cmf, "always_show_box_management", row=5, column=3)
+        self.widget_map["always_show_box_management"] = {"widget": self.show_management_cb}
 
 
         # Check for collisions on redraw
         self.check_for_collisions_var = tk.BooleanVar(value=self.settings.get("check_for_collisions", True), name='check_for_collisions_var')
         self.check_for_collisions_var.trace_add("write", lambda *args: self.on_setting_change(self.check_for_collisions_var, "check_for_collisions", *args))
-        ttk.Checkbutton(cmf, text="Check for collisions on box move", variable=self.check_for_collisions_var).grid(row=6, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+        self.check_for_collisions_cb = ttk.Checkbutton(cmf, text="Check for collisions on box move", variable=self.check_for_collisions_var)
+        self.check_for_collisions_cb.grid(row=6, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+        self.create_sharing_toggle(cmf, "check_for_collisions", row=6, column=3)
+        self.widget_map["check_for_collisions"] = {"widget": self.check_for_collisions_cb}
 
         # Canvas Color
         ttk.Label(cmf, text = "Canvas color (background): ").grid(row=13,column=0,sticky='W', padx=5, pady=3)
@@ -394,11 +335,18 @@ class SettingsDialog(simpledialog.Dialog):
         # Grid snap
         self.grid_snap_var = tk.BooleanVar(value=self.settings.get("grid_snap_enabled", False), name='grid_snap_var')
         self.grid_snap_var.trace_add("write", lambda *args: self.on_setting_change(self.grid_snap_var, "grid_snap_enabled", *args))
-        ttk.Checkbutton(cmf, text="Enable Snap to Grid during Drag", variable=self.grid_snap_var).grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        self.grid_snap_cb = ttk.Checkbutton(cmf, text="Enable Snap to Grid during Drag", variable=self.grid_snap_var)
+        self.grid_snap_cb.grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        self.create_sharing_toggle(cmf, "grid_snap_enabled", row=1, column=3)
+        self.widget_map["grid_snap_enabled"] = {"widget": self.grid_snap_cb}
+
         ttk.Label(cmf, text="Grid Size (pixels):").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
         self.grid_size_var = tk.IntVar(value=self.settings.get("grid_size", DEFAULT_GRID_SIZE), name='grid_size_var')
         self.grid_size_var.trace_add("write", lambda *args: self.on_setting_change(self.grid_size_var, "grid_size", *args))
-        ttk.Spinbox(cmf, from_=5, to=100, increment=5, textvariable=self.grid_size_var, width=5).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
+        self.grid_size_spinbox = ttk.Spinbox(cmf, from_=5, to=100, increment=5, textvariable=self.grid_size_var, width=5)
+        self.grid_size_spinbox.grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
+        self.create_sharing_toggle(cmf, "grid_size", row=2, column=3)
+        self.widget_map["grid_size"] = {"widget": self.grid_size_spinbox}
 
         # Canvas Border Visibility
         self.canvas_border_var = tk.BooleanVar(value=self.settings.get("show_canvas_border_lines", False), name='canvas_border_var')
@@ -415,7 +363,10 @@ class SettingsDialog(simpledialog.Dialog):
         # Allow Box Dragging
         self.allow_box_dragging_var = tk.BooleanVar(value=self.settings.get("allow_box_dragging", True), name='allow_box_dragging_var')
         self.allow_box_dragging_var.trace_add("write", lambda *args: self.on_setting_change(self.allow_box_dragging_var, "allow_box_dragging", *args))
-        ttk.Checkbutton(cmf, text="Allow dragging of student/furniture boxes", variable=self.allow_box_dragging_var).grid(row=16, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+        self.allow_box_dragging_cb = ttk.Checkbutton(cmf, text="Allow dragging of student/furniture boxes", variable=self.allow_box_dragging_var)
+        self.allow_box_dragging_cb.grid(row=16, column=0, columnspan=2, sticky='W', padx=5, pady=3)
+        self.create_sharing_toggle(cmf, "allow_box_dragging", row=16, column=3)
+        self.widget_map["allow_box_dragging"] = {"widget": self.allow_box_dragging_cb}
 
         # Canvas View Options (Rulers, Grid)
         lf_view_options = ttk.LabelFrame(tab_frame, text="Canvas View Options", padding=10)
@@ -423,34 +374,52 @@ class SettingsDialog(simpledialog.Dialog):
 
         self.show_rulers_var = tk.BooleanVar(value=self.settings.get("show_rulers", False), name='show_rulers_var')
         self.show_rulers_var.trace_add("write", lambda *args: self.on_setting_change(self.show_rulers_var, "show_rulers", *args))
-        ttk.Checkbutton(lf_view_options, text="Show Rulers", variable=self.show_rulers_var).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+        self.show_rulers_cb = ttk.Checkbutton(lf_view_options, text="Show Rulers", variable=self.show_rulers_var)
+        self.show_rulers_cb.grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+        self.create_sharing_toggle(lf_view_options, "show_rulers", row=0, column=1)
+        self.widget_map["show_rulers"] = {"widget": self.show_rulers_cb}
 
         self.show_grid_var = tk.BooleanVar(value=self.settings.get("show_grid", False), name='show_grid_var')
         self.show_grid_var.trace_add("write", lambda *args: self.on_setting_change(self.show_grid_var, "show_grid", *args))
-        ttk.Checkbutton(lf_view_options, text="Show Grid", variable=self.show_grid_var).grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
+        self.show_grid_cb = ttk.Checkbutton(lf_view_options, text="Show Grid", variable=self.show_grid_var)
+        self.show_grid_cb.grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
+        self.create_sharing_toggle(lf_view_options, "show_grid", row=1, column=1)
+        self.widget_map["show_grid"] = {"widget": self.show_grid_cb}
 
         ttk.Label(lf_view_options, text="Grid Color:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=3)
         self.grid_color_var = tk.StringVar(value=self.settings.get("grid_color", "#d3d3d3"), name='grid_color_var')
         self.grid_color_var.trace_add("write", lambda *args: self.on_setting_change(self.grid_color_var, "grid_color", *args))
-        ttk.Entry(lf_view_options, textvariable=self.grid_color_var, width=12).grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
+        self.grid_color_entry = ttk.Entry(lf_view_options, textvariable=self.grid_color_var, width=12)
+        self.grid_color_entry.grid(row=2, column=1, sticky=tk.W, padx=5, pady=3)
         ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.grid_color_var: self.choose_color_for_var(v)).grid(row=2, column=2, sticky=tk.W, padx=2, pady=3)
+        self.create_sharing_toggle(lf_view_options, "grid_color", row=2, column=3)
+        self.widget_map["grid_color"] = {"widget": self.grid_color_entry}
 
         # New Guide Settings
         self.save_guides_var = tk.BooleanVar(value=self.settings.get("save_guides_to_file", True), name='save_guides_var')
         self.save_guides_var.trace_add("write", lambda *args: self.on_setting_change(self.save_guides_var, "save_guides_to_file", *args))
-        ttk.Checkbutton(lf_view_options, text="Save Guides with Layout Data", variable=self.save_guides_var).grid(row=3, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+        self.save_guides_cb = ttk.Checkbutton(lf_view_options, text="Save Guides with Layout Data", variable=self.save_guides_var)
+        self.save_guides_cb.grid(row=3, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+        self.create_sharing_toggle(lf_view_options, "save_guides_to_file", row=3, column=3)
+        self.widget_map["save_guides_to_file"] = {"widget": self.save_guides_cb}
 
         self.persist_guides_toggle_var = tk.BooleanVar(value=self.settings.get("guides_stay_when_rulers_hidden", True), name='persist_guides_toggle_var')
         self.persist_guides_toggle_var.trace_add("write", lambda *args: self.on_setting_change(self.persist_guides_toggle_var, "guides_stay_when_rulers_hidden", *args))
-        ttk.Checkbutton(lf_view_options, text="Keep Guides in Memory when 'Toggle Rulers' is Off", variable=self.persist_guides_toggle_var).grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+        self.persist_guides_cb = ttk.Checkbutton(lf_view_options, text="Keep Guides in Memory when 'Toggle Rulers' is Off", variable=self.persist_guides_toggle_var)
+        self.persist_guides_cb.grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=3)
+        self.create_sharing_toggle(lf_view_options, "guides_stay_when_rulers_hidden", row=4, column=3)
+        self.widget_map["guides_stay_when_rulers_hidden"] = {"widget": self.persist_guides_cb}
 
         # Guide Color Settings
         self.guides_color_var = tk.StringVar(value=self.settings.get("guides_color", "blue"), name='guides_color_var')
         self.guides_color_var.trace_add("write", lambda *args: self.on_setting_change(self.guides_color_var, "guides_color", *args))
         ttk.Label(lf_view_options, text="Guide Color:").grid(row=0, column=3, sticky=tk.W, padx=5, pady=3)
-        ttk.Entry(lf_view_options, textvariable=self.guides_color_var, width=12).grid(row=0, padx=3, column=4)
+        self.guides_color_entry = ttk.Entry(lf_view_options, textvariable=self.guides_color_var, width=12)
+        self.guides_color_entry.grid(row=0, padx=3, column=4)
         ttk.Button(lf_view_options, text="Choose...", command=lambda v=self.guides_color_var: self.choose_color_for_var(v)).grid(row=0, column=5, sticky=tk.W, padx=2, pady=3)
         ttk.Button(lf_view_options, text="Default", command=lambda v=self.guides_color_var: self.reset_color_for_var(v, "blue")).grid(row=0, column=6, sticky=tk.W, padx=2, pady=3)
+        self.create_sharing_toggle(lf_view_options, "guides_color", row=0, column=7)
+        self.widget_map["guides_color"] = {"widget": self.guides_color_entry}
 
     def on_setting_change(self, var, key, *args):
         """
@@ -459,7 +428,7 @@ class SettingsDialog(simpledialog.Dialog):
         # Prevent re-entrant calls when a setting is changed programmatically by undo/redo
         if self._is_undoing_or_redoing:
             return
-        
+
         try:
             # This is the new value from the widget (e.g., an int from a Spinbox)
             new_widget_value = var.get()
@@ -498,7 +467,7 @@ class SettingsDialog(simpledialog.Dialog):
             # Update the main settings dictionary and the snapshot with the new "storage" value
             self.settings[key] = new_storage_value
             self.initial_settings_snapshot[key] = new_storage_value
-            
+
             self.settings_changed_flag = True
             self.update_status(f"Setting '{key}' changed.")
 
@@ -513,6 +482,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.def_stud_w_spinbox.grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
         self.def_stud_w_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
         self.def_stud_w_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_defaults, "default_student_box_width", row=0, column=3)
+        self.widget_map["default_student_box_width"] = {"widget": self.def_stud_w_spinbox, "label_widget": self.def_stud_w_global_label}
 
         ttk.Label(lf_defaults, text="Default Height:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
         self.def_stud_h_var = tk.IntVar(value=self.settings.get("default_student_box_height", DEFAULT_STUDENT_BOX_HEIGHT), name='def_stud_h_var')
@@ -521,6 +492,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.def_stud_h_spinbox.grid(row=1, column=1, sticky=tk.W, padx=5, pady=3)
         self.def_stud_h_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
         self.def_stud_h_global_label.grid(row=1, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_defaults, "default_student_box_height", row=1, column=3)
+        self.widget_map["default_student_box_height"] = {"widget": self.def_stud_h_spinbox, "label_widget": self.def_stud_h_global_label}
 
         # Default colors and font
         self.create_color_font_settings_ui(lf_defaults, 2, "student_box_fill_color", "student_box_outline_color", "student_font_family", "student_font_size", "student_font_color")
@@ -535,6 +508,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.quiz_log_font_size_spinbox.grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
         self.quiz_log_font_size_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
         self.quiz_log_font_size_global_label.grid(row=row_after_defaults, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_defaults, "quiz_log_font_size", row=row_after_defaults, column=3)
+        self.widget_map["quiz_log_font_size"] = {"widget": self.quiz_log_font_size_spinbox, "label_widget": self.quiz_log_font_size_global_label}
         row_after_defaults += 1
 
         ttk.Label(lf_defaults, text="Homework Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
@@ -544,6 +519,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.homework_log_font_size_spinbox.grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
         self.homework_log_font_size_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
         self.homework_log_font_size_global_label.grid(row=row_after_defaults, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_defaults, "homework_log_font_size", row=row_after_defaults, column=3)
+        self.widget_map["homework_log_font_size"] = {"widget": self.homework_log_font_size_spinbox, "label_widget": self.homework_log_font_size_global_label}
         row_after_defaults += 1
 
         # Setting for text background panel
@@ -554,6 +531,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.enable_text_panel_cb.grid(row=15, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(10, 3))
         self.enable_text_panel_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
         self.enable_text_panel_global_label.grid(row=15, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_defaults, "enable_text_background_panel", row=15, column=3)
+        self.widget_map["enable_text_background_panel"] = {"widget": self.enable_text_panel_cb, "label_widget": self.enable_text_panel_global_label}
 
         self.enable_text_panel_always_var = tk.BooleanVar(value=self.settings.get("always_show_text_background_panel", False), name='enable_text_panel_always_var')
         self.enable_text_panel_always_var.trace_add("write", lambda *args: self.on_setting_change(self.enable_text_panel_always_var, "always_show_text_background_panel", *args))
@@ -562,6 +541,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.enable_text_panel_always_cb.grid(row=16, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(10, 3))
         self.enable_text_panel_always_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
         self.enable_text_panel_always_global_label.grid(row=16, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_defaults, "always_show_text_background_panel", row=16, column=3)
+        self.widget_map["always_show_text_background_panel"] = {"widget": self.enable_text_panel_always_cb, "label_widget": self.enable_text_panel_always_global_label}
 
 
         lf_cond_format = ttk.LabelFrame(tab_frame, text="Conditional Formatting Rules", padding=10, width=1000)
@@ -585,6 +566,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.show_recent_cb.grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
         self.show_recent_global_label = ttk.Label(lf_recent, text="", foreground="blue")
         self.show_recent_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent, "show_recent_incidents_on_boxes", row=0, column=3)
+        self.widget_map["show_recent_incidents_on_boxes"] = {"widget": self.show_recent_cb, "label_widget": self.show_recent_global_label}
 
         ttk.Label(lf_recent, text="Number to show:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
         self.num_recent_var = tk.IntVar(value=self.settings.get("num_recent_incidents_to_show", 2), name='num_recent_var')
@@ -593,6 +576,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.num_recent_spinbox.grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
         self.num_recent_global_label = ttk.Label(lf_recent, text="", foreground="blue")
         self.num_recent_global_label.grid(row=1, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent, "num_recent_incidents_to_show", row=1, column=3)
+        self.widget_map["num_recent_incidents_to_show"] = {"widget": self.num_recent_spinbox, "label_widget": self.num_recent_global_label}
 
         ttk.Label(lf_recent, text="Time window (hours):").grid(row=2,column=0,sticky=tk.W,padx=5,pady=3)
         self.time_window_var = tk.IntVar(value=self.settings.get("recent_incident_time_window_hours", 24), name='time_window_var')
@@ -601,6 +586,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.time_window_spinbox.grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
         self.time_window_global_label = ttk.Label(lf_recent, text="", foreground="blue")
         self.time_window_global_label.grid(row=2, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent, "recent_incident_time_window_hours", row=2, column=3)
+        self.widget_map["recent_incident_time_window_hours"] = {"widget": self.time_window_spinbox, "label_widget": self.time_window_global_label}
 
         self.show_full_recent_var = tk.BooleanVar(value=self.settings.get("show_full_recent_incidents", False), name='show_full_recent_var')
         self.show_full_recent_var.trace_add("write", lambda *args: self.on_setting_change(self.show_full_recent_var, "show_full_recent_incidents", *args))
@@ -608,6 +595,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.show_full_recent_cb.grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
         self.show_full_recent_global_label = ttk.Label(lf_recent, text="", foreground="blue")
         self.show_full_recent_global_label.grid(row=3, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent, "show_full_recent_incidents", row=3, column=3)
+        self.widget_map["show_full_recent_incidents"] = {"widget": self.show_full_recent_cb, "label_widget": self.show_full_recent_global_label}
 
         self.reverse_order_var = tk.BooleanVar(value=self.settings.get("reverse_incident_order", True), name='reverse_order_var')
         self.reverse_order_var.trace_add("write", lambda *args: self.on_setting_change(self.reverse_order_var, "reverse_incident_order", *args))
@@ -615,6 +604,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.reverse_order_cb.grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
         self.reverse_order_global_label = ttk.Label(lf_recent, text="", foreground="blue")
         self.reverse_order_global_label.grid(row=4, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent, "reverse_incident_order", row=4, column=3)
+        self.widget_map["reverse_incident_order"] = {"widget": self.reverse_order_cb, "label_widget": self.reverse_order_global_label}
 
         # Custom Behaviors
         lf_custom_b = ttk.LabelFrame(tab_frame, text="Custom Behaviors & Initials", padding=10); lf_custom_b.grid(sticky="nsew",column=1,row=0, pady=5)
@@ -743,6 +734,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.show_recent_hw_cb.grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
         self.show_recent_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
         self.show_recent_hw_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent_hw, "show_recent_homeworks_on_boxes", row=0, column=3)
+        self.widget_map["show_recent_homeworks_on_boxes"] = {"widget": self.show_recent_hw_cb, "label_widget": self.show_recent_hw_global_label}
 
         ttk.Label(lf_recent_hw, text="Number to show:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
         self.num_recent_hw_var = tk.IntVar(value=self.settings.get("num_recent_homeworks_to_show", 2), name='num_recent_hw_var')
@@ -751,6 +744,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.num_recent_hw_spinbox.grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
         self.num_recent_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
         self.num_recent_hw_global_label.grid(row=1, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent_hw, "num_recent_homeworks_to_show", row=1, column=3)
+        self.widget_map["num_recent_homeworks_to_show"] = {"widget": self.num_recent_hw_spinbox, "label_widget": self.num_recent_hw_global_label}
 
         ttk.Label(lf_recent_hw, text="Time window (hours):").grid(row=2,column=0,sticky=tk.W,padx=5,pady=3)
         self.time_window_hw_var = tk.IntVar(value=self.settings.get("recent_homework_time_window_hours", 24), name='time_window_hw_var')
@@ -759,6 +754,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.time_window_hw_spinbox.grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
         self.time_window_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
         self.time_window_hw_global_label.grid(row=2, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent_hw, "recent_homework_time_window_hours", row=2, column=3)
+        self.widget_map["recent_homework_time_window_hours"] = {"widget": self.time_window_hw_spinbox, "label_widget": self.time_window_hw_global_label}
 
         self.show_full_recent_hw_var = tk.BooleanVar(value=self.settings.get("show_full_recent_homeworks", False), name='show_full_recent_hw_var')
         self.show_full_recent_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.show_full_recent_hw_var, "show_full_recent_homeworks", *args))
@@ -766,6 +763,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.show_full_recent_hw_cb.grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
         self.show_full_recent_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
         self.show_full_recent_hw_global_label.grid(row=3, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent_hw, "show_full_recent_homeworks", row=3, column=3)
+        self.widget_map["show_full_recent_homeworks"] = {"widget": self.show_full_recent_hw_cb, "label_widget": self.show_full_recent_hw_global_label}
 
         self.reverse_hw_order_var = tk.BooleanVar(value=self.settings.get("reverse_homework_order", True), name='reverse_hw_order_var')
         self.reverse_hw_order_var.trace_add("write", lambda *args: self.on_setting_change(self.reverse_hw_order_var, "reverse_homework_order", *args))
@@ -773,6 +772,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.reverse_hw_order_cb.grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
         self.reverse_hw_order_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
         self.reverse_hw_order_global_label.grid(row=4, column=2, sticky=tk.W, padx=5)
+        self.create_sharing_toggle(lf_recent_hw, "reverse_homework_order", row=4, column=3)
+        self.widget_map["reverse_homework_order"] = {"widget": self.reverse_hw_order_cb, "label_widget": self.reverse_hw_order_global_label}
         """
         # Custom Homework Log Behaviors (for manual logging options like "Done", "Not Done")
         lf_custom_hw_log = ttk.LabelFrame(tab_frame, text="Custom Homework Log Options & Initials", padding=10)
@@ -849,7 +850,7 @@ class SettingsDialog(simpledialog.Dialog):
 
 
         self.on_live_hw_mode_change(None) # Show/hide mode-specific frames
-        
+
     # --- Methods for managing the new custom lists ---
     # Custom Homework TYPES
     def populate_custom_homework_types_listbox(self):
@@ -1012,6 +1013,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.excel_sep_sheets_cb.pack(anchor=tk.W, padx=5, pady=2)
         self.excel_sep_sheets_global_label = ttk.Label(lf_excel, text="", foreground="blue")
         self.excel_sep_sheets_global_label.pack(anchor=tk.W, padx=5)
+        self.create_sharing_toggle(lf_excel, "excel_export_separate_sheets_by_default", row=0, column=1)
+        self.widget_map["excel_export_separate_sheets_by_default"] = {"widget": self.excel_sep_sheets_cb, "label_widget": self.excel_sep_sheets_global_label}
 
         self.excel_inc_summary_var = tk.BooleanVar(value=self.settings.get("excel_export_include_summaries_by_default", True), name='excel_inc_summary_var')
         self.excel_inc_summary_var.trace_add("write", lambda *args: self.on_setting_change(self.excel_inc_summary_var, "excel_export_include_summaries_by_default", *args))
@@ -1019,6 +1022,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.excel_inc_summary_cb.pack(anchor=tk.W, padx=5, pady=2)
         self.excel_inc_summary_global_label = ttk.Label(lf_excel, text="", foreground="blue")
         self.excel_inc_summary_global_label.pack(anchor=tk.W, padx=5)
+        self.create_sharing_toggle(lf_excel, "excel_export_include_summaries_by_default", row=1, column=1)
+        self.widget_map["excel_export_include_summaries_by_default"] = {"widget": self.excel_inc_summary_cb, "label_widget": self.excel_inc_summary_global_label}
 
         lf_autosave_excel = ttk.LabelFrame(tab_frame, text="Excel Log Autosave (Experimental)", padding=10); lf_autosave_excel.pack(fill=tk.X, pady=5)
         self.enable_excel_autosave_var = tk.BooleanVar(value=self.settings.get("enable_excel_autosave", False), name='enable_excel_autosave_var')
@@ -1027,6 +1032,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.enable_excel_autosave_cb.pack(anchor=tk.W, padx=5, pady=2)
         self.enable_excel_autosave_global_label = ttk.Label(lf_autosave_excel, text="", foreground="blue")
         self.enable_excel_autosave_global_label.pack(anchor=tk.W, padx=5)
+        self.create_sharing_toggle(lf_autosave_excel, "enable_excel_autosave", row=0, column=1)
+        self.widget_map["enable_excel_autosave"] = {"widget": self.enable_excel_autosave_cb, "label_widget": self.enable_excel_autosave_global_label}
         ttk.Label(lf_autosave_excel, text="Note: This uses current export filters if set, or exports all data. File is overwritten each time.").pack(anchor=tk.W, padx=5, pady=2)
 
         lf_export_image = ttk.LabelFrame(tab_frame, text="Image Exporting", padding=10); lf_export_image.pack(fill=tk.X, pady=5)
@@ -1038,6 +1045,8 @@ class SettingsDialog(simpledialog.Dialog):
         self.export_image_spin.set(self.dpi_image_export_var.get())
         self.output_dpi_global_label = ttk.Label(lf_export_image, text="", foreground="blue")
         self.output_dpi_global_label.pack(anchor=tk.W, padx=5)
+        self.create_sharing_toggle(lf_export_image, "output_dpi", row=0, column=1)
+        self.widget_map["output_dpi"] = {"widget": self.export_image_spin, "label_widget": self.output_dpi_global_label}
 
     def create_security_tab(self, tab_frame):
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)
@@ -1088,6 +1097,64 @@ class SettingsDialog(simpledialog.Dialog):
         self.encrypt_data_var = tk.BooleanVar(value=self.settings.get("encrypt_data_files", True), name='encrypt_data_var')
         self.encrypt_data_var.trace_add("write", lambda *args: self.on_setting_change(self.encrypt_data_var, "encrypt_data_files", *args))
         ttk.Checkbutton(lf_encryption, text="Encrypt data files on save (This does NOT protect from deletion)", variable=self.encrypt_data_var).pack(anchor=tk.W, padx=5, pady=2)
+
+    def create_sharing_toggle(self, parent, key, row, column):
+        """Creates a sharing toggle button for a given setting."""
+        is_shared = self.app.settings_sharing_config.get(key, False)
+        style_name = f'SharingToggle.{key}.TButton'
+
+        style = ttk.Style(self)
+        style.configure(style_name, padding=2)
+
+        toggle_btn = ttk.Button(parent, text="G" if is_shared else "P", width=2, style=style_name,
+                                command=lambda k=key: self.toggle_sharing(k))
+        toggle_btn.grid(row=row, column=column, sticky=tk.W, padx=(5, 0))
+
+        # Store the button in the widget_map to update its text later
+        if key in self.widget_map:
+            self.widget_map[key]['sharing_toggle'] = toggle_btn
+        else:
+            self.widget_map[key] = {'sharing_toggle': toggle_btn}
+
+        return toggle_btn
+
+    def toggle_sharing(self, key):
+        """Toggles the sharing state of a setting and updates the UI."""
+        current_state = self.app.settings_sharing_config.get(key, False)
+        new_state = not current_state
+        self.app.settings_sharing_config[key] = new_state
+        self.settings_changed_flag = True
+
+        self.update_widget_state(key)
+        self.update_status(f"Sharing for '{self.app.shareable_settings.get(key, key)}' set to {'Global' if new_state else 'Per-Profile'}.")
+
+    def update_widget_state(self, key):
+        """Updates a single widget's appearance based on its sharing state."""
+        widget_info = self.widget_map.get(key)
+        if not widget_info:
+            return
+
+        is_shared = self.app.settings_sharing_config.get(key, False)
+
+        # Update sharing toggle button
+        sharing_toggle_btn = widget_info.get('sharing_toggle')
+        if sharing_toggle_btn:
+            sharing_toggle_btn.config(text="G" if is_shared else "P")
+
+        # Update main widget (disable if shared)
+        main_widget = widget_info.get('widget')
+        if main_widget:
+            main_widget.config(state=tk.DISABLED if is_shared else tk.NORMAL)
+
+        # Update label
+        label_widget = widget_info.get('label_widget')
+        if label_widget:
+            label_widget.config(text="(Global)" if is_shared else "")
+
+    def update_all_widget_states(self):
+        """Updates all widgets based on their sharing configuration."""
+        for setting_key in self.widget_map.keys():
+            self.update_widget_state(setting_key)
 
     def create_other_settings_tab(self, tab_frame):
         # Create content for the Other Settings tab
