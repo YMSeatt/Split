@@ -10,6 +10,8 @@ from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
 from openpyxl.utils import get_column_letter
 import re
 import shutil
+import shutil
+import shutil
 import zipfile
 import csv
 import PIL
@@ -24,11 +26,12 @@ from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDial
 from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialog
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
+from profile_dialog import ProfileDialog, CreateProfileDialog
 from data_locker import unlock_file, DATA_FILE
 import json
 from data_encryption import encrypt_data, decrypt_data
 # Replace with your actual path to gswinXXc.exe
-#EpsImagePlugin.gs_windows_binary = "C:\\Program Files\\gs\\gs10.05.1\bin\\gswin64c.exe" 
+#EpsImagePlugin.gs_windows_binary = "C:\\Program Files\\gs\\gs10.05.1\bin\\gswin64c.exe"
 # Only use this ^ if something really doesn't work. Otherwise, it works even with just installing Ghostscript regularly, without any additional steps.
 import sv_ttk # For themed widgets
 import darkdetect # For dark mode detection
@@ -57,6 +60,9 @@ except ImportError:
 APP_NAME = "BehaviorLogger"
 APP_VERSION = "v57.0" # Version incremented
 CURRENT_DATA_VERSION_TAG = "v10" # Incremented for guide saving
+
+# --- Profile Management ---
+g_current_profile_name = None
 
 # --- Default Configuration ---
 DEFAULT_STUDENT_BOX_WIDTH = 130
@@ -87,35 +93,43 @@ RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
 # --- Path Handling ---
 def get_app_data_path(filename):
+    """Gets the path for a given data file, considering the active profile."""
+    global g_current_profile_name
     try:
-        # Determine base path based on whether the app is frozen (packaged) or running from script
+        # Determine app's root data directory
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-            # Running as a PyInstaller bundle
-            if os.name == 'win32': # Windows
-                base_path = os.path.join(os.getenv('APPDATA'), APP_NAME)
-            elif sys.platform == 'darwin': # macOS
-                base_path = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', APP_NAME)
-            else: # Linux and other Unix-like
+            if os.name == 'win32':
+                app_data_root = os.path.join(os.getenv('APPDATA'), APP_NAME)
+            elif sys.platform == 'darwin':
+                app_data_root = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', APP_NAME)
+            else:
                 xdg_config_home = os.getenv('XDG_CONFIG_HOME')
-                if xdg_config_home:
-                    base_path = os.path.join(xdg_config_home, APP_NAME)
-                else:
-                    base_path = os.path.join(os.path.expanduser('~'), '.config', APP_NAME)
+                app_data_root = os.path.join(xdg_config_home, APP_NAME) if xdg_config_home else os.path.join(os.path.expanduser('~'), '.config', APP_NAME)
         else:
-            # Running as a script, use the script's directory
-            base_path = os.path.dirname(os.path.abspath(__file__))
+            app_data_root = os.path.dirname(os.path.abspath(__file__))
 
-        # Create the base directory if it doesn't exist
-        if not os.path.exists(base_path):
-            os.makedirs(base_path, exist_ok=True)
-        return os.path.join(base_path, filename)
+        # Decide the final base directory for the file
+        if g_current_profile_name and filename not in ["profiles.json", "settings_sharing_config.json", "global_settings.json"]:
+            # A profile is active, and it's a profile-specific file
+            final_path_dir = os.path.join(app_data_root, "profiles", g_current_profile_name)
+        else:
+            # No profile active, or it's a global file
+            final_path_dir = app_data_root
+
+        if not os.path.exists(final_path_dir):
+            os.makedirs(final_path_dir, exist_ok=True)
+        return os.path.join(final_path_dir, filename)
     except Exception as e:
-        # Fallback to current working directory if standard paths fail
+        # Fallback logic
         print(f"Warning: Could not determine standard app data path due to {e}. Using current working directory as fallback.")
-        fallback_path = os.path.join(os.getcwd(), APP_NAME) # Create a subfolder in CWD
-        if not os.path.exists(fallback_path):
-             os.makedirs(fallback_path, exist_ok=True)
-        return os.path.join(fallback_path, filename)
+        fallback_root = os.path.join(os.getcwd(), APP_NAME)
+        if g_current_profile_name and filename not in ["profiles.json", "settings_sharing_config.json", "global_settings.json"]:
+            final_fallback_dir = os.path.join(fallback_root, "profiles", g_current_profile_name)
+        else:
+            final_fallback_dir = fallback_root
+        if not os.path.exists(final_fallback_dir):
+             os.makedirs(final_fallback_dir, exist_ok=True)
+        return os.path.join(final_fallback_dir, filename)
 
 DATA_FILE_PATTERN = f"classroom_data_{CURRENT_DATA_VERSION_TAG}.json"
 CUSTOM_BEHAVIORS_FILE_PATTERN = f"custom_behaviors_{CURRENT_DATA_VERSION_TAG}.json"
@@ -812,6 +826,8 @@ class SeatingChartApp:
         self.file_menu.add_command(label="Restore All Application Data...", command=self.restore_all_data_dialog)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Reset Application (Caution!)...", command=self.reset_application_dialog)
         self.file_menu.add_command(label="Import data from json (Caution!)...", command=self.import_data)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Switch Profile", command=self.switch_profile)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Exit", command=self.on_exit_protocol, accelerator="Ctrl+Q")
         self.file_menu_btn["menu"] = self.file_menu
         self.file_menu_btn.pack(side=tk.LEFT, padx=2)
@@ -6273,6 +6289,13 @@ class SeatingChartApp:
         self.password_manager.record_activity()
         # The UndoHistoryDialog should refresh itself.
 
+    def switch_profile(self):
+        """Restarts the application to the profile selection screen."""
+        if self.file_lock_manager:
+            self.file_lock_manager.release_lock()
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+
     def on_exit_protocol(self, force_quit=False):
 
         #dialog = ExitConfirmationDialog(self.root, "Exit Confirmation")
@@ -6371,42 +6394,84 @@ class ScrollableToolbar(ttk.Frame):
 
 
 # --- Main Execution ---
+def manage_profiles(root):
+    """Handles the profile selection, creation, and deletion loop."""
+    global g_current_profile_name
+
+    profiles_dir = os.path.dirname(get_app_data_path("profiles.json"))
+    profiles_json_path = os.path.join(profiles_dir, "profiles.json")
+
+    if not os.path.exists(profiles_dir):
+        os.makedirs(profiles_dir, exist_ok=True)
+    if not os.path.exists(profiles_json_path):
+        with open(profiles_json_path, 'w') as f:
+            json.dump([], f)
+
+    while True:
+        profiles = []
+        with open(profiles_json_path, 'r') as f:
+            try: profiles = json.load(f)
+            except json.JSONDecodeError: pass
+
+        if len(profiles) == 1 and g_current_profile_name is None:
+            g_current_profile_name = profiles[0]['name']
+            return True
+
+        dialog = ProfileDialog(root, profiles_json_path)
+        root.wait_window(dialog)
+        result = dialog.result
+
+        if result and result['action'] == 'load':
+            g_current_profile_name = result['profile']
+            return True
+        elif result and result['action'] == 'create':
+            create_dialog = CreateProfileDialog(root, profiles)
+            root.wait_window(create_dialog)
+            new_profile_data = create_dialog.result
+            if new_profile_data:
+                profiles.append(new_profile_data)
+                with open(profiles_json_path, 'w') as f:
+                    json.dump(profiles, f, indent=4)
+        elif result and result['action'] == 'delete':
+            profile_to_delete = result['profile']
+            profiles = [p for p in profiles if p['name'] != profile_to_delete]
+            with open(profiles_json_path, 'w') as f:
+                json.dump(profiles, f, indent=4)
+            profile_dir_to_delete = os.path.join(profiles_dir, "profiles", profile_to_delete)
+            if os.path.exists(profile_dir_to_delete):
+                try:
+                    shutil.rmtree(profile_dir_to_delete)
+                except OSError as e:
+                    messagebox.showerror("Delete Error", f"Could not delete profile directory: {e}", parent=root)
+        else:
+            return False
+
 if __name__ == "__main__":
     try:
         import pyi_splash
-        # You can optionally update the splash screen text as things load
         pyi_splash.update_text("Loading UI...")
-    except ImportError:
-        pyi_splash = None # Will be None when not running from a PyInstaller bundle
-    except RuntimeError: pass
+    except (ImportError, RuntimeError):
+        pyi_splash = None
 
     root = tk.Tk()
-    # Apply a theme if available and desired
-    try:
-        # Examples: 'clam', 'alt', 'default', 'classic'
-        # Some themes might require python -m tkinter to see available ones on your system
-        # Or use ttkthemes for more options: from ttkthemes import ThemedTk
-        # root = ThemedTk(theme="arc") # Example using ttkthemes
-        style = ttk.Style(root)
-        #available_themes = style.theme_names() # ('winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative') on Windows
-        # print("Available themes:", available_themes)
-        sv_ttk.set_theme("Light")
-        #if 'vista' in available_themes: style.theme_use('vista')
-        #elif 'xpnative' in available_themes: style.theme_use('xpnative')
+    root.withdraw()
 
-    except Exception as e_theme:
-        print(f"Could not apply custom theme: {e_theme}")
+    if manage_profiles(root):
+        root.deiconify()
+        try:
+            sv_ttk.set_theme("Light")
+        except Exception as e_theme:
+            print(f"Could not apply custom theme: {e_theme}")
         
-    app = SeatingChartApp(root)
-    
-    try:
-        t = threading.Thread(target=darkdetect.listener, args=(app.theme_auto, ))
-        t.daemon = True
-        t.start()
-    except: pass
+        app = SeatingChartApp(root)
 
-    # Close the splash screen once the main app is initialized and ready
-    try: pyi_splash.close()
-    except: pass
-    
-    root.mainloop()
+        try:
+            t = threading.Thread(target=darkdetect.listener, args=(app.theme_auto, ))
+            t.daemon = True
+            t.start()
+        except: pass
+
+        if pyi_splash:
+            pyi_splash.close()
+
+        root.mainloop()
