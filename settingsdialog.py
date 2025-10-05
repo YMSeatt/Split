@@ -187,6 +187,71 @@ class SettingsDialog(simpledialog.Dialog):
         self._is_undoing_or_redoing = False # Flag to prevent re-entrant calls during undo/redo
         self.initial_settings_snapshot = {k: (v.copy() if isinstance(v, (dict, list)) else v) for k,v in current_settings.items()}
 
+        self.widget_map = {}
+        self.shareable_settings = {
+            "General": {
+                "autosave_interval_ms": "Autosave Interval",
+                "student_groups_enabled": "Enable Student Groups",
+                "show_zoom_level_display": "Show Zoom Level Display",
+                "max_undo_history_days": "Max Undo History Days",
+                "always_show_box_management": "Always Show Box Management Tools",
+                "check_for_collisions": "Check for Collisions on Box Move",
+                "grid_snap_enabled": "Enable Snap to Grid",
+                "grid_size": "Grid Size",
+                "show_rulers": "Show Rulers",
+                "show_grid": "Show Grid",
+                "grid_color": "Grid Color",
+                "save_guides_to_file": "Save Guides with Layout Data",
+                "guides_stay_when_rulers_hidden": "Keep Guides in Memory when Rulers are Off",
+                "guides_color": "Guide Color",
+                "allow_box_dragging": "Allow Dragging of Boxes",
+            },
+            "Student Box Appearance": {
+                "default_student_box_width": "Default Width",
+                "default_student_box_height": "Default Height",
+                "student_box_fill_color": "Default Fill Color",
+                "student_box_outline_color": "Default Outline Color",
+                "student_font_family": "Default Font Family",
+                "student_font_size": "Names Font Size",
+                "student_font_color": "Default Font Color",
+                "behavior_log_font_size": "Behaviors Font Size",
+                "quiz_log_font_size": "Quiz Log/Score Font Size",
+                "homework_log_font_size": "Homework Log/Score Font Size",
+                "enable_text_background_panel": "Enable Text Background Panel",
+                "always_show_text_background_panel": "Force Enable Text Background Panel",
+            },
+            "Behavior & Quiz Display": {
+                "show_recent_incidents_on_boxes": "Show Recent Incidents on Student Boxes",
+                "num_recent_incidents_to_show": "Number to Show",
+                "recent_incident_time_window_hours": "Time Window (hours)",
+                "show_full_recent_incidents": "Show Full Behavior Names",
+                "reverse_incident_order": "Show Most Recent Incident Last",
+                "default_quiz_name": "Default Quiz Name",
+                "default_quiz_questions": "Default #Questions (Manual Log)",
+                "last_used_quiz_name_timeout_minutes": "Quiz Name Memory Timeout (mins)",
+                "show_recent_incidents_during_quiz": "Show Recent Behaviors During Live Quiz",
+                "live_quiz_questions": "Live Quiz Questions per Session",
+                "live_quiz_initial_color": "Live Quiz Initial Outline Color",
+                "live_quiz_final_color": "Live Quiz Final Outline Color",
+            },
+            "Homework Display & Logging": {
+                "show_recent_homeworks_on_boxes": "Show Recent Homework Logs on Student Boxes",
+                "num_recent_homeworks_to_show": "Number to Show",
+                "recent_homework_time_window_hours": "Time Window (hours)",
+                "show_full_recent_homeworks": "Show Full Homework Names",
+                "reverse_homework_order": "Show Most Recent Homework Last",
+                "default_homework_name": "Default Homework/Session Name",
+                "live_homework_session_mode": "Live Homework Session Mode",
+                "log_homework_marks_enabled": "Enable Detailed Marks for Manual Homework Logging",
+            },
+            "Data & Export": {
+                "excel_export_separate_sheets_by_default": "Separate Log Types into Different Sheets",
+                "excel_export_include_summaries_by_default": "Include Summary Sheet in Export",
+                "enable_excel_autosave": "Enable Excel Log Autosave",
+                "output_dpi": "Image Export DPI",
+            }
+        }
+
         # Undo/Redo stacks for settings changes
         self.undo_stack = []
         self.redo_stack = []
@@ -201,6 +266,16 @@ class SettingsDialog(simpledialog.Dialog):
         # --- General Tab ---
         general_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(general_tab, text="General")
         self.create_general_tab(general_tab)
+
+        self.create_security_tab(security_tab)
+
+        # --- Sharing Tab ---
+        sharing_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(sharing_tab, text="Sharing")
+        self.create_sharing_tab(sharing_tab)
+
+        # After creating all tabs, call update_all_widget_states to set the initial state
+        self.update_all_widget_states()
+
 
         # --- Student Display Tab ---
         student_display_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(student_display_tab, text="Student Boxes")
@@ -226,6 +301,10 @@ class SettingsDialog(simpledialog.Dialog):
         security_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(security_tab, text="Security")
         self.create_security_tab(security_tab)
 
+        # --- Sharing Tab ---
+        sharing_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(sharing_tab, text="Sharing")
+        self.create_sharing_tab(sharing_tab)
+
         # --- Advanced/Hidden Tab (Optional) ---
         # self.create_advanced_tab(advanced_tab)
 
@@ -245,24 +324,39 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Label(lf, text="Autosave Interval (seconds):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.autosave_interval_var = tk.IntVar(value=self.settings.get("autosave_interval_ms", 30000) // 1000, name='autosave_interval_var')
         self.autosave_interval_var.trace_add("write", lambda *args: self.on_setting_change(self.autosave_interval_var, "autosave_interval_ms", *args))
-        ttk.Spinbox(lf, from_=10, to=300, increment=10, textvariable=self.autosave_interval_var, width=5).grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
-
+        self.autosave_spinbox = ttk.Spinbox(lf, from_=10, to=300, increment=10, textvariable=self.autosave_interval_var, width=5)
+        self.autosave_spinbox.grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
+        self.autosave_global_label = ttk.Label(lf, text="", foreground="blue")
+        self.autosave_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+        self.widget_map["autosave_interval_ms"] = {"widget": self.autosave_spinbox, "label_widget": self.autosave_global_label}
 
         # Student Groups Enabled
         self.groups_enabled_var = tk.BooleanVar(value=self.settings.get("student_groups_enabled", True), name='groups_enabled_var')
         self.groups_enabled_var.trace_add("write", lambda *args: self.on_setting_change(self.groups_enabled_var, "student_groups_enabled", *args))
-        ttk.Checkbutton(lf, text="Enable Student Groups Feature", variable=self.groups_enabled_var).grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        self.groups_enabled_cb = ttk.Checkbutton(lf, text="Enable Student Groups Feature", variable=self.groups_enabled_var)
+        self.groups_enabled_cb.grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        self.groups_global_label = ttk.Label(lf, text="", foreground="blue")
+        self.groups_global_label.grid(row=3, column=2, sticky=tk.W, padx=5)
+        self.widget_map["student_groups_enabled"] = {"widget": self.groups_enabled_cb, "label_widget": self.groups_global_label}
 
         # Zoom Level Display
         self.show_zoom_var = tk.BooleanVar(value=self.settings.get("show_zoom_level_display", True), name='show_zoom_var')
         self.show_zoom_var.trace_add("write", lambda *args: self.on_setting_change(self.show_zoom_var, "show_zoom_level_display", *args))
-        ttk.Checkbutton(lf, text="Show Zoom Level % Display on Main Screen", variable=self.show_zoom_var).grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        self.show_zoom_cb = ttk.Checkbutton(lf, text="Show Zoom Level % Display on Main Screen", variable=self.show_zoom_var)
+        self.show_zoom_cb.grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        self.zoom_global_label = ttk.Label(lf, text="", foreground="blue")
+        self.zoom_global_label.grid(row=4, column=2, sticky=tk.W, padx=5)
+        self.widget_map["show_zoom_level_display"] = {"widget": self.show_zoom_cb, "label_widget": self.zoom_global_label}
 
         # Max Undo History Days
         ttk.Label(lf, text="Max Undo History (days):").grid(row=10, column=0, sticky=tk.W, padx=5, pady=3)
         self.max_undo_days_var = tk.IntVar(value=self.settings.get("max_undo_history_days", MAX_UNDO_HISTORY_DAYS), name='max_undo_days_var')
         self.max_undo_days_var.trace_add("write", lambda *args: self.on_setting_change(self.max_undo_days_var, "max_undo_history_days", *args))
-        ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5).grid(row=10, column=1, sticky=tk.W, padx=5, pady=3)
+        self.max_undo_days_spinbox = ttk.Spinbox(lf, from_=1, to=90, textvariable=self.max_undo_days_var, width=5)
+        self.max_undo_days_spinbox.grid(row=10, column=1, sticky=tk.W, padx=5, pady=3)
+        self.undo_global_label = ttk.Label(lf, text="", foreground="blue")
+        self.undo_global_label.grid(row=10, column=2, sticky=tk.W, padx=5)
+        self.widget_map["max_undo_history_days"] = {"widget": self.max_undo_days_spinbox, "label_widget": self.undo_global_label}
 
 
         # Theme
@@ -423,46 +517,64 @@ class SettingsDialog(simpledialog.Dialog):
 
     def create_student_display_tab(self, tab_frame):
         lf_defaults = ttk.LabelFrame(tab_frame, text="Default Student Box Appearance", padding=10)
-        lf_defaults.grid(sticky="nsew", column=0,row=0, pady=5)
+        lf_defaults.grid(sticky="nsew", column=0, row=0, pady=5)
         # Default size
-        ttk.Label(lf_defaults, text="Default Width:").grid(row=0,column=0,sticky=tk.W,padx=5,pady=3)
+        ttk.Label(lf_defaults, text="Default Width:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
         self.def_stud_w_var = tk.IntVar(value=self.settings.get("default_student_box_width", DEFAULT_STUDENT_BOX_WIDTH), name='def_stud_w_var')
         self.def_stud_w_var.trace_add("write", lambda *args: self.on_setting_change(self.def_stud_w_var, "default_student_box_width", *args))
-        ttk.Spinbox(lf_defaults, from_=MIN_STUDENT_BOX_WIDTH, to=500, textvariable=self.def_stud_w_var, width=5).grid(row=0,column=1,sticky=tk.W,padx=5,pady=3)
-        ttk.Label(lf_defaults, text="Default Height:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
+        self.def_stud_w_spinbox = ttk.Spinbox(lf_defaults, from_=MIN_STUDENT_BOX_WIDTH, to=500, textvariable=self.def_stud_w_var, width=5)
+        self.def_stud_w_spinbox.grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
+        self.def_stud_w_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
+        self.def_stud_w_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+
+        ttk.Label(lf_defaults, text="Default Height:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=3)
         self.def_stud_h_var = tk.IntVar(value=self.settings.get("default_student_box_height", DEFAULT_STUDENT_BOX_HEIGHT), name='def_stud_h_var')
         self.def_stud_h_var.trace_add("write", lambda *args: self.on_setting_change(self.def_stud_h_var, "default_student_box_height", *args))
-        ttk.Spinbox(lf_defaults, from_=MIN_STUDENT_BOX_HEIGHT, to=300, textvariable=self.def_stud_h_var, width=5).grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
+        self.def_stud_h_spinbox = ttk.Spinbox(lf_defaults, from_=MIN_STUDENT_BOX_HEIGHT, to=300, textvariable=self.def_stud_h_var, width=5)
+        self.def_stud_h_spinbox.grid(row=1, column=1, sticky=tk.W, padx=5, pady=3)
+        self.def_stud_h_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
+        self.def_stud_h_global_label.grid(row=1, column=2, sticky=tk.W, padx=5)
+
         # Default colors and font
         self.create_color_font_settings_ui(lf_defaults, 2, "student_box_fill_color", "student_box_outline_color", "student_font_family", "student_font_size", "student_font_color")
 
         # Additional font size controls for specific log types
-        row_after_defaults = 2 + 5 # After 5 rows used by create_color_font_settings_ui starting at row 2
-
-
+        row_after_defaults = 2 + 5  # After 5 rows used by create_color_font_settings_ui starting at row 2
 
         ttk.Label(lf_defaults, text="Quiz Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
         self.quiz_log_font_size_var = tk.IntVar(value=self.settings.get("quiz_log_font_size", DEFAULT_FONT_SIZE), name='quiz_log_font_size_var')
         self.quiz_log_font_size_var.trace_add("write", lambda *args: self.on_setting_change(self.quiz_log_font_size_var, "quiz_log_font_size", *args))
-        ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.quiz_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
+        self.quiz_log_font_size_spinbox = ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.quiz_log_font_size_var, width=5)
+        self.quiz_log_font_size_spinbox.grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
+        self.quiz_log_font_size_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
+        self.quiz_log_font_size_global_label.grid(row=row_after_defaults, column=2, sticky=tk.W, padx=5)
         row_after_defaults += 1
 
         ttk.Label(lf_defaults, text="Homework Log/Score Font Size (pts):").grid(row=row_after_defaults, column=0, sticky=tk.W, padx=5, pady=3)
         self.homework_log_font_size_var = tk.IntVar(value=self.settings.get("homework_log_font_size", DEFAULT_FONT_SIZE - 1), name='homework_log_font_size_var')
         self.homework_log_font_size_var.trace_add("write", lambda *args: self.on_setting_change(self.homework_log_font_size_var, "homework_log_font_size", *args))
-        ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.homework_log_font_size_var, width=5).grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
+        self.homework_log_font_size_spinbox = ttk.Spinbox(lf_defaults, from_=6, to=24, textvariable=self.homework_log_font_size_var, width=5)
+        self.homework_log_font_size_spinbox.grid(row=row_after_defaults, column=1, sticky=tk.W, padx=5, pady=3)
+        self.homework_log_font_size_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
+        self.homework_log_font_size_global_label.grid(row=row_after_defaults, column=2, sticky=tk.W, padx=5)
         row_after_defaults += 1
 
         # Setting for text background panel
         self.enable_text_panel_var = tk.BooleanVar(value=self.settings.get("enable_text_background_panel", True), name='enable_text_panel_var')
         self.enable_text_panel_var.trace_add("write", lambda *args: self.on_setting_change(self.enable_text_panel_var, "enable_text_background_panel", *args))
-        ttk.Checkbutton(lf_defaults, text="Enable text background panel on student boxes\n(improves legibility on colored stripes)",
-                        variable=self.enable_text_panel_var).grid(row=15, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
+        self.enable_text_panel_cb = ttk.Checkbutton(lf_defaults, text="Enable text background panel on student boxes\n(improves legibility on colored stripes)",
+                                                  variable=self.enable_text_panel_var)
+        self.enable_text_panel_cb.grid(row=15, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(10, 3))
+        self.enable_text_panel_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
+        self.enable_text_panel_global_label.grid(row=15, column=2, sticky=tk.W, padx=5)
 
         self.enable_text_panel_always_var = tk.BooleanVar(value=self.settings.get("always_show_text_background_panel", False), name='enable_text_panel_always_var')
         self.enable_text_panel_always_var.trace_add("write", lambda *args: self.on_setting_change(self.enable_text_panel_always_var, "always_show_text_background_panel", *args))
-        ttk.Checkbutton(lf_defaults, text="Force enable text background panel on student boxes.\n(Not only when colored)",
-                        variable=self.enable_text_panel_always_var).grid(row=16, column=0, columnspan=3, sticky=tk.W, padx=5, pady=(10,3))
+        self.enable_text_panel_always_cb = ttk.Checkbutton(lf_defaults, text="Force enable text background panel on student boxes.\n(Not only when colored)",
+                                                         variable=self.enable_text_panel_always_var)
+        self.enable_text_panel_always_cb.grid(row=16, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(10, 3))
+        self.enable_text_panel_always_global_label = ttk.Label(lf_defaults, text="", foreground="blue")
+        self.enable_text_panel_always_global_label.grid(row=16, column=2, sticky=tk.W, padx=5)
 
 
         lf_cond_format = ttk.LabelFrame(tab_frame, text="Conditional Formatting Rules", padding=10, width=1000)
@@ -482,21 +594,40 @@ class SettingsDialog(simpledialog.Dialog):
         lf_recent = ttk.LabelFrame(tab_frame, text="Recent Incidents on Student Boxes (Behavior/Quiz)", padding=10); lf_recent.grid(sticky="nsew",column=0,row=0, pady=5)
         self.show_recent_var = tk.BooleanVar(value=self.settings.get("show_recent_incidents_on_boxes", True), name='show_recent_var')
         self.show_recent_var.trace_add("write", lambda *args: self.on_setting_change(self.show_recent_var, "show_recent_incidents_on_boxes", *args))
-        ttk.Checkbutton(lf_recent, text="Show recent incidents on student boxes", variable=self.show_recent_var).grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
+        self.show_recent_cb = ttk.Checkbutton(lf_recent, text="Show recent incidents on student boxes", variable=self.show_recent_var)
+        self.show_recent_cb.grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
+        self.show_recent_global_label = ttk.Label(lf_recent, text="", foreground="blue")
+        self.show_recent_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+
         ttk.Label(lf_recent, text="Number to show:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
         self.num_recent_var = tk.IntVar(value=self.settings.get("num_recent_incidents_to_show", 2), name='num_recent_var')
         self.num_recent_var.trace_add("write", lambda *args: self.on_setting_change(self.num_recent_var, "num_recent_incidents_to_show", *args))
-        ttk.Spinbox(lf_recent, from_=0, to=10, textvariable=self.num_recent_var, width=3).grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
+        self.num_recent_spinbox = ttk.Spinbox(lf_recent, from_=0, to=10, textvariable=self.num_recent_var, width=3)
+        self.num_recent_spinbox.grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
+        self.num_recent_global_label = ttk.Label(lf_recent, text="", foreground="blue")
+        self.num_recent_global_label.grid(row=1, column=2, sticky=tk.W, padx=5)
+
         ttk.Label(lf_recent, text="Time window (hours):").grid(row=2,column=0,sticky=tk.W,padx=5,pady=3)
         self.time_window_var = tk.IntVar(value=self.settings.get("recent_incident_time_window_hours", 24), name='time_window_var')
         self.time_window_var.trace_add("write", lambda *args: self.on_setting_change(self.time_window_var, "recent_incident_time_window_hours", *args))
-        ttk.Spinbox(lf_recent, from_=1, to=168, textvariable=self.time_window_var, width=4).grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
+        self.time_window_spinbox = ttk.Spinbox(lf_recent, from_=1, to=168, textvariable=self.time_window_var, width=4)
+        self.time_window_spinbox.grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
+        self.time_window_global_label = ttk.Label(lf_recent, text="", foreground="blue")
+        self.time_window_global_label.grid(row=2, column=2, sticky=tk.W, padx=5)
+
         self.show_full_recent_var = tk.BooleanVar(value=self.settings.get("show_full_recent_incidents", False), name='show_full_recent_var')
         self.show_full_recent_var.trace_add("write", lambda *args: self.on_setting_change(self.show_full_recent_var, "show_full_recent_incidents", *args))
-        ttk.Checkbutton(lf_recent, text="Show full behavior names (not initials)", variable=self.show_full_recent_var).grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.show_full_recent_cb = ttk.Checkbutton(lf_recent, text="Show full behavior names (not initials)", variable=self.show_full_recent_var)
+        self.show_full_recent_cb.grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.show_full_recent_global_label = ttk.Label(lf_recent, text="", foreground="blue")
+        self.show_full_recent_global_label.grid(row=3, column=2, sticky=tk.W, padx=5)
+
         self.reverse_order_var = tk.BooleanVar(value=self.settings.get("reverse_incident_order", True), name='reverse_order_var')
         self.reverse_order_var.trace_add("write", lambda *args: self.on_setting_change(self.reverse_order_var, "reverse_incident_order", *args))
-        ttk.Checkbutton(lf_recent, text="Show most recent incident last (chronological)", variable=self.reverse_order_var).grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.reverse_order_cb = ttk.Checkbutton(lf_recent, text="Show most recent incident last (chronological)", variable=self.reverse_order_var)
+        self.reverse_order_cb.grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.reverse_order_global_label = ttk.Label(lf_recent, text="", foreground="blue")
+        self.reverse_order_global_label.grid(row=4, column=2, sticky=tk.W, padx=5)
 
         # Custom Behaviors
         lf_custom_b = ttk.LabelFrame(tab_frame, text="Custom Behaviors & Initials", padding=10); lf_custom_b.grid(sticky="nsew",column=1,row=0, pady=5)
@@ -621,21 +752,40 @@ class SettingsDialog(simpledialog.Dialog):
         lf_recent_hw.grid(sticky="nsew",column=0,row=0, pady=0, padx=10)
         self.show_recent_hw_var = tk.BooleanVar(value=self.settings.get("show_recent_homeworks_on_boxes", True), name='show_recent_hw_var')
         self.show_recent_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.show_recent_hw_var, "show_recent_homeworks_on_boxes", *args))
-        ttk.Checkbutton(lf_recent_hw, text="Show recent homework logs on student boxes", variable=self.show_recent_hw_var).grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
+        self.show_recent_hw_cb = ttk.Checkbutton(lf_recent_hw, text="Show recent homework logs on student boxes", variable=self.show_recent_hw_var)
+        self.show_recent_hw_cb.grid(row=0,column=0,columnspan=2,sticky=tk.W, padx=5,pady=3)
+        self.show_recent_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
+        self.show_recent_hw_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
+
         ttk.Label(lf_recent_hw, text="Number to show:").grid(row=1,column=0,sticky=tk.W,padx=5,pady=3)
         self.num_recent_hw_var = tk.IntVar(value=self.settings.get("num_recent_homeworks_to_show", 2), name='num_recent_hw_var')
         self.num_recent_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.num_recent_hw_var, "num_recent_homeworks_to_show", *args))
-        ttk.Spinbox(lf_recent_hw, from_=0, to=10, textvariable=self.num_recent_hw_var, width=3).grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
+        self.num_recent_hw_spinbox = ttk.Spinbox(lf_recent_hw, from_=0, to=10, textvariable=self.num_recent_hw_var, width=3)
+        self.num_recent_hw_spinbox.grid(row=1,column=1,sticky=tk.W,padx=5,pady=3)
+        self.num_recent_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
+        self.num_recent_hw_global_label.grid(row=1, column=2, sticky=tk.W, padx=5)
+
         ttk.Label(lf_recent_hw, text="Time window (hours):").grid(row=2,column=0,sticky=tk.W,padx=5,pady=3)
         self.time_window_hw_var = tk.IntVar(value=self.settings.get("recent_homework_time_window_hours", 24), name='time_window_hw_var')
         self.time_window_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.time_window_hw_var, "recent_homework_time_window_hours", *args))
-        ttk.Spinbox(lf_recent_hw, from_=1, to=168, textvariable=self.time_window_hw_var, width=4).grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
+        self.time_window_hw_spinbox = ttk.Spinbox(lf_recent_hw, from_=1, to=168, textvariable=self.time_window_hw_var, width=4)
+        self.time_window_hw_spinbox.grid(row=2,column=1,sticky=tk.W,padx=5,pady=3)
+        self.time_window_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
+        self.time_window_hw_global_label.grid(row=2, column=2, sticky=tk.W, padx=5)
+
         self.show_full_recent_hw_var = tk.BooleanVar(value=self.settings.get("show_full_recent_homeworks", False), name='show_full_recent_hw_var')
         self.show_full_recent_hw_var.trace_add("write", lambda *args: self.on_setting_change(self.show_full_recent_hw_var, "show_full_recent_homeworks", *args))
-        ttk.Checkbutton(lf_recent_hw, text="Show full homework names (not initials)", variable=self.show_full_recent_hw_var).grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.show_full_recent_hw_cb = ttk.Checkbutton(lf_recent_hw, text="Show full homework names (not initials)", variable=self.show_full_recent_hw_var)
+        self.show_full_recent_hw_cb.grid(row=3,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.show_full_recent_hw_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
+        self.show_full_recent_hw_global_label.grid(row=3, column=2, sticky=tk.W, padx=5)
+
         self.reverse_hw_order_var = tk.BooleanVar(value=self.settings.get("reverse_homework_order", True), name='reverse_hw_order_var')
         self.reverse_hw_order_var.trace_add("write", lambda *args: self.on_setting_change(self.reverse_hw_order_var, "reverse_homework_order", *args))
-        ttk.Checkbutton(lf_recent_hw, text="Show most recent homework last (chronological)", variable=self.reverse_hw_order_var).grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.reverse_hw_order_cb = ttk.Checkbutton(lf_recent_hw, text="Show most recent homework last (chronological)", variable=self.reverse_hw_order_var)
+        self.reverse_hw_order_cb.grid(row=4,column=0,columnspan=2,sticky=tk.W,padx=5,pady=3)
+        self.reverse_hw_order_global_label = ttk.Label(lf_recent_hw, text="", foreground="blue")
+        self.reverse_hw_order_global_label.grid(row=4, column=2, sticky=tk.W, padx=5)
         """
         # Custom Homework Log Behaviors (for manual logging options like "Done", "Not Done")
         lf_custom_hw_log = ttk.LabelFrame(tab_frame, text="Custom Homework Log Options & Initials", padding=10)
@@ -871,23 +1021,36 @@ class SettingsDialog(simpledialog.Dialog):
         lf_excel = ttk.LabelFrame(tab_frame, text="Excel Export Defaults", padding=10); lf_excel.pack(fill=tk.X, pady=5)
         self.excel_sep_sheets_var = tk.BooleanVar(value=self.settings.get("excel_export_separate_sheets_by_default", True), name='excel_sep_sheets_var')
         self.excel_sep_sheets_var.trace_add("write", lambda *args: self.on_setting_change(self.excel_sep_sheets_var, "excel_export_separate_sheets_by_default", *args))
-        ttk.Checkbutton(lf_excel, text="Separate log types into different sheets by default", variable=self.excel_sep_sheets_var).pack(anchor=tk.W, padx=5, pady=2)
+        self.excel_sep_sheets_cb = ttk.Checkbutton(lf_excel, text="Separate log types into different sheets by default", variable=self.excel_sep_sheets_var)
+        self.excel_sep_sheets_cb.pack(anchor=tk.W, padx=5, pady=2)
+        self.excel_sep_sheets_global_label = ttk.Label(lf_excel, text="", foreground="blue")
+        self.excel_sep_sheets_global_label.pack(anchor=tk.W, padx=5)
+
         self.excel_inc_summary_var = tk.BooleanVar(value=self.settings.get("excel_export_include_summaries_by_default", True), name='excel_inc_summary_var')
         self.excel_inc_summary_var.trace_add("write", lambda *args: self.on_setting_change(self.excel_inc_summary_var, "excel_export_include_summaries_by_default", *args))
-        ttk.Checkbutton(lf_excel, text="Include summary sheet by default", variable=self.excel_inc_summary_var).pack(anchor=tk.W, padx=5, pady=2)
+        self.excel_inc_summary_cb = ttk.Checkbutton(lf_excel, text="Include summary sheet by default", variable=self.excel_inc_summary_var)
+        self.excel_inc_summary_cb.pack(anchor=tk.W, padx=5, pady=2)
+        self.excel_inc_summary_global_label = ttk.Label(lf_excel, text="", foreground="blue")
+        self.excel_inc_summary_global_label.pack(anchor=tk.W, padx=5)
 
         lf_autosave_excel = ttk.LabelFrame(tab_frame, text="Excel Log Autosave (Experimental)", padding=10); lf_autosave_excel.pack(fill=tk.X, pady=5)
         self.enable_excel_autosave_var = tk.BooleanVar(value=self.settings.get("enable_excel_autosave", False), name='enable_excel_autosave_var')
         self.enable_excel_autosave_var.trace_add("write", lambda *args: self.on_setting_change(self.enable_excel_autosave_var, "enable_excel_autosave", *args))
-        ttk.Checkbutton(lf_autosave_excel, text=f"Enable autosaving log to Excel file ({os.path.basename(AUTOSAVE_EXCEL_FILE)})", variable=self.enable_excel_autosave_var).pack(anchor=tk.W, padx=5, pady=2)
+        self.enable_excel_autosave_cb = ttk.Checkbutton(lf_autosave_excel, text=f"Enable autosaving log to Excel file ({os.path.basename(AUTOSAVE_EXCEL_FILE)})", variable=self.enable_excel_autosave_var)
+        self.enable_excel_autosave_cb.pack(anchor=tk.W, padx=5, pady=2)
+        self.enable_excel_autosave_global_label = ttk.Label(lf_autosave_excel, text="", foreground="blue")
+        self.enable_excel_autosave_global_label.pack(anchor=tk.W, padx=5)
         ttk.Label(lf_autosave_excel, text="Note: This uses current export filters if set, or exports all data. File is overwritten each time.").pack(anchor=tk.W, padx=5, pady=2)
 
         lf_export_image = ttk.LabelFrame(tab_frame, text="Image Exporting", padding=10); lf_export_image.pack(fill=tk.X, pady=5)
         self.dpi_image_export_var = tk.StringVar(value=self.settings.get("output_dpi", 600), name='dpi_image_export_var')
         self.dpi_image_export_var.trace_add("write", lambda *args: self.on_setting_change(self.dpi_image_export_var, "output_dpi", *args))
         ttk.Label(lf_export_image, text="Set output dpi for image exports:").pack(anchor=tk.W, padx=5, pady=2)
-        self.export_image_spin = ttk.Spinbox(lf_export_image, to=900, values=['300', '600', '900']); self.export_image_spin.pack(anchor=tk.W, padx=5, pady=2)
+        self.export_image_spin = ttk.Spinbox(lf_export_image, to=900, values=['300', '600', '900'])
+        self.export_image_spin.pack(anchor=tk.W, padx=5, pady=2)
         self.export_image_spin.set(self.dpi_image_export_var.get())
+        self.output_dpi_global_label = ttk.Label(lf_export_image, text="", foreground="blue")
+        self.output_dpi_global_label.pack(anchor=tk.W, padx=5)
 
     def create_security_tab(self, tab_frame):
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)
@@ -945,6 +1108,79 @@ class SettingsDialog(simpledialog.Dialog):
         lf_other_options.pack(fill=tk.X, pady=5)
 
         ttk.Button(lf_other_options, text="Reset All Settings to Default", command=self.reset_all_settings, style="Warning.TButton").pack(anchor=tk.W, padx=5, pady=5)
+
+    def create_sharing_tab(self, tab_frame):
+        self.sharing_config = self.load_sharing_config()
+        self.sharing_vars = {}
+
+        for group_name, settings_in_group in self.shareable_settings.items():
+            lf = ttk.LabelFrame(tab_frame, text=group_name, padding=10)
+            lf.pack(fill=tk.X, pady=5, padx=5)
+            for key, label in settings_in_group.items():
+                self.sharing_vars[key] = tk.BooleanVar(
+                    value=self.sharing_config.get(key, False)
+                )
+                cb = ttk.Checkbutton(
+                    lf,
+                    text=label,
+                    variable=self.sharing_vars[key],
+                    command=lambda k=key: self.on_sharing_change(k)
+                )
+                cb.pack(anchor=tk.W)
+
+    def load_sharing_config(self):
+        config_path = get_app_data_path("settings_sharing_config.json")
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    return {}
+        return {}
+
+    def save_sharing_config(self):
+        config_path = get_app_data_path("settings_sharing_config.json")
+        with open(config_path, 'w') as f:
+            json.dump(self.sharing_config, f, indent=4)
+
+    def on_sharing_change(self, key):
+        is_shared = self.sharing_vars[key].get()
+        self.sharing_config[key] = is_shared
+        self.save_sharing_config()
+        self.update_status(f"Sharing for '{key}' set to {'Global' if is_shared else 'Per-Profile'}.")
+        self.settings_changed_flag = True
+        # After changing a sharing setting, I need to update the UI of the other tabs
+        self.update_all_widget_states()
+
+    def update_all_widget_states(self):
+        for group_name, settings_in_group in self.shareable_settings.items():
+            for key, label in settings_in_group.items():
+                widget_info = self.widget_map.get(key)
+                if widget_info:
+                    self.update_widget_state(
+                        widget_info["widget"],
+                        key,
+                        widget_info["label_widget"]
+                    )
+
+    def update_widget_state(self, widget, setting_key, label_widget=None):
+        is_shared = self.sharing_config.get(setting_key, False)
+        widget_state = tk.DISABLED if is_shared else tk.NORMAL
+
+        if isinstance(widget, ttk.Combobox):
+            if is_shared:
+                widget.config(state=tk.DISABLED)
+            else:
+                widget.config(state='readonly') # Its default interactive state
+        else:
+            try:
+                widget.config(state=widget_state)
+            except tk.TclError as e:
+                print(f"Could not set state for widget {widget} with key {setting_key}: {e}")
+
+        if label_widget:
+            label_text = "(Global)" if is_shared else ""
+            label_widget.config(text=label_text)
 
     def reset_all_settings(self):
         if self.password_manager.is_locked:
