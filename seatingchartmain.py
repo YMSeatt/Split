@@ -355,6 +355,7 @@ class SeatingChartApp:
         self.update_all_homework_session_types() # This now depends on the others
 
         self.load_data() # Loads main data, including settings
+        self.load_and_apply_settings() # Apply shared settings
         self.settings["available_fonts"] = sorted(list(tkfont.families()))
         self._ensure_next_ids()
         self.theme_auto(init=True)
@@ -381,6 +382,35 @@ class SeatingChartApp:
             if not self.prompt_for_password("Application Locked", "Enter password to open:"):
                 self.on_exit_protocol(force_quit=True) # Ensure lock is released if exit fails here
             self.root.deiconify()
+
+    def load_and_apply_settings(self):
+        """
+        Loads settings from global and profile files, merges them based on sharing
+        configuration, and applies them to the application.
+        """
+        sharing_config_path = get_app_data_path("settings_sharing_config.json")
+        global_settings_path = get_app_data_path("global_settings.json")
+        profile_settings_path = get_app_data_path("settings.json")
+
+        sharing_config = self._read_and_decrypt_file(sharing_config_path) or {}
+        global_settings = self._read_and_decrypt_file(global_settings_path) or {}
+        profile_settings = self._read_and_decrypt_file(profile_settings_path) or {}
+
+        final_settings = self.settings.copy() # Start with defaults
+
+        for key, is_shared in sharing_config.items():
+            if is_shared:
+                if key in global_settings:
+                    final_settings[key] = global_settings[key]
+            else:
+                if key in profile_settings:
+                    final_settings[key] = profile_settings[key]
+
+        self.settings = final_settings
+        # Re-apply any settings that affect the UI immediately
+        self.theme_auto()
+        self.draw_all_items()
+
 
     def on_canvas_configure(self, event):
         """
@@ -5923,6 +5953,7 @@ class SeatingChartApp:
         if dialog.settings_changed_flag: # Check if dialog indicated changes
             # Settings are applied directly by the dialog for most parts
             self.save_data_wrapper(source="settings_dialog") # Save all data as settings are part of it
+            self.load_and_apply_settings() # Reload settings based on sharing config
             self.update_all_behaviors(); self.update_all_homework_log_behaviors(); self.update_all_homework_session_types()
             self.guide_line_color = self.settings.get("guides_color", "blue")
             self.draw_all_items(check_collisions_on_redraw=True)
