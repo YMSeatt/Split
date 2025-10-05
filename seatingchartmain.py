@@ -16,7 +16,7 @@ import zipfile
 import csv
 import PIL
 from PIL import Image
-from settingsdialog import SettingsDialog
+from settingsdialog_new import SettingsDialog
 from commands import Command, DeleteGuideCommand, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
         MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, MoveGuideCommand, AddGuideCommand
@@ -27,6 +27,7 @@ from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialo
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
 from profile_dialog import ProfileDialog, CreateProfileDialog
+from scheduledialog import ScheduleDialog
 from data_locker import unlock_file, DATA_FILE
 import json
 from data_encryption import encrypt_data, decrypt_data
@@ -233,6 +234,69 @@ def name_similarity_ratio(s1, s2):
 # --- Main Application Class ---
 class SeatingChartApp:
     def __init__(self, root_window):
+        self.shareable_settings = {
+            "General": {
+                "autosave_interval_ms": "Autosave Interval",
+                "student_groups_enabled": "Enable Student Groups",
+                "show_zoom_level_display": "Show Zoom Level Display",
+                "max_undo_history_days": "Max Undo History Days",
+                "always_show_box_management": "Always Show Box Management Tools",
+                "check_for_collisions": "Check for Collisions on Box Move",
+                "grid_snap_enabled": "Enable Snap to Grid",
+                "grid_size": "Grid Size",
+                "show_rulers": "Show Rulers",
+                "show_grid": "Show Grid",
+                "grid_color": "Grid Color",
+                "save_guides_to_file": "Save Guides with Layout Data",
+                "guides_stay_when_rulers_hidden": "Keep Guides in Memory when Rulers are Off",
+                "guides_color": "Guide Color",
+                "allow_box_dragging": "Allow Dragging of Boxes",
+            },
+            "Student Box Appearance": {
+                "default_student_box_width": "Default Width",
+                "default_student_box_height": "Default Height",
+                "student_box_fill_color": "Default Fill Color",
+                "student_box_outline_color": "Default Outline Color",
+                "student_font_family": "Default Font Family",
+                "student_font_size": "Names Font Size",
+                "student_font_color": "Default Font Color",
+                "behavior_log_font_size": "Behaviors Font Size",
+                "quiz_log_font_size": "Quiz Log/Score Font Size",
+                "homework_log_font_size": "Homework Log/Score Font Size",
+                "enable_text_background_panel": "Enable Text Background Panel",
+                "always_show_text_background_panel": "Force Enable Text Background Panel",
+            },
+            "Behavior & Quiz Display": {
+                "show_recent_incidents_on_boxes": "Show Recent Incidents on Student Boxes",
+                "num_recent_incidents_to_show": "Number to Show",
+                "recent_incident_time_window_hours": "Time Window (hours)",
+                "show_full_recent_incidents": "Show Full Behavior Names",
+                "reverse_incident_order": "Show Most Recent Incident Last",
+                "default_quiz_name": "Default Quiz Name",
+                "default_quiz_questions": "Default #Questions (Manual Log)",
+                "last_used_quiz_name_timeout_minutes": "Quiz Name Memory Timeout (mins)",
+                "show_recent_incidents_during_quiz": "Show Recent Behaviors During Live Quiz",
+                "live_quiz_questions": "Live Quiz Questions per Session",
+                "live_quiz_initial_color": "Live Quiz Initial Outline Color",
+                "live_quiz_final_color": "Live Quiz Final Outline Color",
+            },
+            "Homework Display & Logging": {
+                "show_recent_homeworks_on_boxes": "Show Recent Homework Logs on Student Boxes",
+                "num_recent_homeworks_to_show": "Number to Show",
+                "recent_homework_time_window_hours": "Time Window (hours)",
+                "show_full_recent_homeworks": "Show Full Homework Names",
+                "reverse_homework_order": "Show Most Recent Homework Last",
+                "default_homework_name": "Default Homework/Session Name",
+                "live_homework_session_mode": "Live Homework Session Mode",
+                "log_homework_marks_enabled": "Enable Detailed Marks for Manual Homework Logging",
+            },
+            "Data & Export": {
+                "excel_export_separate_sheets_by_default": "Separate Log Types into Different Sheets",
+                "excel_export_include_summaries_by_default": "Include Summary Sheet in Export",
+                "enable_excel_autosave": "Enable Excel Log Autosave",
+                "output_dpi": "Image Export DPI",
+            }
+        }
         # ... (initial part of __init__ is the same) ...
         self.root = root_window 
         self.root.title(f"Classroom Behavior Tracker - {APP_NAME} - {APP_VERSION}")
@@ -383,6 +447,8 @@ class SeatingChartApp:
                 self.on_exit_protocol(force_quit=True) # Ensure lock is released if exit fails here
             self.root.deiconify()
 
+        self.root.after(60000, self.check_schedule) # Check schedule every minute
+
     def load_and_apply_settings(self):
         """
         Loads settings from global and profile files, merges them based on sharing
@@ -406,10 +472,17 @@ class SeatingChartApp:
                 if key in profile_settings:
                     final_settings[key] = profile_settings[key]
 
+        # Ensure all settings have a sharing configuration
+        for category in self.shareable_settings.values():
+            for key in category:
+                if key not in sharing_config:
+                    sharing_config[key] = False # Default to per-profile
+
         self.settings = final_settings
+        self.settings_sharing_config = sharing_config
         # Re-apply any settings that affect the UI immediately
-        self.theme_auto()
-        self.draw_all_items()
+        # self.theme_auto()
+        # self.draw_all_items()
 
 
     def on_canvas_configure(self, event):
@@ -858,6 +931,7 @@ class SeatingChartApp:
         self.file_menu.add_command(label="Import data from json (Caution!)...", command=self.import_data)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Switch Profile", command=self.switch_profile)
+        self.file_menu.add_command(label="Manage Schedule...", command=self.manage_schedule_dialog)
         self.file_menu.add_separator(); self.file_menu.add_command(label="Exit", command=self.on_exit_protocol, accelerator="Ctrl+Q")
         self.file_menu_btn["menu"] = self.file_menu
         self.file_menu_btn.pack(side=tk.LEFT, padx=2)
@@ -3593,38 +3667,48 @@ class SeatingChartApp:
         serializable_undo_stack = [cmd.to_dict() for cmd in self.undo_stack]
         serializable_redo_stack = [cmd.to_dict() for cmd in self.redo_stack]
 
+        # Separate settings into global and profile-specific
+        global_settings = {}
+        profile_settings = {}
+        for key, is_shared in self.settings_sharing_config.items():
+            if key in self.settings:
+                if is_shared:
+                    global_settings[key] = self.settings[key]
+                else:
+                    profile_settings[key] = self.settings[key]
+
         data_to_save = {
             "students": self.students,
             "furniture": self.furniture,
             "behavior_log": self.behavior_log,
             "homework_log": self.homework_log,
-            "settings": self.settings,
+            "settings": profile_settings, # Only save profile-specific settings in the main data file
             "last_excel_export_path": self.last_excel_export_path,
             "_per_student_last_cleared": self._per_student_last_cleared,
             "undo_stack": serializable_undo_stack,
             "redo_stack": serializable_redo_stack,
-            "guides": {}, 
+            "guides": {},
             "next_guide_id_num": self.next_guide_id_num
         }
 
         guides_to_save = {}
         for guide_info in self.guides:
-            guides_to_save[guide_info] = { # guides_to_save.append({
-                'id': self.guides[guide_info].get('id'), #guide_info.get('id'),
-                'type': self.guides[guide_info].get('type'), #guide_info.get('type'),
-                'world_coord': self.guides[guide_info].get('world_coord'), #guide_info.get('world_coord')
+            guides_to_save[guide_info] = {
+                'id': self.guides[guide_info].get('id'),
+                'type': self.guides[guide_info].get('type'),
+                'world_coord': self.guides[guide_info].get('world_coord')
             }
         data_to_save["guides"] = guides_to_save
 
         try:
-            # Encrypt the data
-            json_data_string = json.dumps(data_to_save, indent=4)
-            if self.settings.get("encrypt_data_files", True):
-                data = encrypt_data(json_data_string)
-            else:
-                data = json_data_string.encode('utf-8')
-            with open(DATA_FILE, 'wb') as f: # Open in binary write mode
-                f.write(data)
+            # Save main data file (with profile-specific settings)
+            self._encrypt_and_write_file(DATA_FILE, data_to_save)
+
+            # Save global settings file
+            self._encrypt_and_write_file(get_app_data_path("global_settings.json"), global_settings)
+
+            # Save the sharing configuration itself
+            self._encrypt_and_write_file(get_app_data_path("settings_sharing_config.json"), self.settings_sharing_config)
 
             verbose_save = source not in ["autosave", "command_execution", "undo_command", "redo_command", "toggle_mode", "end_live_quiz", "end_live_homework_session", "reset", "assign_group_menu", "load_template", "save_and_quit"]
             if verbose_save:
@@ -3634,7 +3718,7 @@ class SeatingChartApp:
 
         except IOError as e:
             self.update_status(f"Error saving data: {e}")
-            messagebox.showerror("Save Error", f"Could not save data to {DATA_FILE}: {e}", parent=self.root)
+            messagebox.showerror("Save Error", f"Could not save data: {e}", parent=self.root)
         except Exception as e:
             print(e)
             
@@ -6327,6 +6411,49 @@ class SeatingChartApp:
         python = sys.executable
         os.execl(python, python, *sys.argv)
 
+    def manage_schedule_dialog(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Manage Schedule", "Enter password to manage schedule:"):
+                return
+
+        profiles_json_path = get_app_data_path("profiles.json")
+        profiles = []
+        if os.path.exists(profiles_json_path):
+            with open(profiles_json_path, 'r') as f:
+                try:
+                    profiles = json.load(f)
+                except json.JSONDecodeError:
+                    pass
+
+        schedule_path = get_app_data_path("schedule.json")
+        dialog = ScheduleDialog(self.root, profiles, schedule_path)
+        self.root.wait_window(dialog)
+        self.password_manager.record_activity()
+
+    def check_schedule(self):
+        """Periodically checks if a scheduled profile should be loaded."""
+        schedule_path = get_app_data_path("schedule.json")
+        if os.path.exists(schedule_path):
+            try:
+                with open(schedule_path, 'r') as f:
+                    schedule = json.load(f)
+                now = datetime.now()
+                current_time = now.strftime("%H:%M")
+                current_day = now.strftime("%a")  # Mon, Tue, etc.
+
+                for entry in schedule:
+                    if current_day in entry['days']:
+                        if entry['start_time'] <= current_time < entry['end_time']:
+                            scheduled_profile = entry['profile']
+                            if scheduled_profile != g_current_profile_name:
+                                if messagebox.askyesno("Profile Schedule", f"It's time for the '{scheduled_profile}' profile. Would you like to switch now?"):
+                                    self.switch_profile()
+                                break
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error checking schedule: {e}")
+
+        self.root.after(60000, self.check_schedule)
+
     def on_exit_protocol(self, force_quit=False):
 
         #dialog = ExitConfirmationDialog(self.root, "Exit Confirmation")
@@ -6429,6 +6556,25 @@ def manage_profiles(root):
     """Handles the profile selection, creation, and deletion loop."""
     global g_current_profile_name
 
+    # Check schedule first
+    schedule_path = get_app_data_path("schedule.json")
+    if os.path.exists(schedule_path):
+        try:
+            with open(schedule_path, 'r') as f:
+                schedule = json.load(f)
+            now = datetime.now()
+            current_time = now.strftime("%H:%M")
+            current_day = now.strftime("%a") # Mon, Tue, etc.
+
+            for entry in schedule:
+                if current_day in entry['days']:
+                    if entry['start_time'] <= current_time < entry['end_time']:
+                        g_current_profile_name = entry['profile']
+                        return True
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Could not read or parse schedule file on startup: {e}")
+            pass # Ignore errors in schedule file, proceed to manual selection
+
     profiles_dir = os.path.dirname(get_app_data_path("profiles.json"))
     profiles_json_path = os.path.join(profiles_dir, "profiles.json")
 
@@ -6448,7 +6594,7 @@ def manage_profiles(root):
             g_current_profile_name = profiles[0]['name']
             return True
 
-        dialog = ProfileDialog(root, profiles_json_path)
+        dialog = ProfileDialog(root, profiles)
         root.wait_window(dialog)
         result = dialog.result
 
