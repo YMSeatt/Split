@@ -5,29 +5,19 @@ import os
 
 class ProfileDialog(tk.Toplevel):
     """Dialog for selecting, creating, or deleting a user profile."""
-    def __init__(self, parent, profiles_file_path):
+    def __init__(self, parent, profiles):
         super().__init__(parent)
         self.transient(parent)
         self.title("Select Profile")
         self.parent = parent
-        self.profiles_file_path = profiles_file_path
         self.result = None
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
-        self.profiles = self.load_profiles()
+        self.profiles = profiles
 
         self.create_widgets()
         self.center_window()
         self.grab_set()
-
-    def load_profiles(self):
-        if os.path.exists(self.profiles_file_path):
-            with open(self.profiles_file_path, 'r') as f:
-                try:
-                    return json.load(f)
-                except json.JSONDecodeError:
-                    return []
-        return []
 
     def create_widgets(self):
         main_frame = ttk.Frame(self, padding="10")
