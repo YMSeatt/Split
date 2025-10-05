@@ -6571,7 +6571,8 @@ def manage_profiles(root):
                     if entry['start_time'] <= current_time < entry['end_time']:
                         g_current_profile_name = entry['profile']
                         return True
-        except (json.JSONDecodeError, IOError):
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Could not read or parse schedule file on startup: {e}")
             pass # Ignore errors in schedule file, proceed to manual selection
 
     profiles_dir = os.path.dirname(get_app_data_path("profiles.json"))
