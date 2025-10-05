@@ -191,8 +191,11 @@ class ScheduleEntryDialog(tk.Toplevel):
             return
 
         try:
-            datetime.strptime(start_time, "%H:%M")
-            datetime.strptime(end_time, "%H:%M")
+            start_dt = datetime.strptime(start_time, "%H:%M")
+            end_dt = datetime.strptime(end_time, "%H:%M")
+            if end_dt <= start_dt:
+                messagebox.showerror("Invalid Time", "End time must be after start time.", parent=self)
+                return
         except ValueError:
             messagebox.showerror("Invalid Time", "Time must be in HH:MM format.", parent=self)
             return
