@@ -6612,7 +6612,8 @@ def manage_profiles(root):
         try:
             profiles = json.load(f)
         except json.JSONDecodeError:
-            pass
+            messagebox.showerror("Profile Load Error", "Could not read profiles. The profiles.json file may be corrupt.")
+            profiles = []
 
     if profiles:
         # If running in a test environment, load the first profile without a dialog.
