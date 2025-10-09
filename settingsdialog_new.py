@@ -1125,7 +1125,8 @@ class SettingsDialog(simpledialog.Dialog):
                 try:
                     self.profiles = json.load(f)
                 except json.JSONDecodeError:
-                    pass
+                    messagebox.showerror("Profile Load Error", "Could not read profiles. The profiles.json file may be corrupt.", parent=self)
+                    self.profiles = []
 
         for profile in self.profiles:
             display_text = profile.get('name', 'Unnamed Profile')
