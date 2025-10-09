@@ -6575,7 +6575,7 @@ def manage_profiles(root):
             os.remove(profile_next_path)
             if g_current_profile_name:
                 return True
-        except (IOError, IndexError) as e:
+        except IOError as e:
             print(f"Could not read or remove profile switch signal: {e}")
             g_current_profile_name = None # Reset if read fails
 
