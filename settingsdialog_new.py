@@ -4,6 +4,7 @@ from tkinter import ttk, simpledialog, messagebox, colorchooser, font as tkfont
 import os
 import sys
 import json
+import shutil
 #from datetime import datetime, timedelta, date as datetime_date
 #from openpyxl import Workbook, load_workbook
 #from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
@@ -155,12 +156,48 @@ DEFAULT_HOMEWORK_MARK_TYPES = [ # New for homework marks
 MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
 
+class CreateProfileDialog(simpledialog.Dialog):
+    """Dialog for creating a new profile."""
+    def __init__(self, parent, existing_profiles):
+        self.existing_profiles = [p['name'].lower() for p in existing_profiles]
+        self.result = None
+        super().__init__(parent, "Create New Profile")
+
+    def body(self, master):
+        ttk.Label(master, text="Profile Name:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.name_entry = ttk.Entry(master, width=40)
+        self.name_entry.grid(row=0, column=1, sticky=tk.EW, pady=2)
+        self.name_entry.focus_set()
+
+        ttk.Label(master, text="School (Optional):").grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.school_entry = ttk.Entry(master, width=40)
+        self.school_entry.grid(row=1, column=1, sticky=tk.EW, pady=2)
+
+        return self.name_entry
+
+    def apply(self):
+        profile_name = self.name_entry.get().strip()
+        if not profile_name:
+            messagebox.showerror("Invalid Name", "Profile name cannot be empty.", parent=self)
+            return
+
+        if profile_name.lower() in self.existing_profiles:
+            messagebox.showerror("Name Exists", "A profile with this name already exists.", parent=self)
+            return
+
+        self.result = {
+            "name": profile_name,
+            "school": self.school_entry.get().strip()
+        }
+
 class SettingsDialog(simpledialog.Dialog):
     def __init__(self, parent, current_settings, custom_behaviors, all_behaviors, app,
                  custom_homework_statuses, all_homework_statuses, # RENAMED
                  custom_homework_types, all_homework_types, # NEW
-                 password_manager_instance, theme, custom_canvas_color, styles, style):
+                 password_manager_instance, theme, custom_canvas_color, styles, style,
+                 g_current_profile_name):
         self.settings = current_settings
+        self.g_current_profile_name = g_current_profile_name
         self.custom_behaviors_ref = custom_behaviors
         self.all_behaviors_ref = all_behaviors
         self.reset = False # Flag to indicate if reset button was pressed
@@ -222,6 +259,11 @@ class SettingsDialog(simpledialog.Dialog):
         # --- Security Tab ---
         security_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(security_tab, text="Security")
         self.create_security_tab(security_tab)
+
+        # --- Profiles Tab ---
+        profiles_tab = ttk.Frame(self.notebook, padding=10)
+        self.notebook.add(profiles_tab, text="Profiles")
+        self.create_profiles_tab(profiles_tab)
 
         # After creating all tabs, call update_all_widget_states to set the initial state
         self.update_all_widget_states()
@@ -1047,6 +1089,139 @@ class SettingsDialog(simpledialog.Dialog):
         self.output_dpi_global_label.pack(anchor=tk.W, padx=5)
         self.create_sharing_toggle(lf_export_image, "output_dpi", row=0, column=1)
         self.widget_map["output_dpi"] = {"widget": self.export_image_spin, "label_widget": self.output_dpi_global_label}
+
+    def create_profiles_tab(self, tab_frame):
+        """Creates the UI for the 'Profiles' tab."""
+        lf_profiles = ttk.LabelFrame(tab_frame, text="Manage Profiles", padding=10)
+        lf_profiles.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Listbox to display profiles
+        self.profiles_listbox = tk.Listbox(lf_profiles, exportselection=False, height=10)
+        self.profiles_listbox.pack(fill=tk.BOTH, expand=True, pady=5)
+        self.populate_profiles_listbox()
+
+        # Frame for the buttons
+        button_frame = ttk.Frame(lf_profiles)
+        button_frame.pack(fill=tk.X, pady=(5, 0))
+
+        self.switch_profile_button = ttk.Button(button_frame, text="Switch to Selected Profile", command=self.switch_to_selected_profile)
+        self.switch_profile_button.pack(side=tk.LEFT, padx=2)
+
+        self.create_profile_button = ttk.Button(button_frame, text="Create New...", command=self.create_new_profile)
+        self.create_profile_button.pack(side=tk.LEFT, padx=2)
+
+        self.rename_profile_button = ttk.Button(button_frame, text="Rename Selected...", command=self.rename_selected_profile)
+        self.rename_profile_button.pack(side=tk.LEFT, padx=2)
+
+        self.delete_profile_button = ttk.Button(button_frame, text="Delete Selected", command=self.delete_selected_profile)
+        self.delete_profile_button.pack(side=tk.RIGHT, padx=2)
+
+    def populate_profiles_listbox(self):
+        self.profiles_listbox.delete(0, tk.END)
+        self.profiles = []
+        profiles_json_path = get_app_data_path("profiles.json")
+        if os.path.exists(profiles_json_path):
+            with open(profiles_json_path, 'r') as f:
+                try:
+                    self.profiles = json.load(f)
+                except json.JSONDecodeError:
+                    pass
+
+        for profile in self.profiles:
+            display_text = profile.get('name', 'Unnamed Profile')
+            if profile.get('school'):
+                display_text += f" ({profile['school']})"
+            self.profiles_listbox.insert(tk.END, display_text)
+            if profile.get('name') == self.g_current_profile_name:
+                self.profiles_listbox.itemconfig(tk.END, {'bg': 'lightblue'})
+
+    def switch_to_selected_profile(self):
+        selected_indices = self.profiles_listbox.curselection()
+        if not selected_indices:
+            return
+
+        selected_profile_name = self.profiles[selected_indices[0]]['name']
+        if selected_profile_name == self.g_current_profile_name:
+            messagebox.showinfo("Profile Already Active", "The selected profile is already active.", parent=self)
+            return
+
+        if messagebox.askyesno("Switch Profile", f"Are you sure you want to switch to the profile '{selected_profile_name}'?\nThe application will restart.", parent=self):
+            self.app.switch_profile(selected_profile_name)
+
+    def create_new_profile(self):
+        dialog = CreateProfileDialog(self, self.profiles)
+        if dialog.result:
+            new_profile_data = dialog.result
+            self.profiles.append(new_profile_data)
+            profiles_json_path = get_app_data_path("profiles.json")
+            with open(profiles_json_path, 'w') as f:
+                json.dump(self.profiles, f, indent=4)
+            self.populate_profiles_listbox()
+            self.settings_changed_flag = True
+
+    def rename_selected_profile(self):
+        selected_indices = self.profiles_listbox.curselection()
+        if not selected_indices:
+            return
+
+        profile_index = selected_indices[0]
+        profile_to_rename = self.profiles[profile_index]
+        old_name = profile_to_rename['name']
+
+        new_name = simpledialog.askstring("Rename Profile", "Enter new name for the profile:", initialvalue=old_name, parent=self)
+        if new_name and new_name.strip():
+            new_name = new_name.strip()
+            if new_name.lower() == old_name.lower():
+                return
+
+            if any(p['name'].lower() == new_name.lower() for p in self.profiles):
+                messagebox.showerror("Name Exists", "A profile with this name already exists.", parent=self)
+                return
+
+            # Rename directory
+            profiles_json_path = get_app_data_path("profiles.json")
+            profiles_dir = os.path.dirname(profiles_json_path)
+            old_profile_dir = os.path.join(profiles_dir, "profiles", old_name)
+            new_profile_dir = os.path.join(profiles_dir, "profiles", new_name)
+
+            if os.path.exists(old_profile_dir):
+                shutil.move(old_profile_dir, new_profile_dir)
+
+            # Update profiles.json
+            self.profiles[profile_index]['name'] = new_name
+            profiles_json_path = get_app_data_path("profiles.json")
+            with open(profiles_json_path, 'w') as f:
+                json.dump(self.profiles, f, indent=4)
+
+            self.populate_profiles_listbox()
+            self.settings_changed_flag = True
+
+    def delete_selected_profile(self):
+        selected_indices = self.profiles_listbox.curselection()
+        if not selected_indices:
+            return
+
+        profile_to_delete = self.profiles[selected_indices[0]]
+        if profile_to_delete['name'] == self.app.g_current_profile_name:
+            messagebox.showerror("Cannot Delete Active Profile", "You cannot delete the currently active profile.", parent=self)
+            return
+
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete the profile '{profile_to_delete['name']}'?\nThis will permanently delete all associated data.", parent=self):
+            self.profiles = [p for p in self.profiles if p['name'] != profile_to_delete['name']]
+            profiles_json_path = get_app_data_path("profiles.json")
+            with open(profiles_json_path, 'w') as f:
+                json.dump(self.profiles, f, indent=4)
+
+            profiles_dir = os.path.dirname(get_app_data_path("profiles.json"))
+            profile_dir_to_delete = os.path.join(profiles_dir, "profiles", profile_to_delete['name'])
+            if os.path.exists(profile_dir_to_delete):
+                try:
+                    shutil.rmtree(profile_dir_to_delete)
+                except OSError as e:
+                    messagebox.showerror("Delete Error", f"Could not delete profile directory: {e}", parent=self)
+
+            self.populate_profiles_listbox()
+            self.settings_changed_flag = True
 
     def create_security_tab(self, tab_frame):
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)

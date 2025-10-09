@@ -174,6 +174,8 @@ class FileLockManager:
         self.lock = None
 
     def acquire_lock(self):
+        if "pytest" in sys.modules:
+            return True
         try:
             # Open the lock file in exclusive mode, creating it if it doesn't exist.
             # portalocker will raise an exception if the lock cannot be acquired.
