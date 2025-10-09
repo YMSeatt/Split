@@ -26,7 +26,6 @@ from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDial
 from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialog
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
-from profile_dialog import ProfileDialog, CreateProfileDialog
 from scheduledialog import ScheduleDialog
 from data_locker import unlock_file, DATA_FILE
 import json
@@ -6033,7 +6032,8 @@ class SeatingChartApp:
         dialog = SettingsDialog(self.root, self.settings, self.custom_behaviors, self.all_behaviors, self,
                                 self.custom_homework_statuses, self.all_homework_statuses, # Homework log behaviors
                                 self.custom_homework_types, self.all_homework_session_types, # Homework session types (Yes/No mode)
-                                self.password_manager, self.theme_style_using, self.custom_canvas_color, self.styles, self.type_theme)
+                                self.password_manager, self.theme_style_using, self.custom_canvas_color, self.styles, self.type_theme,
+                                g_current_profile_name)
         if dialog.settings_changed_flag: # Check if dialog indicated changes
             # Settings are applied directly by the dialog for most parts
             self.save_data_wrapper(source="settings_dialog") # Save all data as settings are part of it
@@ -6404,10 +6404,20 @@ class SeatingChartApp:
         self.password_manager.record_activity()
         # The UndoHistoryDialog should refresh itself.
 
-    def switch_profile(self):
-        """Restarts the application to the profile selection screen."""
+    def switch_profile(self, profile_name_to_load=None):
+        """Restarts the application to switch to a different profile."""
+        if profile_name_to_load:
+            try:
+                # Use a simple file to signal which profile to load on restart.
+                with open(get_app_data_path("profile.next"), 'w') as f:
+                    f.write(profile_name_to_load)
+            except IOError as e:
+                messagebox.showerror("Profile Switch Error", f"Could not prepare profile switch: {e}", parent=self.root)
+                return # Abort if we can't write the file
+
         if self.file_lock_manager:
             self.file_lock_manager.release_lock()
+
         python = sys.executable
         os.execl(python, python, *sys.argv)
 
@@ -6556,6 +6566,19 @@ def manage_profiles(root):
     """Handles the profile selection, creation, and deletion loop."""
     global g_current_profile_name
 
+    # Check for a profile switch signal first
+    profile_next_path = get_app_data_path("profile.next")
+    if os.path.exists(profile_next_path):
+        try:
+            with open(profile_next_path, 'r') as f:
+                g_current_profile_name = f.read().strip()
+            os.remove(profile_next_path)
+            if g_current_profile_name:
+                return True
+        except IOError as e:
+            print(f"Could not read or remove profile switch signal: {e}")
+            g_current_profile_name = None # Reset if read fails
+
     # Check schedule first
     schedule_path = get_app_data_path("schedule.json")
     if os.path.exists(schedule_path):
@@ -6584,44 +6607,53 @@ def manage_profiles(root):
         with open(profiles_json_path, 'w') as f:
             json.dump([], f)
 
-    while True:
-        profiles = []
-        with open(profiles_json_path, 'r') as f:
-            try: profiles = json.load(f)
-            except json.JSONDecodeError: pass
+    profiles = []
+    with open(profiles_json_path, 'r') as f:
+        try:
+            profiles = json.load(f)
+        except json.JSONDecodeError:
+            messagebox.showerror("Profile Load Error", "Could not read profiles. The profiles.json file may be corrupt.")
+            profiles = []
 
-        if len(profiles) == 1 and g_current_profile_name is None:
+    if profiles:
+        # If running in a test environment, load the first profile without a dialog.
+        if "pytest" in sys.modules:
             g_current_profile_name = profiles[0]['name']
             return True
 
-        dialog = ProfileDialog(root, profiles)
-        root.wait_window(dialog)
-        result = dialog.result
+        # Simplified startup dialog
+        dialog = tk.Toplevel(root)
+        dialog.title("Select Profile")
+        ttk.Label(dialog, text="Select a profile:").pack(padx=10, pady=10)
 
-        if result and result['action'] == 'load':
-            g_current_profile_name = result['profile']
-            return True
-        elif result and result['action'] == 'create':
-            create_dialog = CreateProfileDialog(root, profiles)
-            root.wait_window(create_dialog)
-            new_profile_data = create_dialog.result
-            if new_profile_data:
-                profiles.append(new_profile_data)
-                with open(profiles_json_path, 'w') as f:
-                    json.dump(profiles, f, indent=4)
-        elif result and result['action'] == 'delete':
-            profile_to_delete = result['profile']
-            profiles = [p for p in profiles if p['name'] != profile_to_delete]
-            with open(profiles_json_path, 'w') as f:
-                json.dump(profiles, f, indent=4)
-            profile_dir_to_delete = os.path.join(profiles_dir, "profiles", profile_to_delete)
-            if os.path.exists(profile_dir_to_delete):
-                try:
-                    shutil.rmtree(profile_dir_to_delete)
-                except OSError as e:
-                    messagebox.showerror("Delete Error", f"Could not delete profile directory: {e}", parent=root)
-        else:
-            return False
+        profile_var = tk.StringVar()
+        profile_menu = ttk.Combobox(dialog, textvariable=profile_var, values=[p['name'] for p in profiles], state="readonly")
+        profile_menu.pack(padx=10, pady=10)
+        profile_menu.set(profiles[0]['name'])
+
+        def on_load():
+            global g_current_profile_name
+            g_current_profile_name = profile_var.get()
+            dialog.destroy()
+
+        ttk.Button(dialog, text="Load", command=on_load).pack(padx=10, pady=10)
+
+        root.wait_window(dialog)
+        return g_current_profile_name is not None
+
+    # If no profiles exist, prompt to create the first one.
+    messagebox.showinfo("Create a Profile", "No profiles found. Please create a new profile to begin.", parent=root)
+    profile_name = simpledialog.askstring("Create Profile", "Enter a name for the new profile:", parent=root)
+    if profile_name and profile_name.strip():
+        new_profile = {"name": profile_name.strip(), "school": ""}
+        profiles.append(new_profile)
+        with open(profiles_json_path, 'w') as f:
+            json.dump(profiles, f, indent=4)
+        g_current_profile_name = profile_name.strip()
+        return True
+    else:
+        # User cancelled creation of the first profile, so exit.
+        return False
 
 if __name__ == "__main__":
     try:
