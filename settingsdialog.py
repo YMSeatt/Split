@@ -155,6 +155,29 @@ DEFAULT_HOMEWORK_MARK_TYPES = [ # New for homework marks
 
 MAX_CUSTOM_TYPES = 90 # Max for custom behaviors, homeworks, mark types
 
+class EditBehaviorDialog(simpledialog.Dialog):
+    def __init__(self, parent, title, behavior_item):
+        self.behavior_item = behavior_item
+        super().__init__(parent, title)
+
+    def body(self, master):
+        ttk.Label(master, text="Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.name_var = tk.StringVar(value=self.behavior_item.get("name", ""))
+        self.name_entry = ttk.Entry(master, textvariable=self.name_var, width=30)
+        self.name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        ttk.Label(master, text="Category:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.category_var = tk.StringVar(value=self.behavior_item.get("category", "Neutral"))
+        self.category_combo = ttk.Combobox(master, textvariable=self.category_var, values=["Good", "Bad", "Neutral"], state="readonly")
+        self.category_combo.grid(row=1, column=1, padx=5, pady=5)
+
+        return self.name_entry # initial focus
+
+    def apply(self):
+        self.result = {
+            "name": self.name_var.get().strip(),
+            "category": self.category_var.get()
+        }
 
 class SettingsDialog(simpledialog.Dialog):
     def __init__(self, parent, current_settings, custom_behaviors, all_behaviors, app,
@@ -1356,137 +1379,6 @@ class SettingsDialog(simpledialog.Dialog):
             "canvas_color": "Default"
         }
 
-    def theme_set(self, event):
-        #print(self.app.theme_style_using, "old")
-        self.app.theme_style_using = self.theme.get()
-        self.settings_changed_flag = True
-        #print("Theme: ", self.theme.get())
-        self.theme2 = self.theme.get()
-        #print("theme2", self.theme2)
-
-    def style_set(self, event=None):
-        self.app.type_theme = self.style.get()
-        self.theme_combo.configure(state='disabled' if "sun-valley" not in self.style.get().lower() else 'readonly')
-        self.theme_combo.set("Light") if "sun-valley" not in self.style.get().lower() else "System"
-
-    def set_or_change_password(self):
-        new_pw = self.new_pw_var.get()
-        confirm_pw = self.confirm_pw_var.get()
-        if not new_pw:
-            messagebox.showerror("Password Error", "New password cannot be empty.", parent=self)
-            return
-        if new_pw != confirm_pw:
-            messagebox.showerror("Password Error", "Passwords do not match.", parent=self)
-            return
-        if len(new_pw) < 4: # Basic length check
-            messagebox.showwarning("Weak Password", "Password should be at least 4 characters.", parent=self)
-            # Allow user to proceed if they insist
-
-        self.password_manager.set_password(new_pw)
-        self.settings_changed_flag = True # Settings (hash) changed
-        self.new_pw_var.set(""); self.confirm_pw_var.set("")
-        self.current_pw_status_label.config(text="Status: Password IS SET")
-        self.remove_pw_button_ref.config(state=tk.NORMAL)
-        messagebox.showinfo("Password Set", "Application password has been set/changed.", parent=self)
-
-    def prompt_for_password(self, title, prompt_message, for_editing=False):
-        if self.password_manager.is_locked:
-             if not hasattr(self, '_lock_screen_active') or not self._lock_screen_active.winfo_exists(): self.show_lock_screen()
-             return not self.password_manager.is_locked
-        if for_editing and not self.settings.get("password_on_edit_action", False) and not self.password_manager.is_password_set(): return True
-        if not self.password_manager.is_password_set(): return True
-        dialog = PasswordPromptDialog(self.master, title, prompt_message, self.password_manager)
-        return dialog.result
-
-    def remove_password(self):
-        if self.password_manager.is_password_set():
-            if self.prompt_for_password("Confirm Password", "Enter current password to confirm identity", for_editing=True):
-                if messagebox.askyesno("Confirm Removal", "Are you sure you want to remove the application password?", parent=self):
-                    self.password_manager.set_password(None) # Set to None effectively removes it
-                    self.settings_changed_flag = True
-                    self.current_pw_status_label.config(text="Status: Password NOT SET")
-                    self.remove_pw_button_ref.config(state=tk.DISABLED)
-                    self.pw_on_open_var.set(False) # Disable options that require a password
-                    self.pw_on_edit_var.set(False)
-                    self.pw_auto_lock_var.set(False)
-                    messagebox.showinfo("Password Removed", "Application password has been removed.", parent=self)
-        else:
-            messagebox.showinfo("No Password", "No application password is currently set.", parent=self)
-
-    # --- UI Helper for color/font settings ---
-    def create_color_font_settings_ui(self, parent_frame, start_row, fill_key, outline_key, font_fam_key, font_size_key, font_color_key):
-        # Fill Color
-        ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
-        fill_var = tk.StringVar(value=self.settings.get(fill_key, DEFAULT_BOX_FILL_COLOR), name=f"{fill_key}_var")
-        setattr(self, f"{fill_key}_var", fill_var) # Store var on self
-        fill_var.trace_add("write", lambda *args: self.on_setting_change(fill_var, fill_key, *args))
-        ttk.Entry(parent_frame, textvariable=fill_var, width=12).grid(row=start_row,column=1,sticky=tk.W,padx=5,pady=3)
-        ttk.Button(parent_frame, text="Choose...", command=lambda v=fill_var: self.choose_color_for_var(v)).grid(row=start_row,column=2,sticky=tk.W,padx=2,pady=3)
-        # Outline Color
-        ttk.Label(parent_frame, text="Default Outline Color:").grid(row=start_row+1,column=0,sticky=tk.W,padx=5,pady=3)
-        outline_var = tk.StringVar(value=self.settings.get(outline_key, DEFAULT_BOX_OUTLINE_COLOR), name=f"{outline_key}_var")
-        setattr(self, f"{outline_key}_var", outline_var)
-        outline_var.trace_add("write", lambda *args: self.on_setting_change(outline_var, outline_key, *args))
-        ttk.Entry(parent_frame, textvariable=outline_var, width=12).grid(row=start_row+1,column=1,sticky=tk.W,padx=5,pady=3)
-        ttk.Button(parent_frame, text="Choose...", command=lambda v=outline_var: self.choose_color_for_var(v)).grid(row=start_row+1,column=2,sticky=tk.W,padx=2,pady=3)
-        # Font Family
-        ttk.Label(parent_frame, text="Default Font Family:").grid(row=start_row+2,column=0,sticky=tk.W,padx=5,pady=3)
-        font_fam_var = tk.StringVar(value=self.settings.get(font_fam_key, DEFAULT_FONT_FAMILY), name=f"{font_fam_key}_var")
-        setattr(self, f"{font_fam_key}_var", font_fam_var)
-        font_fam_var.trace_add("write", lambda *args: self.on_setting_change(font_fam_var, font_fam_key, *args))
-        available_fonts = self.settings.get("available_fonts", [DEFAULT_FONT_FAMILY])
-        ff_combo = ttk.Combobox(parent_frame, textvariable=font_fam_var, values=available_fonts, width=20, state="readonly")
-        ff_combo.grid(row=start_row+2,column=1,columnspan=2,sticky=tk.EW,padx=5,pady=3)
-        ff_combo.bind("<MouseWheel>", lambda event: "break") # Prevent main canvas scroll
-        # Font Size
-        ttk.Label(parent_frame, text="Names Font Size (pts):").grid(row=start_row+3,column=0,sticky=tk.W,padx=5,pady=3)
-        font_size_var = tk.IntVar(value=self.settings.get(font_size_key, DEFAULT_FONT_SIZE), name=f"{font_size_key}_var")
-        setattr(self, f"{font_size_key}_var", font_size_var)
-        font_size_var.trace_add("write", lambda *args: self.on_setting_change(font_size_var, font_size_key, *args))
-        ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=font_size_var, width=5).grid(row=start_row+3,column=1,sticky=tk.W,padx=5,pady=3)
-        # Font Color
-        ttk.Label(parent_frame, text="Default Font Color:").grid(row=start_row+4,column=0,sticky=tk.W,padx=5,pady=3)
-        font_color_var = tk.StringVar(value=self.settings.get(font_color_key, DEFAULT_FONT_COLOR), name=f"{font_color_key}_var")
-        setattr(self, f"{font_color_key}_var", font_color_var)
-        font_color_var.trace_add("write", lambda *args: self.on_setting_change(font_color_var, font_color_key, *args))
-        ttk.Entry(parent_frame, textvariable=font_color_var, width=12).grid(row=start_row+4,column=1,sticky=tk.W,padx=5,pady=3)
-        ttk.Button(parent_frame, text="Choose...", command=lambda v=font_color_var: self.choose_color_for_var(v)).grid(row=start_row+4,column=2,sticky=tk.W,padx=2,pady=3)
-        ttk.Button(parent_frame, text="Reset", command=lambda v=font_color_var: self.reset_color_for_var(v, DEFAULT_FONT_COLOR)).grid(row=start_row+4,column=3,sticky=tk.W,padx=2,pady=3)
-
-        # Behaviors Font Size
-        ttk.Label(parent_frame, text="Behaviors Font Size (pts):").grid(row=start_row+5,column=0,sticky=tk.W,padx=5,pady=3)
-        behavior_font_size_var = tk.IntVar(value=self.settings.get('behavior_font_size', DEFAULT_FONT_SIZE), name='behavior_font_size_var')
-        setattr(self, 'behavior_font_size_var', behavior_font_size_var)
-        behavior_font_size_var.trace_add("write", lambda *args: self.on_setting_change(behavior_font_size_var, 'behavior_font_size', *args))
-        ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=behavior_font_size_var, width=5).grid(row=start_row+5,column=1,sticky=tk.W,padx=5,pady=3)
-
-    def reset_color_for_var(self, color_var, default): # Helper for color reset buttons in settings
-        color_var.set(default) # Reset to empty string
-
-    def choose_color_for_var(self, color_var): # Helper for color choosers in settings
-        initial_color = color_var.get()
-        if not initial_color: # If empty, pick a default to show in chooser
-            if "fill" in color_var._name: initial_color = DEFAULT_BOX_FILL_COLOR
-            elif "outline" in color_var._name: initial_color = DEFAULT_BOX_OUTLINE_COLOR
-            else: initial_color = DEFAULT_FONT_COLOR
-
-        color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
-        if color_code and color_code[1]: color_var.set(color_code[1])
-
-    def choose_color_for_canvas(self, color_var): # Helper for color choosers in settings
-        initial_color = color_var.get()
-        if initial_color == "Default": initial_color = None
-        if not initial_color: # If empty, pick a default to show in chooser
-            if "fill" in color_var._name: initial_color = DEFAULT_BOX_FILL_COLOR
-            elif "outline" in color_var._name: initial_color = DEFAULT_BOX_OUTLINE_COLOR
-            else: initial_color = DEFAULT_FONT_COLOR
-
-        color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
-        if color_code and color_code[1]: color_var.set(color_code[1])
-
-    def reset_canvas_color(self, button):
-        button.set("Default")
-
     # --- Methods for managing custom lists ---
     def populate_conditional_rules_listbox(self):
         self.rules_listbox.delete(0, tk.END)
@@ -1594,37 +1486,84 @@ class SettingsDialog(simpledialog.Dialog):
     # Custom Behaviors (for Log Behavior dialog)
     def populate_custom_behaviors_listbox(self):
         self.custom_behaviors_listbox.delete(0, tk.END)
-        for behavior_item in self.custom_behaviors_ref: # List of dicts or old strings
-            name = behavior_item["name"] if isinstance(behavior_item, dict) else behavior_item
-            self.custom_behaviors_listbox.insert(tk.END, name)
+        for behavior_item in self.custom_behaviors_ref:
+            name = behavior_item.get("name", "Unknown")
+            category = behavior_item.get("category", "Neutral")
+            display_text = f"{name} ({category})"
+            self.custom_behaviors_listbox.insert(tk.END, display_text)
+            if category == "Good":
+                self.custom_behaviors_listbox.itemconfig(tk.END, {'fg': 'green'})
+            elif category == "Bad":
+                self.custom_behaviors_listbox.itemconfig(tk.END, {'fg': 'red'})
+
     def add_custom_behavior(self):
         if len(self.custom_behaviors_ref) >= MAX_CUSTOM_TYPES:
-            messagebox.showwarning("Limit Reached", f"Maximum of {MAX_CUSTOM_TYPES} custom {item_type_name.lower()}s allowed.", parent=self); return
+            messagebox.showwarning("Limit Reached", f"Maximum of {MAX_CUSTOM_TYPES} custom behaviors allowed.", parent=self); return
         name = simpledialog.askstring("Add Custom Behavior", "Enter name for the new behavior:", parent=self)
         if name and name.strip():
             name = name.strip()
-            if any(cb_item == name or (isinstance(cb_item, dict) and cb_item.get("name") == name) for cb_item in self.custom_behaviors_ref):
+            if any(cb_item.get("name") == name for cb_item in self.custom_behaviors_ref):
                  messagebox.showwarning("Duplicate", f"Behavior '{name}' already exists.", parent=self); return
-            self.custom_behaviors_ref.append({"name": name}) # Store as dict
+            self.custom_behaviors_ref.append({"name": name, "category": "Neutral"}) # Add with default category
             self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
+
     def edit_selected_custom_behavior(self):
         sel_idx = self.custom_behaviors_listbox.curselection()
         if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to edit.", parent=self); return
         idx = sel_idx[0]
-        old_item = self.custom_behaviors_ref[idx]
-        old_name = old_item["name"] if isinstance(old_item, dict) else old_item
-        new_name = simpledialog.askstring("Edit Custom Behavior", "Enter new name:", initialvalue=old_name, parent=self)
-        if new_name and new_name.strip():
-            new_name = new_name.strip()
-            if new_name != old_name and any(cb_item == new_name or (isinstance(cb_item, dict) and cb_item.get("name") == new_name and (idx != i if isinstance(cb_item,dict) else True) ) for i, cb_item in enumerate(self.custom_behaviors_ref)):
-                 messagebox.showwarning("Duplicate", f"Behavior '{new_name}' already exists.", parent=self); return
-            self.custom_behaviors_ref[idx] = {"name": new_name}
-            self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
+
+        # We need to find the correct item in the reference list, not by listbox index
+        selected_text = self.custom_behaviors_listbox.get(idx)
+        # Extract the name from the display text "Name (Category)"
+        behavior_name_to_find = selected_text.split(" (")[0]
+
+        original_item_index = -1
+        for i, item in enumerate(self.custom_behaviors_ref):
+            if item.get("name") == behavior_name_to_find:
+                original_item_index = i
+                break
+
+        if original_item_index == -1:
+            messagebox.showerror("Error", "Could not find the selected behavior to edit.", parent=self)
+            return
+
+        original_item = self.custom_behaviors_ref[original_item_index]
+
+        dialog = EditBehaviorDialog(self, "Edit Custom Behavior", original_item)
+        if dialog.result:
+            new_name = dialog.result["name"]
+            new_category = dialog.result["category"]
+
+            # Check for duplicates if the name has changed
+            if new_name.lower() != original_item.get("name", "").lower() and any(item.get("name", "").lower() == new_name.lower() for i, item in enumerate(self.custom_behaviors_ref) if i != original_item_index):
+                messagebox.showwarning("Duplicate", f"Behavior '{new_name}' already exists.", parent=self)
+                return
+
+            self.custom_behaviors_ref[original_item_index]["name"] = new_name
+            self.custom_behaviors_ref[original_item_index]["category"] = new_category
+            self.settings_changed_flag = True
+            self.app.save_custom_behaviors()
+            self.populate_custom_behaviors_listbox()
+
     def remove_selected_custom_behavior(self):
         sel_idx = self.custom_behaviors_listbox.curselection()
         if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to remove.", parent=self); return
+
+        selected_text = self.custom_behaviors_listbox.get(sel_idx[0])
+        behavior_name_to_find = selected_text.split(" (")[0]
+
+        original_item_index = -1
+        for i, item in enumerate(self.custom_behaviors_ref):
+            if item.get("name") == behavior_name_to_find:
+                original_item_index = i
+                break
+
+        if original_item_index == -1:
+            messagebox.showerror("Error", "Could not find the selected behavior to remove.", parent=self)
+            return
+
         if messagebox.askyesno("Confirm Remove", "Remove selected custom behavior?", parent=self):
-            del self.custom_behaviors_ref[sel_idx[0]]
+            del self.custom_behaviors_ref[original_item_index]
             self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
     
     def manage_behavior_initials(self):
