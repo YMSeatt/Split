@@ -313,6 +313,46 @@ class AddFurnitureDialog(simpledialog.Dialog):
         if name and item_type and width > 0 and height > 0: self.result = (name, item_type, width, height)
         else: messagebox.showwarning("Invalid Input", "Name, Type, Width, and Height are required and must be positive.", parent=self); self.result = None
 
+class AddStatBoxDialog(simpledialog.Dialog):
+    def __init__(self, parent, title, stat_box_data=None):
+        self.stat_box_data = stat_box_data
+        self.result = None
+        super().__init__(parent, title)
+
+    def body(self, master):
+        ttk.Label(master, text="Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.name_var = tk.StringVar(value=self.stat_box_data["name"] if self.stat_box_data else "Presence")
+        self.name_entry = ttk.Entry(master, textvariable=self.name_var)
+        self.name_entry.grid(row=0, column=1, padx=5, pady=2)
+
+        ttk.Label(master, text="Statistic Type:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.stat_type_var = tk.StringVar(value=self.stat_box_data.get("stat_type") if self.stat_box_data else "student_presence_percentage")
+        self.stat_type_combo = ttk.Combobox(master, textvariable=self.stat_type_var, values=["student_presence_percentage", "student_presence_fraction"], state="readonly")
+        self.stat_type_combo.grid(row=1, column=1, padx=5, pady=2)
+
+        ttk.Label(master, text="Width:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
+        self.width_var = tk.IntVar(value=self.stat_box_data["width"] if self.stat_box_data else DEFAULT_STUDENT_BOX_WIDTH)
+        self.width_spinbox = ttk.Spinbox(master, from_=20, to=1000, textvariable=self.width_var, width=5)
+        self.width_spinbox.grid(row=2, column=1, sticky=tk.W, padx=5, pady=2)
+
+        ttk.Label(master, text="Height:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=2)
+        self.height_var = tk.IntVar(value=self.stat_box_data["height"] if self.stat_box_data else DEFAULT_STUDENT_BOX_HEIGHT)
+        self.height_spinbox = ttk.Spinbox(master, from_=20, to=1000, textvariable=self.height_var, width=5)
+        self.height_spinbox.grid(row=3, column=1, sticky=tk.W, padx=5, pady=2)
+
+        return self.name_entry
+
+    def apply(self):
+        name = self.name_var.get().strip()
+        stat_type = self.stat_type_var.get()
+        width = self.width_var.get()
+        height = self.height_var.get()
+        if name and stat_type and width > 0 and height > 0:
+            self.result = (name, stat_type, width, height)
+        else:
+            messagebox.showwarning("Invalid Input", "All fields are required.", parent=self)
+            self.result = None
+
 class BehaviorDialog(simpledialog.Dialog):
     # ... (same as v51)
     def __init__(self, parent, title, all_behaviors, custom_behaviors, initial_value=None): # Added initial_value
@@ -1184,11 +1224,60 @@ class StudentStyleDialog(simpledialog.Dialog):
                 self.result.append((prop_key, old_val_from_overrides, final_new_val))
 
 
+class StatBoxStyleDialog(simpledialog.Dialog):
+    def __init__(self, parent, title, stat_box_data, app):
+        self.stat_box_data = stat_box_data
+        self.app = app # For default settings
+        self.result = [] # List of (property, old_value, new_value) tuples for Command
+        self.initial_fill_color = stat_box_data.get("fill_color", "")
+        self.initial_outline_color = stat_box_data.get("outline_color", "")
+        super().__init__(parent, title)
 
+    def body(self, master):
+        prop_frame = ttk.Frame(master); prop_frame.pack(padx=10, pady=10)
+        row_idx = 0
 
+        # Fill Color
+        ttk.Label(prop_frame, text="Box Fill Color:").grid(row=row_idx, column=0, sticky=tk.W, pady=3)
+        self.fill_color_var = tk.StringVar(value=self.initial_fill_color)
+        self.fill_color_entry = ttk.Entry(prop_frame, textvariable=self.fill_color_var, width=15)
+        self.fill_color_entry.grid(row=row_idx, column=1, pady=3, padx=2)
+        ttk.Button(prop_frame, text="Choose...", command=lambda: self.choose_color(self.fill_color_var)).grid(row=row_idx, column=2, pady=3, padx=2)
+        ttk.Button(prop_frame, text="Default", command=lambda: self.reset_to_default(self.fill_color_var, "stat_box_fill_color")).grid(row=row_idx, column=3, pady=3, padx=2)
+        row_idx += 1
 
+        # Outline Color
+        ttk.Label(prop_frame, text="Box Outline Color:").grid(row=row_idx, column=0, sticky=tk.W, pady=3)
+        self.outline_color_var = tk.StringVar(value=self.initial_outline_color)
+        self.outline_color_entry = ttk.Entry(prop_frame, textvariable=self.outline_color_var, width=15)
+        self.outline_color_entry.grid(row=row_idx, column=1, pady=3, padx=2)
+        ttk.Button(prop_frame, text="Choose...", command=lambda: self.choose_color(self.outline_color_var)).grid(row=row_idx, column=2, pady=3, padx=2)
+        ttk.Button(prop_frame, text="Default", command=lambda: self.reset_to_default(self.outline_color_var, "stat_box_outline_color")).grid(row=row_idx, column=3, pady=3, padx=2)
 
+        return self.fill_color_entry
 
+    def choose_color(self, var_to_set):
+        initial_color = var_to_set.get() if var_to_set.get() else None
+        color_code = colorchooser.askcolor(title="Choose color", initialcolor=initial_color, parent=self)
+        if color_code and color_code[1]:
+            var_to_set.set(color_code[1])
+
+    def reset_to_default(self, var_to_set, key):
+        # Stat box defaults are not in settings, but hardcoded.
+        # fill_color: "lightyellow", outline_color: "goldenrod"
+        if key == "stat_box_fill_color":
+            var_to_set.set("lightyellow")
+        elif key == "stat_box_outline_color":
+            var_to_set.set("goldenrod")
+
+    def apply(self):
+        new_fill_color = self.fill_color_var.get().strip()
+        if new_fill_color != self.initial_fill_color:
+            self.result.append(("fill_color", self.initial_fill_color, new_fill_color))
+
+        new_outline_color = self.outline_color_var.get().strip()
+        if new_outline_color != self.initial_outline_color:
+            self.result.append(("outline_color", self.initial_outline_color, new_outline_color))
 
 
 class AttendanceReportDialog(simpledialog.Dialog):

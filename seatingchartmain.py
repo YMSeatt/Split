@@ -19,10 +19,10 @@ from PIL import Image
 from settingsdialog import SettingsDialog
 from commands import Command, DeleteGuideCommand, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
-        MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, MoveGuideCommand, AddGuideCommand
-from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDialog, BehaviorDialog, \
+        MarkLiveHomeworkCommand, ChangeItemStyleCommand, ManageStudentGroupCommand, MoveGuideCommand, AddGuideCommand
+from dialogs import PasswordPromptDialog, AddEditStudentDialog, AddFurnitureDialog, AddStatBoxDialog, BehaviorDialog, \
     ManualHomeworkLogDialog, QuizScoreDialog, LiveQuizMarkDialog, LiveHomeworkMarkDialog, ExitConfirmationDialog, \
-        ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, ManageStudentGroupsDialog
+        ImportExcelOptionsDialog, SizeInputDialog, StudentStyleDialog,  AttendanceReportDialog, ManageStudentGroupsDialog, StatBoxStyleDialog
 from quizhomework import ManageQuizTemplatesDialog, ManageHomeworkTemplatesDialog
 from other import FileLockManager, PasswordManager, HelpDialog
 from exportdialog import ExportFilterDialog
@@ -294,6 +294,9 @@ class SeatingChartApp:
                 "excel_export_include_summaries_by_default": "Include Summary Sheet in Export",
                 "enable_excel_autosave": "Enable Excel Log Autosave",
                 "output_dpi": "Image Export DPI",
+            },
+            "Stat Boxes": {
+                "statbox_presence_definition": "Definition of 'Present' for Stats"
             }
         }
         # ... (initial part of __init__ is the same) ...
@@ -316,9 +319,11 @@ class SeatingChartApp:
         self.student_groups = {}
         self.quiz_templates = {}
         self.homework_templates = {}
+        self.stat_boxes = {}
 
         self.next_student_id_num = 1
         self.next_furniture_id_num = 1
+        self.next_stat_box_id_num = 1
         self.next_group_id_num = 1
         self.next_quiz_template_id_num = 1
         self.next_homework_template_id_num = 1
@@ -702,6 +707,8 @@ class SeatingChartApp:
             "next_guide_id_num": 1, # Added in migration, also good here
             "guides_color": "blue", # Default color for guides
             "hidden_default_homework_types": [], # New for hiding default homework types
+            "statbox_presence_definition": "any_log",
+            "statbox_presence_behavior": "",
         }
 
     def _ensure_next_ids(self):
@@ -773,6 +780,16 @@ class SeatingChartApp:
         # It will be loaded from the main data file if present, otherwise defaults to 1.
         # This ensures it's correctly set after loading data that might contain guides.
         self.next_guide_id_num = max(getattr(self, 'next_guide_id_num', 1), max_g_id_num + 1)
+
+        # Stat Box IDs
+        max_sb_id = 0
+        for sbid in self.stat_boxes:
+            if sbid.startswith("statbox_"):
+                try: max_sb_id = max(max_sb_id, int(sbid.split("_")[1]))
+                except (ValueError, IndexError): pass
+        self.next_stat_box_id_num = max(self.settings.get("next_stat_box_id_num", 1), max_sb_id + 1)
+        self.settings["next_stat_box_id_num"] = self.next_stat_box_id_num
+
 
     def periodic_checks(self):
         self.password_manager.check_auto_lock()
@@ -898,6 +915,9 @@ class SeatingChartApp:
     def get_new_homework_template_id(self): # New
         current_id_to_assign = self.next_homework_template_id_num
         return f"hwtemplate_{current_id_to_assign}", self.next_homework_template_id_num + 1
+    def get_new_stat_box_id(self):
+        current_id_to_assign = self.next_stat_box_id_num
+        return f"statbox_{current_id_to_assign}", self.next_stat_box_id_num + 1
     def get_new_custom_homework_type_id(self): # New
         current_id_to_assign = self.settings.get("next_custom_homework_type_id_num", 1)
         return f"hwtype_{current_id_to_assign}", current_id_to_assign + 1
@@ -1059,6 +1079,8 @@ class SeatingChartApp:
         add_student_btn.pack(side=tk.LEFT, padx=2)
         add_furniture_btn = ttk.Button(self.top_controls_frame_row2, text="Add Furniture", command=self.add_furniture_dialog)
         add_furniture_btn.pack(side=tk.LEFT, padx=2)
+        add_stat_box_btn = ttk.Button(self.top_controls_frame_row2, text="Add Stat Box", command=self.add_stat_box_dialog)
+        add_stat_box_btn.pack(side=tk.LEFT, padx=2)
         
         self.zoom_display_label.bind("<FocusOut>", lambda e: self.update_zoom_display2())
         self.zoom_display_label.bind("<Return>", lambda e: self.update_zoom_display2())
@@ -1365,6 +1387,39 @@ class SeatingChartApp:
                                   "fill_color": "lightgray", "outline_color": "dimgray", "original_next_id_num_after_add": next_id_val_for_app_state_after_this}
                 self.execute_command(AddItemCommand(self, furniture_id_str, 'furniture', furniture_data, old_next_furniture_id_num_for_command))
                 self.password_manager.record_activity()
+
+    def add_stat_box_dialog(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Add Stat Box", "Enter password to add stat box:"): return
+        dialog = AddStatBoxDialog(self.root, "Add Stat Box")
+        if dialog.result:
+            name, stat_type, width, height = dialog.result
+            if name and stat_type:
+                old_next_stat_box_id_num_for_command = self.next_stat_box_id_num
+                stat_box_id_str, next_id_val_for_app_state_after_this = self.get_new_stat_box_id()
+                x, y = self.canvas_to_world_coords(70 + (len(self.stat_boxes) % 10) * 20, 70 + ((len(self.stat_boxes) // 10) * 20))
+                stat_box_data = {"name": name, "stat_type": stat_type, "x": x, "y": y, "id": stat_box_id_str, "width": width, "height": height,
+                                  "fill_color": "lightyellow", "outline_color": "goldenrod", "original_next_id_num_after_add": next_id_val_for_app_state_after_this}
+                self.execute_command(AddItemCommand(self, stat_box_id_str, 'stat_box', stat_box_data, old_next_stat_box_id_num_for_command))
+                self.password_manager.record_activity()
+
+    def edit_stat_box_dialog(self, stat_box_id):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Edit Stat Box", "Enter password to edit stat box:"): return
+        item = self.stat_boxes.get(stat_box_id)
+        if not item: return
+        old_item_data_snapshot = item.copy()
+        dialog = AddStatBoxDialog(self.root, f"Edit Stat Box: {item['name']}", stat_box_data=item)
+        if dialog.result:
+            name, stat_type, width, height = dialog.result
+            changes_for_command = {}
+            if name != item.get("name"): changes_for_command["name"] = name
+            if stat_type != item.get("stat_type"): changes_for_command["stat_type"] = stat_type
+            if width != item.get("width"): changes_for_command["width"] = width
+            if height != item.get("height"): changes_for_command["height"] = height
+            if changes_for_command:
+                self.execute_command(EditItemCommand(self, stat_box_id, "stat_box", old_item_data_snapshot, changes_for_command))
+            self.password_manager.record_activity()
 
     def toggle_global_recent_logs_visibility(self): # Renamed for clarity
         if self.password_manager.is_locked:
@@ -2093,6 +2148,97 @@ class SeatingChartApp:
             if check_collisions and self.settings.get("check_for_collisions", True): self.handle_layout_collision(student_id)
         except AttributeError: pass # Canvas might not be fully initialized during early calls
 
+    def _calculate_stat(self, stat_type):
+        if stat_type == "student_presence_percentage":
+            total_students = len(self.students)
+            if total_students == 0:
+                return "N/A"
+
+            presence_definition = self.settings.get("statbox_presence_definition", "any_log")
+            present_students = 0
+            today = datetime.now().date()
+
+            if presence_definition == "any_log":
+                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today}
+                present_student_ids.update({log['student_id'] for log in self.homework_log if datetime.fromisoformat(log['timestamp']).date() == today})
+                present_students = len(present_student_ids)
+            elif presence_definition == "specific_behavior":
+                specific_behavior = self.settings.get("statbox_presence_behavior", "")
+                if not specific_behavior:
+                    return "Config Error"
+                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today and log.get('behavior') == specific_behavior}
+                present_students = len(present_student_ids)
+
+            percentage = (present_students / total_students) * 100
+            return f"{percentage:.0f}% Present"
+
+        elif stat_type == "student_presence_fraction":
+            total_students = len(self.students)
+            if total_students == 0:
+                return "N/A"
+
+            presence_definition = self.settings.get("statbox_presence_definition", "any_log")
+            present_students = 0
+            today = datetime.now().date()
+
+            if presence_definition == "any_log":
+                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today}
+                present_student_ids.update({log['student_id'] for log in self.homework_log if datetime.fromisoformat(log['timestamp']).date() == today})
+                present_students = len(present_student_ids)
+            elif presence_definition == "specific_behavior":
+                specific_behavior = self.settings.get("statbox_presence_behavior", "")
+                if not specific_behavior:
+                    return "Config Error"
+                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today and log.get('behavior') == specific_behavior}
+                present_students = len(present_student_ids)
+
+            return f"{present_students}/{total_students} Present"
+
+        return "Unknown Stat"
+
+    def draw_single_stat_box(self, stat_box_id):
+        item_data = self.stat_boxes.get(stat_box_id)
+        if not item_data: return
+        world_x, world_y = item_data["x"], item_data["y"]
+        world_width = item_data.get("width", DEFAULT_STUDENT_BOX_WIDTH)
+        world_height = item_data.get("height", DEFAULT_STUDENT_BOX_HEIGHT)
+        canvas_x, canvas_y = self.world_to_canvas_coords(world_x, world_y)
+        canvas_width = world_width * self.current_zoom_level
+        canvas_height = world_height * self.current_zoom_level
+        item_data['_current_world_height'] = world_height
+        item_data['_current_world_width'] = world_width
+        fill_color = item_data.get("fill_color", "lightyellow")
+        outline_color = item_data.get("outline_color", "goldenrod")
+        name = item_data.get("name", "Stat Box")
+        try:
+            self.canvas.delete(stat_box_id)
+            rect_tag = ("stat_box_item", stat_box_id, "rect")
+            self.canvas.create_rectangle(canvas_x, canvas_y, canvas_x + canvas_width, canvas_y + canvas_height,
+                                         fill=fill_color, outline=outline_color, width=max(1, int(2*self.current_zoom_level)), tags=rect_tag)
+            font_size_canvas = int(max(6, (self.settings.get("student_font_size", DEFAULT_FONT_SIZE) -1) * self.current_zoom_level))
+            font_spec = (self.settings.get("student_font_family", DEFAULT_FONT_FAMILY), font_size_canvas)
+
+            # Stat display logic will go here
+            stat_text = self._calculate_stat(item_data.get("stat_type"))
+
+            self.canvas.create_text(canvas_x + canvas_width / 2, canvas_y + canvas_height / 2, text=f"{name}\n{stat_text}",
+                                    fill=self.settings.get("student_font_color", DEFAULT_FONT_COLOR), font=font_spec,
+                                    tags=("stat_box_item", stat_box_id, "text"), anchor=tk.CENTER,
+                                    width=max(1, canvas_width - int(10*self.current_zoom_level)), justify=tk.CENTER)
+            if stat_box_id in self.selected_items:
+                sel_outline_width = max(1, int(2 * self.current_zoom_level))
+                self.canvas.create_rectangle(canvas_x - sel_outline_width, canvas_y - sel_outline_width,
+                                             canvas_x + canvas_width + sel_outline_width, canvas_y + canvas_height + sel_outline_width,
+                                             outline="red", width=sel_outline_width, tags=("stat_box_item", stat_box_id, "selection_highlight"))
+            if self.edit_mode_var.get() and stat_box_id in self.selected_items:
+                handle_size_canvas = RESIZE_HANDLE_SIZE * self.current_zoom_level
+                br_x = canvas_x + canvas_width - handle_size_canvas / 2
+                br_y = canvas_y + canvas_height - handle_size_canvas / 2
+                self.canvas.create_rectangle(br_x - handle_size_canvas/2, br_y - handle_size_canvas/2,
+                                             br_x + handle_size_canvas/2, br_y + handle_size_canvas/2,
+                                             fill="gray", outline="black", tags=("stat_box_item", stat_box_id, "resize_handle", "br_handle"))
+        except AttributeError: pass
+
     def draw_single_furniture(self, furniture_id):
         # ... (same as v51)
         item_data = self.furniture.get(furniture_id)
@@ -2147,7 +2293,7 @@ class SeatingChartApp:
         #self.draw_temporary_guides() # Guides will be drawn after items for better visibility
         # The new self.draw_guides() is called after items.
 
-        all_items_data = list(self.students.values()) + list(self.furniture.values())
+        all_items_data = list(self.students.values()) + list(self.furniture.values()) + list(self.stat_boxes.values())
         
         if ((self.edit_mode_var.get() == True or self.settings.get("always_show_box_management", False) == True) and self.settings.get("show_canvas_border_lines", False) == True) or self.settings.get("force_canvas_border_lines", False) == True:
             self.canvas.create_line(0,0,1,2000, tags=("border_line", "border_vertical")) # These seem to be fixed debug lines, not dynamic with canvas/zoom
@@ -2178,6 +2324,7 @@ class SeatingChartApp:
             except AttributeError: pass
         for student_id in self.students: self.draw_single_student(student_id, check_collisions=check_collisions_on_redraw)
         for furniture_id in self.furniture: self.draw_single_furniture(furniture_id)
+        for stat_box_id in self.stat_boxes: self.draw_single_stat_box(stat_box_id)
 
         self.draw_guides() # Draw guides on top of items
         self.update_toggle_incidents_button_text(); self.update_zoom_display()
@@ -2889,6 +3036,7 @@ class SeatingChartApp:
             for tag in tags:
                 if tag.startswith("student_") and tag in self.students: temp_id, temp_type = tag, "student"
                 elif tag.startswith("furniture_") and tag in self.furniture: temp_id, temp_type = tag, "furniture"
+                elif tag.startswith("statbox_") and tag in self.stat_boxes: temp_id, temp_type = tag, "stat_box"
                 if "rect" in tag: is_main_rect = True
             if temp_id and is_main_rect: clicked_item_id, clicked_item_type = temp_id, temp_type; break
         clicked_on_selected_item = clicked_item_id and clicked_item_id in self.selected_items
@@ -2896,14 +3044,17 @@ class SeatingChartApp:
             if clicked_item_id and not clicked_on_selected_item:
                 self.deselect_all_items(); self.selected_items.add(clicked_item_id)
                 if clicked_item_type == "student": self.draw_single_student(clicked_item_id)
-                else: self.draw_single_furniture(clicked_item_id)
+                elif clicked_item_type == "furniture": self.draw_single_furniture(clicked_item_id)
+                elif clicked_item_type == "stat_box": self.draw_single_stat_box(clicked_item_id)
             elif not clicked_item_id: self.deselect_all_items()
         if clicked_item_id:
             self._potential_click_target = clicked_item_id; self.drag_data["item_id"] = clicked_item_id; self.drag_data["item_type"] = clicked_item_type; self._drag_started_on_item = True
             self.drag_data["original_positions"] = {}
             for sel_id in self.selected_items:
-                sel_item_type_drag = "student" if sel_id in self.students else "furniture"
-                data_src_drag = self.students if sel_id in self.students else self.furniture
+                sel_item_type_drag = "student" if sel_id in self.students else ("furniture" if sel_id in self.furniture else "stat_box")
+                if sel_item_type_drag == "student": data_src_drag = self.students
+                elif sel_item_type_drag == "furniture": data_src_drag = self.furniture
+                else: data_src_drag = self.stat_boxes
                 if sel_id in data_src_drag: self.drag_data["original_positions"][sel_id] = {"x": data_src_drag[sel_id]["x"], "y": data_src_drag[sel_id]["y"], "type": sel_item_type_drag}
         self.password_manager.record_activity()
 
@@ -3139,8 +3290,9 @@ class SeatingChartApp:
             for tag in tags:
                 if tag.startswith("student_") and tag in self.students: temp_id, temp_type = tag, "student"
                 elif tag.startswith("furniture_") and tag in self.furniture: temp_id, temp_type = tag, "furniture"
+                elif tag.startswith("statbox_") and tag in self.stat_boxes: temp_id, temp_type = tag, "stat_box"
                 elif tag.startswith("guide") and self.is_in_guides(tag): temp_id, temp_type = tag, "guide"; context_item_id = "guide"
-                elif tag == ("current"): 
+                elif tag == ("current"):
                     temp_id, temp_type = tags[1], "guide"
                     context_item_id = "guide"
                     break
@@ -3151,9 +3303,11 @@ class SeatingChartApp:
             if context_item_id not in self.selected_items:
                 self.deselect_all_items(); self.selected_items.add(context_item_id)
                 if context_item_type == "student": self.draw_single_student(context_item_id)
-                else: self.draw_single_furniture(context_item_id)
+                elif context_item_type == "furniture": self.draw_single_furniture(context_item_id)
+                elif context_item_type == "stat_box": self.draw_single_stat_box(context_item_id)
             if context_item_type == "student": self.show_student_context_menu(event, context_item_id)
             elif context_item_type == "furniture": self.show_furniture_context_menu(event, context_item_id)
+            elif context_item_type == "stat_box": self.show_stat_box_context_menu(event, context_item_id)
             elif context_item_id == "guide":
                 self.show_guide_context_menu(event, temp_id)
         else: self.show_general_context_menu(event)
@@ -3164,6 +3318,7 @@ class SeatingChartApp:
         context_menu = tk.Menu(self.canvas, tearoff=0)
         context_menu.add_command(label="Add Student...", command=self.add_student_dialog)
         context_menu.add_command(label="Add Furniture...", command=self.add_furniture_dialog)
+        context_menu.add_command(label="Add Stat Box...", command=self.add_stat_box_dialog)
         context_menu.add_separator()
         if self.selected_items:
             context_menu.add_command(label=f"Change Size of Selected ({len(self.selected_items)})...", command=self.change_size_selected_dialog)
@@ -3247,7 +3402,7 @@ class SeatingChartApp:
             for gid, gdata in sorted(self.student_groups.items(), key=lambda item: item[1]['name']):
                 group_menu.add_radiobutton(label=gdata['name'], variable=group_var_menu, value=gid, command=lambda sid=student_id, new_gid=gid: self.assign_student_to_group_via_menu(sid, new_gid))
             context_menu.add_cascade(label="Assign to Group", menu=group_menu)
-        context_menu.add_command(label=f"Delete {student_name}", command=lambda: self.delete_student_confirm(student_id))
+        context_menu.add_command(label=f"Delete {student_name}", command=lambda: self.delete_item_confirm(student_id, 'student'))
         context_menu.add_separator()
         if student_id in self._per_student_last_cleared: context_menu.add_command(label="Show Recent Logs (This Student)", command=lambda: self.show_recent_logs_for_student(student_id))
         else: context_menu.add_command(label="Hide Recent Logs (This Student)", command=lambda: self.clear_recent_logs_for_student(student_id))
@@ -3267,6 +3422,66 @@ class SeatingChartApp:
         context_menu.add_command(label=f"Delete {item_name}", command=lambda: self.delete_furniture_confirm(furniture_id))
         try: context_menu.tk_popup(event.x_root, event.y_root)
         finally: context_menu.grab_release()
+
+    def show_stat_box_context_menu(self, event, stat_box_id):
+        if stat_box_id not in self.stat_boxes: return
+        item_data = self.stat_boxes[stat_box_id]
+        item_name = item_data.get("name", "Stat Box")
+        context_menu = tk.Menu(self.canvas, tearoff=0)
+        context_menu.add_command(label=f"Edit {item_name}...", command=lambda: self.edit_stat_box_dialog(stat_box_id))
+        context_menu.add_command(label=f"Customize Style for {item_name}...", command=lambda: self.customize_stat_box_style_dialog(stat_box_id))
+        context_menu.add_command(label=f"Change Size for {item_name}...", command=lambda: self.change_item_size_dialog(stat_box_id, "stat_box"))
+        context_menu.add_command(label=f"Delete {item_name}", command=lambda: self.delete_item_confirm(stat_box_id, "stat_box"))
+        try:
+            context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            context_menu.grab_release()
+
+    def customize_stat_box_style_dialog(self, stat_box_id):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Customize Style", "Enter password to customize style:"): return
+        stat_box = self.stat_boxes.get(stat_box_id)
+        if not stat_box: return
+        dialog = StatBoxStyleDialog(self.root, f"Customize Style: {stat_box['name']}", stat_box, self)
+        if dialog.result:
+            for prop, old_val, new_val in dialog.result:
+                self.execute_command(ChangeItemStyleCommand(self, stat_box_id, "stat_box", prop, old_val, new_val))
+            self.password_manager.record_activity()
+            self.draw_all_items()
+
+    def delete_item_confirm(self, item_id, item_type):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Unlock to Delete", f"Enter password to delete {item_type}:"): return
+
+        data_source = None
+        if item_type == "student":
+            data_source = self.students
+        elif item_type == "furniture":
+            data_source = self.furniture
+        elif item_type == "stat_box":
+            data_source = self.stat_boxes
+
+        if not data_source or item_id not in data_source: return
+
+        item_data = data_source[item_id]
+        item_name = item_data.get("full_name", item_data.get("name", f"{item_type} {item_id}"))
+
+        message = f"Are you sure you want to delete {item_type} '{item_name}'?"
+        if item_type == "student":
+            message += "\nThis will also remove their behavior, quiz, and homework log entries."
+
+        if messagebox.askyesno("Confirm Delete", message, parent=self.root):
+            item_data_copy = item_data.copy()
+            if "style_overrides" in item_data_copy:
+                item_data_copy["style_overrides"] = item_data_copy["style_overrides"].copy()
+
+            associated_logs = []
+            if item_type == "student":
+                associated_logs = [log.copy() for log in self.behavior_log if log["student_id"] == item_id]
+
+            cmd = DeleteItemCommand(self, item_id, item_type, item_data_copy, associated_logs)
+            self.execute_command(cmd)
+            self.password_manager.record_activity()
 
     def is_in_guides(self, tag):
         for guide in self.guides:
@@ -3452,32 +3667,7 @@ class SeatingChartApp:
         dialog = StudentStyleDialog(self.root, f"Customize Style: {student['full_name']}", student, self)
         if dialog.result:
             for prop, old_val, new_val in dialog.result:
-                self.execute_command(ChangeStudentStyleCommand(self, student_id, prop, old_val, new_val))
-            self.password_manager.record_activity()
-
-    def delete_student_confirm(self, student_id):
-        # ... (updated to include homework_log)
-        if self.password_manager.is_locked:
-            if not self.prompt_for_password("Unlock to Delete", "Enter password to delete student:"): return
-        if student_id not in self.students: return
-        student_name = self.students[student_id]["full_name"]
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {student_name}?\nThis will also remove their behavior, quiz, and homework log entries.", parent=self.root):
-            student_data_copy = self.students[student_id].copy()
-            if "style_overrides" in student_data_copy: student_data_copy["style_overrides"] = student_data_copy["style_overrides"].copy()
-            associated_logs = [log.copy() for log in self.behavior_log if log["student_id"] == student_id]
-            # DeleteItemCommand now handles associated_homework_logs internally
-            cmd = DeleteItemCommand(self, student_id, "student", student_data_copy, associated_logs)
-            self.execute_command(cmd); self.password_manager.record_activity()
-
-    def delete_furniture_confirm(self, furniture_id):
-        # ... (same as v51)
-        if self.password_manager.is_locked:
-            if not self.prompt_for_password("Unlock to Delete", "Enter password to delete furniture:"): return
-        if furniture_id not in self.furniture: return
-        item_name = self.furniture[furniture_id]["name"]
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete furniture item '{item_name}'?", parent=self.root):
-            item_data_copy = self.furniture[furniture_id].copy()
-            self.execute_command(DeleteItemCommand(self, furniture_id, "furniture", item_data_copy))
+                self.execute_command(ChangeItemStyleCommand(self, student_id, "student", prop, old_val, new_val))
             self.password_manager.record_activity()
 
     def delete_selected_items_confirm(self):

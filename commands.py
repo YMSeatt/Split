@@ -293,7 +293,14 @@ class MoveItemsCommand(Command):
     def execute(self):
         for item_move in self.items_moves:
             item_id, item_type, new_x, new_y = item_move['id'], item_move['type'], item_move['new_x'], item_move['new_y']
-            data_source = self.app.students if item_type == 'student' else self.app.furniture
+            if item_type == 'student':
+                data_source = self.app.students
+            elif item_type == 'furniture':
+                data_source = self.app.furniture
+            elif item_type == 'stat_box':
+                data_source = self.app.stat_boxes
+            else:
+                continue
             if item_id in data_source:
                 data_source[item_id]['x'] = new_x
                 data_source[item_id]['y'] = new_y
@@ -303,7 +310,14 @@ class MoveItemsCommand(Command):
     def undo(self):
         for item_move in self.items_moves:
             item_id, item_type, old_x, old_y = item_move['id'], item_move['type'], item_move['old_x'], item_move['old_y']
-            data_source = self.app.students if item_type == 'student' else self.app.furniture
+            if item_type == 'student':
+                data_source = self.app.students
+            elif item_type == 'furniture':
+                data_source = self.app.furniture
+            elif item_type == 'stat_box':
+                data_source = self.app.stat_boxes
+            else:
+                continue
             if item_id in data_source:
                 data_source[item_id]['x'] = old_x
                 data_source[item_id]['y'] = old_y
@@ -325,19 +339,38 @@ class AddItemCommand(Command):
         self.old_next_id_num = old_next_id_num
 
     def execute(self):
-        data_source = self.app.students if self.item_type == 'student' else self.app.furniture
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'furniture':
+            data_source = self.app.furniture
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
         data_source[self.item_id] = self.item_data.copy()
+
         if self.item_type == 'student':
             self.app.next_student_id_num = self.item_data.get('original_next_id_num_after_add', self.app.next_student_id_num)
             self.app.update_student_display_text(self.item_id)
             self.app.update_status(f"Student '{self.item_data['full_name']}' added.")
-        else:
+        elif self.item_type == 'furniture':
             self.app.next_furniture_id_num = self.item_data.get('original_next_id_num_after_add', self.app.next_furniture_id_num)
             self.app.update_status(f"Furniture '{self.item_data['name']}' added.")
+        elif self.item_type == 'stat_box':
+            self.app.next_stat_box_id_num = self.item_data.get('original_next_id_num_after_add', self.app.next_stat_box_id_num)
+            self.app.update_status(f"Stat Box '{self.item_data['name']}' added.")
         self.app.draw_all_items(check_collisions_on_redraw=True)
 
     def undo(self):
-        data_source = self.app.students if self.item_type == 'student' else self.app.furniture
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'furniture':
+            data_source = self.app.furniture
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
+
         if self.item_id in data_source:
             item_name = data_source[self.item_id].get('full_name', data_source[self.item_id].get('name'))
             del data_source[self.item_id]
@@ -345,9 +378,12 @@ class AddItemCommand(Command):
             if self.item_type == 'student':
                 self.app.next_student_id_num = self.old_next_id_num
                 self.app.update_status(f"Undid add of student '{item_name}'.")
-            else:
+            elif self.item_type == 'furniture':
                 self.app.next_furniture_id_num = self.old_next_id_num
                 self.app.update_status(f"Undid add of furniture '{item_name}'.")
+            elif self.item_type == 'stat_box':
+                self.app.next_stat_box_id_num = self.old_next_id_num
+                self.app.update_status(f"Undid add of stat box '{item_name}'.")
         self.app.draw_all_items(check_collisions_on_redraw=True)
 
     def _get_data_for_serialization(self): return {'item_id': self.item_id, 'item_type': self.item_type, 'item_data': self.item_data, 'old_next_id_num': self.old_next_id_num}
@@ -371,7 +407,15 @@ class DeleteItemCommand(Command):
 
 
     def execute(self):
-        data_source = self.app.students if self.item_type == 'student' else self.app.furniture
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'furniture':
+            data_source = self.app.furniture
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
+
         item_name = "Item"
         if self.item_id in data_source:
             item_name = data_source[self.item_id].get('full_name', data_source[self.item_id].get('name'))
@@ -389,12 +433,22 @@ class DeleteItemCommand(Command):
             homework_logs_removed_count = original_homework_log_count - len(self.app.homework_log)
 
             self.app.update_status(f"Student '{item_name}', {logs_removed_count} behavior/quiz log(s), and {homework_logs_removed_count} homework log(s) deleted.")
-        else:
+        elif self.item_type == 'furniture':
             self.app.update_status(f"Furniture '{item_name}' deleted.")
+        elif self.item_type == 'stat_box':
+            self.app.update_status(f"Stat Box '{item_name}' deleted.")
         self.app.draw_all_items(check_collisions_on_redraw=True)
 
     def undo(self):
-        data_source = self.app.students if self.item_type == 'student' else self.app.furniture
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'furniture':
+            data_source = self.app.furniture
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
+
         data_source[self.item_id] = self.item_data.copy()
         if self.item_type == 'student':
             self.app.update_student_display_text(self.item_id)
@@ -407,8 +461,10 @@ class DeleteItemCommand(Command):
             self.app.homework_log.sort(key=lambda x: x.get("timestamp", ""))
 
             self.app.update_status(f"Undid delete of student '{self.item_data['full_name']}'. Logs restored.")
-        else:
+        elif self.item_type == 'furniture':
             self.app.update_status(f"Undid delete of furniture '{self.item_data['name']}'.")
+        elif self.item_type == 'stat_box':
+            self.app.update_status(f"Undid delete of stat box '{self.item_data['name']}'.")
         self.app.draw_all_items(check_collisions_on_redraw=True)
 
     def _get_data_for_serialization(self):
@@ -515,25 +571,45 @@ class EditItemCommand(Command):
         self.new_item_data_changes = new_item_data_changes
 
     def execute(self):
-        data_source = self.app.students if self.item_type == 'student' else self.app.furniture
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'furniture':
+            data_source = self.app.furniture
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
+
         if self.item_id in data_source:
             data_source[self.item_id].update(self.new_item_data_changes)
             if self.item_type == 'student':
                 self.app.update_student_display_text(self.item_id)
                 self.app.update_status(f"Student '{data_source[self.item_id]['full_name']}' edited.")
-            else:
+            elif self.item_type == 'furniture':
                 self.app.update_status(f"Furniture '{data_source[self.item_id]['name']}' edited.")
+            elif self.item_type == 'stat_box':
+                self.app.update_status(f"Stat Box '{data_source[self.item_id]['name']}' edited.")
         self.app.draw_all_items(check_collisions_on_redraw=True)
 
     def undo(self):
-        data_source = self.app.students if self.item_type == 'student' else self.app.furniture
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'furniture':
+            data_source = self.app.furniture
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
+
         if self.item_id in data_source:
             data_source[self.item_id] = self.old_item_data_snapshot.copy()
             if self.item_type == 'student':
                 self.app.update_student_display_text(self.item_id)
                 self.app.update_status(f"Undid edit for student '{data_source[self.item_id]['full_name']}'.")
-            else:
+            elif self.item_type == 'furniture':
                 self.app.update_status(f"Undid edit for furniture '{data_source[self.item_id]['name']}'.")
+            elif self.item_type == 'stat_box':
+                self.app.update_status(f"Undid edit for stat box '{data_source[self.item_id]['name']}'.")
         self.app.draw_all_items(check_collisions_on_redraw=True)
 
     def _get_data_for_serialization(self):
@@ -562,7 +638,15 @@ class ChangeItemsSizeCommand(Command):
             item_id, item_type = item_size_info['id'], item_size_info['type']
             w = item_size_info['new_w'] if use_new_sizes else item_size_info['old_w']
             h = item_size_info['new_h'] if use_new_sizes else item_size_info['old_h']
-            data_source = self.app.students if item_type == 'student' else self.app.furniture
+            if item_type == 'student':
+                data_source = self.app.students
+            elif item_type == 'furniture':
+                data_source = self.app.furniture
+            elif item_type == 'stat_box':
+                data_source = self.app.stat_boxes
+            else:
+                continue
+
             if item_id in data_source:
                 if item_type == 'student':
                     if 'style_overrides' not in data_source[item_id]: data_source[item_id]['style_overrides'] = {}
@@ -697,45 +781,74 @@ class MarkLiveHomeworkCommand(Command): # New for Live Homework
             action_summary = ", ".join(self.homework_actions)
         return f"Mark HW ({self.session_mode}): {action_summary} for {student_name}"
 
-class ChangeStudentStyleCommand(Command):
-    def __init__(self, app, student_id, style_property, old_value, new_value, timestamp=None):
+class ChangeItemStyleCommand(Command):
+    def __init__(self, app, item_id, item_type, style_property, old_value, new_value, timestamp=None):
         super().__init__(app, timestamp)
-        self.student_id = student_id
+        self.item_id = item_id
+        self.item_type = item_type
         self.style_property = style_property
         self.old_value = old_value
         self.new_value = new_value
 
     def execute(self):
-        student = self.app.students.get(self.student_id)
-        if student:
-            if "style_overrides" not in student: student["style_overrides"] = {}
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
+        item = data_source.get(self.item_id)
+        if item:
+            if "style_overrides" not in item: item["style_overrides"] = {}
             if self.new_value is None:
-                if self.style_property in student["style_overrides"]: del student["style_overrides"][self.style_property]
-            else: student["style_overrides"][self.style_property] = self.new_value
-            self.app.update_student_display_text(self.student_id)
-            self.app.draw_single_student(self.student_id, check_collisions=True)
-            self.app.update_status(f"Style '{self.style_property}' updated for {student['full_name']}.")
+                if self.style_property in item["style_overrides"]: del item["style_overrides"][self.style_property]
+            else: item["style_overrides"][self.style_property] = self.new_value
+
+            if self.item_type == 'student':
+                self.app.update_student_display_text(self.item_id)
+                self.app.draw_single_student(self.item_id, check_collisions=True)
+            elif self.item_type == 'stat_box':
+                self.app.draw_single_stat_box(self.item_id)
+            self.app.update_status(f"Style '{self.style_property}' updated for {item.get('full_name', item.get('name'))}.")
 
     def undo(self):
-        student = self.app.students.get(self.student_id)
-        if student:
-            if "style_overrides" not in student: student["style_overrides"] = {}
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return
+        item = data_source.get(self.item_id)
+        if item:
+            if "style_overrides" not in item: item["style_overrides"] = {}
             if self.old_value is None:
-                if self.style_property in student["style_overrides"]: del student["style_overrides"][self.style_property]
-            else: student["style_overrides"][self.style_property] = self.old_value
-            if not student["style_overrides"]: del student["style_overrides"]
-            self.app.update_student_display_text(self.student_id)
-            self.app.draw_single_student(self.student_id, check_collisions=True)
-            self.app.update_status(f"Undid style '{self.style_property}' change for {student['full_name']}.")
+                if self.style_property in item["style_overrides"]: del item["style_overrides"][self.style_property]
+            else: item["style_overrides"][self.style_property] = self.old_value
+            if not item["style_overrides"]: del item["style_overrides"]
+
+            if self.item_type == 'student':
+                self.app.update_student_display_text(self.item_id)
+                self.app.draw_single_student(self.item_id, check_collisions=True)
+            elif self.item_type == 'stat_box':
+                self.app.draw_single_stat_box(self.item_id)
+            self.app.update_status(f"Undid style '{self.style_property}' change for {item.get('full_name', item.get('name'))}.")
 
     def _get_data_for_serialization(self):
-        return {'student_id': self.student_id, 'style_property': self.style_property, 'old_value': self.old_value, 'new_value': self.new_value}
+        return {'item_id': self.item_id, 'item_type': self.item_type, 'style_property': self.style_property, 'old_value': self.old_value, 'new_value': self.new_value}
+
     @classmethod
     def _from_serializable_data(cls, app, data, timestamp):
-        return cls(app, data['student_id'], data['style_property'], data['old_value'], data['new_value'], timestamp)
+        return cls(app, data['item_id'], data['item_type'], data['style_property'], data['old_value'], data['new_value'], timestamp)
+
     def get_description(self):
-        student_name = self.app.students.get(self.student_id, {}).get('first_name', 'Unknown')
-        return f"Style Change: {self.style_property} for {student_name}"
+        if self.item_type == 'student':
+            data_source = self.app.students
+        elif self.item_type == 'stat_box':
+            data_source = self.app.stat_boxes
+        else:
+            return f"Style Change for {self.item_id}"
+        item_name = data_source.get(self.item_id, {}).get('full_name', data_source.get(self.item_id, {}).get('name', 'Unknown'))
+        return f"Style Change: {self.style_property} for {item_name}"
 
 class ManageStudentGroupCommand(Command):
     def __init__(self, app, old_groups_snapshot, new_groups_snapshot,
