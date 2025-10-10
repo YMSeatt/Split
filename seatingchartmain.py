@@ -1397,7 +1397,7 @@ class SeatingChartApp:
             if name and stat_type:
                 old_next_stat_box_id_num_for_command = self.next_stat_box_id_num
                 stat_box_id_str, next_id_val_for_app_state_after_this = self.get_new_stat_box_id()
-                x, y = self.canvas_to_world_coords(NEW_ITEM_INITIAL_X + (len(self.stat_boxes) % NEW_ITEM_CASCADE_COLUMNS) * NEW_ITEM_CASCADE_OFFSET, NEW_ITEM_INITIAL_Y + ((len(self.stat_boxes) // NEW_ITEM_CASCADE_COLUMNS) * NEW_ITEM_CASCADE_OFFSET))
+                x, y = self.canvas_to_world_coords(70 + (len(self.stat_boxes) % 10) * 20, 70 + ((len(self.stat_boxes) // 10) * 20))
                 stat_box_data = {"name": name, "stat_type": stat_type, "x": x, "y": y, "id": stat_box_id_str, "width": width, "height": height,
                                   "fill_color": "lightyellow", "outline_color": "goldenrod", "original_next_id_num_after_add": next_id_val_for_app_state_after_this}
                 self.execute_command(AddItemCommand(self, stat_box_id_str, 'stat_box', stat_box_data, old_next_stat_box_id_num_for_command))
