@@ -16,7 +16,7 @@ import zipfile
 import csv
 import PIL
 from PIL import Image
-from settingsdialog_new import SettingsDialog
+from settingsdialog import SettingsDialog
 from commands import Command, DeleteGuideCommand, MoveItemsCommand, AddItemCommand, DeleteItemCommand, LogEntryCommand, \
     LogHomeworkEntryCommand, EditItemCommand, ChangeItemsSizeCommand, MarkLiveQuizQuestionCommand, \
         MarkLiveHomeworkCommand, ChangeStudentStyleCommand, ManageStudentGroupCommand, MoveGuideCommand, AddGuideCommand
@@ -347,6 +347,7 @@ class SeatingChartApp:
             self.theme_style_using = "System"
         
         self.settings = self._get_default_settings()
+        self.settings_sharing_config = {}
         self.password_manager = PasswordManager(self.settings)
 
         self.canvas_frame = None; self.canvas = None; self.h_scrollbar = None; self.v_scrollbar = None
@@ -6032,8 +6033,7 @@ class SeatingChartApp:
         dialog = SettingsDialog(self.root, self.settings, self.custom_behaviors, self.all_behaviors, self,
                                 self.custom_homework_statuses, self.all_homework_statuses, # Homework log behaviors
                                 self.custom_homework_types, self.all_homework_session_types, # Homework session types (Yes/No mode)
-                                self.password_manager, self.theme_style_using, self.custom_canvas_color, self.styles, self.type_theme,
-                                g_current_profile_name)
+                                self.password_manager, self.theme_style_using, self.custom_canvas_color, self.styles, self.type_theme)
         if dialog.settings_changed_flag: # Check if dialog indicated changes
             # Settings are applied directly by the dialog for most parts
             self.save_data_wrapper(source="settings_dialog") # Save all data as settings are part of it
