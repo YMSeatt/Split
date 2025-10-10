@@ -466,6 +466,31 @@ class BehaviorDialog(simpledialog.Dialog):
             self.result = None
             return
         self.result = (behavior, comment)
+
+
+class EditBehaviorCategoryDialog(simpledialog.Dialog):
+    def __init__(self, parent, title, behavior_name, current_category):
+        self.behavior_name = behavior_name
+        self.current_category = current_category
+        self.result = None
+        super().__init__(parent, title)
+
+    def body(self, master):
+        ttk.Label(master, text=f"Behavior: {self.behavior_name}").pack(pady=5)
+        ttk.Label(master, text="Select new category:").pack(pady=5)
+
+        self.category_var = tk.StringVar(value=self.current_category)
+        self.category_combobox = ttk.Combobox(master, textvariable=self.category_var,
+                                              values=['Good', 'Bad', 'Neutral'], state="readonly")
+        self.category_combobox.pack(pady=5)
+        return self.category_combobox
+
+    def apply(self):
+        new_category = self.category_var.get()
+        if new_category and new_category != self.current_category:
+            self.result = new_category
+        else:
+            self.result = None # No change or empty selection
     
     
     #def apply(self):
