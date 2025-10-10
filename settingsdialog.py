@@ -251,10 +251,6 @@ class SettingsDialog(simpledialog.Dialog):
         stat_boxes_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(stat_boxes_tab, text="Stat Boxes")
         self.create_stat_boxes_tab(stat_boxes_tab)
 
-        # --- Stat Boxes Tab ---
-        stat_boxes_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(stat_boxes_tab, text="Stat Boxes")
-        self.create_stat_boxes_tab(stat_boxes_tab)
-
         # After creating all tabs, call update_all_widget_states to set the initial state
         self.update_all_widget_states()
 
@@ -332,6 +328,46 @@ class SettingsDialog(simpledialog.Dialog):
 
         self.style_set()
 
+    def style_set(self, event=None):
+        self.theme2 = self.theme.get()
+        try:
+            self.type_theme = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
+        except tk.TclError:
+            self.type_theme = "sv_ttk" # Fallback
+        if self.type_theme != "sv_ttk":
+            self.theme.set("Light")
+            self.theme_combo.configure(state='disabled')
+        else:
+            self.theme_combo.configure(state='readonly')
+        self.app.set_theme(self.theme.get(), self.custom_canvas_color.get())
+
+    def theme_set(self, event=None):
+        self.theme2 = self.theme.get()
+        self.app.set_theme(self.theme.get(), self.custom_canvas_color.get())
+
+    def choose_color_for_var(self, color_var):
+        initial_color = color_var.get()
+        try:
+            color_code = colorchooser.askcolor(title="Choose color", initialcolor=initial_color, parent=self)[1]
+            if color_code:
+                color_var.set(color_code)
+        except tk.TclError: # Can happen on some platforms if initialcolor is invalid
+            color_code = colorchooser.askcolor(title="Choose color", parent=self)[1]
+            if color_code:
+                color_var.set(color_code)
+
+    def choose_color_for_canvas(self, color_var):
+        initial_color = color_var.get()
+        try:
+            color_code = colorchooser.askcolor(title="Choose color", initialcolor=initial_color, parent=self)[1]
+        except tk.TclError:
+            color_code = colorchooser.askcolor(title="Choose color", parent=self)[1]
+        if color_code:
+            color_var.set(color_code)
+            self.app.set_theme(self.theme.get(), color_code)
+
+    def reset_color_for_var(self, color_var, default_color):
+        color_var.set(default_color)
 
         # Canvas Management LabelFrame
         cmf = ttk.LabelFrame(tab_frame, text="Canvas Management", padding=10); cmf.pack(padx=5, fill=tk.BOTH)
@@ -481,12 +517,18 @@ class SettingsDialog(simpledialog.Dialog):
         # If the value has actually changed, create an undo action
         if new_widget_value != old_widget_value:
             # The action dictionary stores values in the "widget" format
+            try:
+                tab_text = self.notebook.tab(self.notebook.select(), "text")
+            except tk.TclError:
+                # This can happen if the dialog is being destroyed.
+                return # Don't record action if widget is gone.
+
             action = {
                 'key': key,
                 'undo_value': old_widget_value,
                 'redo_value': new_widget_value,
                 'var_name': var._name,
-                'tab': self.notebook.tab(self.notebook.select(), "text")
+                'tab': tab_text
             }
             self.push_undo(action)
 
@@ -1126,12 +1168,15 @@ class SettingsDialog(simpledialog.Dialog):
 
     def toggle_specific_behavior_ui(self, event=None):
         try:
-            if self.presence_definition_var.get() == "specific_behavior":
+            # Check if the variable exists before trying to access it.
+            if hasattr(self, 'presence_definition_var') and self.presence_definition_var.get() == "specific_behavior":
                 self.specific_behavior_frame.grid()
             else:
                 self.specific_behavior_frame.grid_remove()
-        except Exception as e:
-            print(f"Error toggling specific behavior UI: {e}")
+        except (tk.TclError, AttributeError):
+            # It's possible for this to be called during widget destruction.
+            # We can safely ignore errors here.
+            pass
 
     def create_security_tab(self, tab_frame):
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)
@@ -1182,6 +1227,73 @@ class SettingsDialog(simpledialog.Dialog):
         self.encrypt_data_var = tk.BooleanVar(value=self.settings.get("encrypt_data_files", True), name='encrypt_data_var')
         self.encrypt_data_var.trace_add("write", lambda *args: self.on_setting_change(self.encrypt_data_var, "encrypt_data_files", *args))
         ttk.Checkbutton(lf_encryption, text="Encrypt data files on save (This does NOT protect from deletion)", variable=self.encrypt_data_var).pack(anchor=tk.W, padx=5, pady=2)
+
+    def set_or_change_password(self):
+        new_pw = self.new_pw_var.get()
+        confirm_pw = self.confirm_pw_var.get()
+
+        if not new_pw:
+            messagebox.showerror("Error", "New password cannot be empty.", parent=self)
+            return
+
+        if new_pw != confirm_pw:
+            messagebox.showerror("Error", "Passwords do not match.", parent=self)
+            return
+
+        # If a password is already set, require the old one to change it
+        if self.password_manager.is_password_set():
+            if not self.prompt_for_password("Confirm Change", "Enter your current password to change it:"):
+                return
+
+        if self.password_manager.set_password(new_pw):
+            messagebox.showinfo("Success", "Password has been set successfully.", parent=self)
+            self.new_pw_var.set("")
+            self.confirm_pw_var.set("")
+            self.update_password_status_display()
+            self.settings_changed_flag = True # A setting (the hash) has changed
+        else:
+            messagebox.showerror("Error", "Failed to set password. An unknown error occurred.", parent=self)
+
+    def remove_password(self):
+        if not self.password_manager.is_password_set():
+            messagebox.showinfo("Info", "No password is currently set.", parent=self)
+            return
+
+        if not self.prompt_for_password("Confirm Removal", "Enter your current password to remove it:"):
+            return
+
+        if messagebox.askyesno("Confirm", "Are you sure you want to remove the password protection?", parent=self):
+            if self.password_manager.remove_password():
+                messagebox.showinfo("Success", "Password has been removed.", parent=self)
+                self.update_password_status_display()
+                self.settings_changed_flag = True # A setting (the hash) has changed
+            else:
+                messagebox.showerror("Error", "Failed to remove password.", parent=self)
+
+    def prompt_for_password(self, title, prompt_message):
+        """Helper to use the main app's password prompt."""
+        # This assumes the main app has a method `prompt_for_password` that we can call.
+        # If not, we'll need to implement a password prompt dialog here as well.
+        # For now, let's assume it exists on `self.app` for simplicity.
+        if hasattr(self.app, 'prompt_for_password'):
+            # The `for_editing` flag might control which password settings are checked.
+            # Here we just need a simple password check.
+            return self.app.prompt_for_password(title, prompt_message)
+        else:
+            # Fallback if the main app doesn't have the prompt method directly accessible
+            # This is a simplified version. The real one is in dialogs.py
+            password = simpledialog.askstring(title, prompt_message, show='*', parent=self)
+            if password and self.password_manager.verify_password(password):
+                return True
+            messagebox.showwarning("Incorrect Password", "The password you entered was incorrect.", parent=self)
+            return False
+
+    def update_password_status_display(self):
+        """Updates the password status label and button states."""
+        current_pw_set = self.password_manager.is_password_set()
+        self.current_pw_status_label.config(text="Status: Password IS SET" if current_pw_set else "Status: Password NOT SET")
+        if hasattr(self, 'remove_pw_button_ref'):
+            self.remove_pw_button_ref.config(state=tk.NORMAL if current_pw_set else tk.DISABLED)
 
     def create_sharing_toggle(self, parent, key, row, column):
         """Creates a sharing toggle button for a given setting."""
