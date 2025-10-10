@@ -1173,7 +1173,7 @@ class SettingsDialog(simpledialog.Dialog):
                 self.specific_behavior_frame.grid()
             else:
                 self.specific_behavior_frame.grid_remove()
-        except Exception as e:
+        except (tk.TclError, AttributeError):
             # It's possible for this to be called during widget destruction.
             # We can safely ignore errors here.
             pass
