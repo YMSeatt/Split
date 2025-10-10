@@ -159,8 +159,16 @@ if not os.path.exists(LAYOUT_TEMPLATES_DIR):
     os.makedirs(LAYOUT_TEMPLATES_DIR, exist_ok=True)
 
 DEFAULT_BEHAVIORS_LIST = [
-    "Talking", "Off Task", "Out of Seat", "Uneasy", "Placecheck",
-    "Great Participation", "Called On", "Complimented", "Fighting", "Other"
+    {"name": "Talking", "category": "Bad"},
+    {"name": "Off Task", "category": "Bad"},
+    {"name": "Out of Seat", "category": "Bad"},
+    {"name": "Uneasy", "category": "Bad"},
+    {"name": "Placecheck", "category": "Neutral"},
+    {"name": "Great Participation", "category": "Good"},
+    {"name": "Called On", "category": "Neutral"},
+    {"name": "Complimented", "category": "Good"},
+    {"name": "Fighting", "category": "Bad"},
+    {"name": "Other", "category": "Neutral"}
 ]
 
 # for manual detailed logging, i would want these | currently used for sessions (yes/no)
@@ -627,6 +635,7 @@ class SeatingChartApp:
             "grid_snap_enabled": False,
             "grid_size": DEFAULT_GRID_SIZE,
             "behavior_initial_overrides": {},
+            "default_behavior_overrides": {},
             "homework_initial_overrides": {}, # New for homework display initials
             "current_mode": "behavior", # "behavior", "quiz", or "homework"
             "max_undo_history_days": MAX_UNDO_HISTORY_DAYS,
@@ -3575,7 +3584,8 @@ class SeatingChartApp:
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Log Behavior", "Enter password to log behavior:"): return
         
-        dialog = BehaviorDialog(self.root, f"Log Behavior for {num_students_selected} students", self.all_behaviors, self.custom_behaviors)
+        behavior_names = [b.get("name") for b in self.all_behaviors]
+        dialog = BehaviorDialog(self.root, f"Log Behavior for {num_students_selected} students", behavior_names, self.custom_behaviors)
         
         if dialog.result:
             behavior, comment = dialog.result
@@ -3723,18 +3733,21 @@ class SeatingChartApp:
             self.password_manager.record_activity()
 
     def log_behavior_dialog(self, student_id):
-        # ... (same as v51)
         if self.password_manager.is_locked:
             if not self.prompt_for_password("Unlock to Log Behavior", "Enter password to log behavior:"): return
-        student = self.students.get(student_id);
+        student = self.students.get(student_id)
         if not student: return
-        dialog = BehaviorDialog(self.root, f"Log Behavior for {student['full_name']}", self.all_behaviors, self.custom_behaviors)
+
+        behavior_names = [b.get("name") for b in self.all_behaviors]
+
+        dialog = BehaviorDialog(self.root, f"Log Behavior for {student['full_name']}", behavior_names, self.custom_behaviors)
         if dialog.result:
             behavior, comment = dialog.result
             log_entry = {"timestamp": datetime.now().isoformat(), "student_id": student_id, "student_first_name": student["first_name"],
                          "student_last_name": student["last_name"], "behavior": behavior, "comment": comment, "type": "behavior", "day": datetime.now().strftime('%A')}
             self.execute_command(LogEntryCommand(self, log_entry, student_id))
-            self.draw_all_items(check_collisions_on_redraw=True); self.password_manager.record_activity()
+            self.draw_all_items(check_collisions_on_redraw=True)
+            self.password_manager.record_activity()
 
     def log_homework_dialog(self, student_id):
         """
@@ -4498,7 +4511,17 @@ class SeatingChartApp:
     # as CUSTOM_HOMEWORK_TYPES_FILE now serves this purpose.
 
     def update_all_behaviors(self):
-        self.all_behaviors = DEFAULT_BEHAVIORS_LIST + [b["name"] if isinstance(b, dict) else str(b) for b in self.custom_behaviors]
+        default_behaviors_with_overrides = []
+        overrides = self.settings.get("default_behavior_overrides", {})
+        for default_item in DEFAULT_BEHAVIORS_LIST:
+            # Create a copy to avoid modifying the original default list
+            item_copy = default_item.copy()
+            if default_item["name"] in overrides:
+                item_copy["category"] = overrides[default_item["name"]]
+            default_behaviors_with_overrides.append(item_copy)
+
+        # Now, self.all_behaviors will be a list of dictionaries
+        self.all_behaviors = default_behaviors_with_overrides + self.custom_behaviors
 
     def update_all_homework_types(self): # NEW
         hidden_defaults = self.settings.get("hidden_default_homework_types", [])

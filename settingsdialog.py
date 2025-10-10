@@ -107,8 +107,16 @@ if not os.path.exists(LAYOUT_TEMPLATES_DIR):
     os.makedirs(LAYOUT_TEMPLATES_DIR, exist_ok=True)
 
 DEFAULT_BEHAVIORS_LIST = [
-    "Talking", "Off Task", "Out of Seat", "Uneasy", "Placecheck",
-    "Great Participation", "Called On", "Complimented", "Fighting", "Other"
+    {"name": "Talking", "category": "Bad"},
+    {"name": "Off Task", "category": "Bad"},
+    {"name": "Out of Seat", "category": "Bad"},
+    {"name": "Uneasy", "category": "Bad"},
+    {"name": "Placecheck", "category": "Neutral"},
+    {"name": "Great Participation", "category": "Good"},
+    {"name": "Called On", "category": "Neutral"},
+    {"name": "Complimented", "category": "Good"},
+    {"name": "Fighting", "category": "Bad"},
+    {"name": "Other", "category": "Neutral"}
 ]
 
 
@@ -681,18 +689,39 @@ class SettingsDialog(simpledialog.Dialog):
         self.create_sharing_toggle(lf_recent, "reverse_incident_order", row=4, column=3)
         self.widget_map["reverse_incident_order"] = {"widget": self.reverse_order_cb, "label_widget": self.reverse_order_global_label}
 
-        # Custom Behaviors
-        lf_custom_b = ttk.LabelFrame(tab_frame, text="Custom Behaviors & Initials", padding=10); lf_custom_b.grid(sticky="nsew",column=1,row=0, pady=5)
-        custom_b_btns_frame = ttk.Frame(lf_custom_b); custom_b_btns_frame.pack(fill=tk.X)
+        # --- Combined Frame for Default and Custom Behaviors ---
+        lf_behaviors_management = ttk.LabelFrame(tab_frame, text="Behaviors Management", padding=10)
+        lf_behaviors_management.grid(sticky="nsew", column=1, row=0, rowspan=2, pady=5, padx=5)
+        lf_behaviors_management.grid_columnconfigure(0, weight=1)
+
+        # --- A. Default Behaviors ---
+        lf_default_b = ttk.LabelFrame(lf_behaviors_management, text="Default Behaviors", padding=10)
+        lf_default_b.pack(fill=tk.X, expand=True, pady=(0, 5))
+
+        self.default_behaviors_listbox = tk.Listbox(lf_default_b, height=6, exportselection=False)
+        self.populate_default_behaviors_listbox()
+        self.default_behaviors_listbox.pack(fill=tk.X, expand=True, pady=(5, 2))
+
+        default_b_edit_btns_frame = ttk.Frame(lf_default_b)
+        default_b_edit_btns_frame.pack(fill=tk.X)
+        ttk.Button(default_b_edit_btns_frame, text="Edit Selected Category...", command=self.edit_selected_default_behavior_category).pack(side=tk.LEFT, padx=2)
+
+        # --- B. Custom Behaviors ---
+        lf_custom_b = ttk.LabelFrame(lf_behaviors_management, text="Custom Behaviors & Initials", padding=10)
+        lf_custom_b.pack(fill=tk.X, expand=True, pady=5)
+
+        custom_b_btns_frame = ttk.Frame(lf_custom_b)
+        custom_b_btns_frame.pack(fill=tk.X)
         ttk.Button(custom_b_btns_frame, text="Add Behavior...", command=self.add_custom_behavior).pack(side=tk.LEFT, padx=2, pady=3)
         ttk.Button(custom_b_btns_frame, text="Manage Behavior/Quiz Initials...", command=self.manage_behavior_initials).pack(side=tk.LEFT, padx=2, pady=3)
         ttk.Button(custom_b_btns_frame, text="Manage Quiz Mark Types...", command=self.manage_quiz_mark_types).pack(side=tk.LEFT, padx=2, pady=3)
 
-
         self.custom_behaviors_listbox = tk.Listbox(lf_custom_b, height=5, exportselection=False)
-        self.custom_behaviors_listbox.pack(fill=tk.X, expand=True, pady=(5,2))
+        self.custom_behaviors_listbox.pack(fill=tk.X, expand=True, pady=(5, 2))
         self.populate_custom_behaviors_listbox()
-        custom_b_edit_btns_frame = ttk.Frame(lf_custom_b); custom_b_edit_btns_frame.pack(fill=tk.X)
+
+        custom_b_edit_btns_frame = ttk.Frame(lf_custom_b)
+        custom_b_edit_btns_frame.pack(fill=tk.X)
         ttk.Button(custom_b_edit_btns_frame, text="Edit Selected", command=self.edit_selected_custom_behavior).pack(side=tk.LEFT, padx=2)
         ttk.Button(custom_b_edit_btns_frame, text="Remove Selected", command=self.remove_selected_custom_behavior).pack(side=tk.LEFT, padx=2)
 
@@ -1492,6 +1521,51 @@ class SettingsDialog(simpledialog.Dialog):
         }
 
     # --- Methods for managing custom lists ---
+    def populate_default_behaviors_listbox(self):
+        self.default_behaviors_listbox.delete(0, tk.END)
+        # self.all_behaviors_ref contains the defaults with overrides already applied
+        for behavior_item in self.app.DEFAULT_BEHAVIORS_LIST:
+            name = behavior_item.get("name")
+            # Get the current category, which might be from an override
+            current_category = self.settings.get("default_behavior_overrides", {}).get(name, behavior_item.get("category"))
+            display_text = f"{name} ({current_category})"
+            self.default_behaviors_listbox.insert(tk.END, display_text)
+            if current_category == "Good":
+                self.default_behaviors_listbox.itemconfig(tk.END, {'fg': 'green'})
+            elif current_category == "Bad":
+                self.default_behaviors_listbox.itemconfig(tk.END, {'fg': 'red'})
+
+    def edit_selected_default_behavior_category(self):
+        sel_idx = self.default_behaviors_listbox.curselection()
+        if not sel_idx:
+            messagebox.showinfo("No Selection", "Please select a default behavior to edit.", parent=self)
+            return
+
+        selected_text = self.default_behaviors_listbox.get(sel_idx[0])
+        name = selected_text.split(" (")[0]
+
+        # Find the original default item to get its base category if no override exists
+        original_item = next((item for item in self.app.DEFAULT_BEHAVIORS_LIST if item['name'] == name), None)
+        if not original_item: return # Should not happen
+
+        current_category = self.settings.get("default_behavior_overrides", {}).get(name, original_item.get("category"))
+
+        # Simple dialog to change just the category
+        new_category = simpledialog.askstring("Edit Category", f"Set category for '{name}':",
+                                            initialvalue=current_category, parent=self)
+
+        if new_category and new_category.strip().capitalize() in ["Good", "Bad", "Neutral"]:
+            new_category = new_category.strip().capitalize()
+            if self.settings.get("default_behavior_overrides", {}).get(name) != new_category:
+                if "default_behavior_overrides" not in self.settings:
+                    self.settings["default_behavior_overrides"] = {}
+                self.settings["default_behavior_overrides"][name] = new_category
+                self.settings_changed_flag = True
+                self.populate_default_behaviors_listbox() # Refresh the listbox
+                self.update_status(f"Category for '{name}' set to {new_category}.")
+        elif new_category is not None: # User entered something invalid
+            messagebox.showwarning("Invalid Category", "Category must be 'Good', 'Bad', or 'Neutral'.", parent=self)
+
     def populate_conditional_rules_listbox(self):
         self.rules_listbox.delete(0, tk.END)
         for i, rule in enumerate(self.settings.get("conditional_formatting_rules", [])):
