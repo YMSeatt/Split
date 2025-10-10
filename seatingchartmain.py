@@ -2149,50 +2149,75 @@ class SeatingChartApp:
         except AttributeError: pass # Canvas might not be fully initialized during early calls
 
     def _calculate_stat(self, stat_type):
+        today = datetime.now().date()
+
         if stat_type == "student_presence_percentage":
             total_students = len(self.students)
-            if total_students == 0:
-                return "N/A"
-
-            presence_definition = self.settings.get("statbox_presence_definition", "any_log")
-            present_students = 0
-            today = datetime.now().date()
-
-            if presence_definition == "any_log":
-                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today}
-                present_student_ids.update({log['student_id'] for log in self.homework_log if datetime.fromisoformat(log['timestamp']).date() == today})
-                present_students = len(present_student_ids)
-            elif presence_definition == "specific_behavior":
-                specific_behavior = self.settings.get("statbox_presence_behavior", "")
-                if not specific_behavior:
-                    return "Config Error"
-                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today and log.get('behavior') == specific_behavior}
-                present_students = len(present_student_ids)
-
-            percentage = (present_students / total_students) * 100
+            if total_students == 0: return "N/A"
+            present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today}
+            present_student_ids.update({log['student_id'] for log in self.homework_log if datetime.fromisoformat(log['timestamp']).date() == today})
+            percentage = (len(present_student_ids) / total_students) * 100
             return f"{percentage:.0f}% Present"
 
         elif stat_type == "student_presence_fraction":
             total_students = len(self.students)
-            if total_students == 0:
-                return "N/A"
+            if total_students == 0: return "N/A"
+            present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today}
+            present_student_ids.update({log['student_id'] for log in self.homework_log if datetime.fromisoformat(log['timestamp']).date() == today})
+            return f"{len(present_student_ids)}/{total_students} Present"
 
-            presence_definition = self.settings.get("statbox_presence_definition", "any_log")
-            present_students = 0
-            today = datetime.now().date()
+        elif stat_type == "class_good_behavior_percentage" or stat_type == "class_bad_behavior_percentage":
+            good_behaviors = {b['name'] for b in self.custom_behaviors if b.get('category') == 'Good'}
+            bad_behaviors = {b['name'] for b in self.custom_behaviors if b.get('category') == 'Bad'}
 
-            if presence_definition == "any_log":
-                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today}
-                present_student_ids.update({log['student_id'] for log in self.homework_log if datetime.fromisoformat(log['timestamp']).date() == today})
-                present_students = len(present_student_ids)
-            elif presence_definition == "specific_behavior":
-                specific_behavior = self.settings.get("statbox_presence_behavior", "")
-                if not specific_behavior:
-                    return "Config Error"
-                present_student_ids = {log['student_id'] for log in self.behavior_log if datetime.fromisoformat(log['timestamp']).date() == today and log.get('behavior') == specific_behavior}
-                present_students = len(present_student_ids)
+            total_behavior_logs = 0
+            target_behavior_logs = 0
 
-            return f"{present_students}/{total_students} Present"
+            for log in self.behavior_log:
+                if datetime.fromisoformat(log['timestamp']).date() == today and log.get('type') == 'behavior':
+                    total_behavior_logs += 1
+                    behavior = log.get('behavior')
+                    if stat_type == "class_good_behavior_percentage" and behavior in good_behaviors:
+                        target_behavior_logs += 1
+                    elif stat_type == "class_bad_behavior_percentage" and behavior in bad_behaviors:
+                        target_behavior_logs += 1
+
+            if total_behavior_logs == 0: return "No Behaviors Logged"
+            percentage = (target_behavior_logs / total_behavior_logs) * 100
+            label = "Good" if stat_type == "class_good_behavior_percentage" else "Bad"
+            return f"{percentage:.0f}% {label}"
+
+        elif stat_type == "average_quiz_score":
+            quiz_scores = []
+            for log in self.behavior_log:
+                if datetime.fromisoformat(log['timestamp']).date() == today and log.get('type') == 'quiz':
+                    score = self._calculate_quiz_score_percentage(log)
+                    if score is not None:
+                        quiz_scores.append(score)
+
+            if not quiz_scores: return "No Quizzes"
+            average_score = sum(quiz_scores) / len(quiz_scores)
+            return f"{average_score:.1f}% Avg Score"
+
+        elif stat_type == "homework_completion_percentage":
+            total_homework_logs = 0
+            completed_homework_logs = 0
+            for log in self.homework_log:
+                if datetime.fromisoformat(log['timestamp']).date() == today:
+                    total_homework_logs += 1
+                    # Simplified completion logic: "Done" or "Complete" in status/details
+                    if "Done" in log.get('homework_status', '') or "Complete" in log.get('homework_status', ''):
+                        completed_homework_logs += 1
+                    elif log.get('type') == 'homework_session_y':
+                        if any(v == 'yes' for v in log.get('homework_details', {}).values()):
+                            completed_homework_logs += 1 # Count if at least one item is 'yes'
+                    elif log.get('type') == 'homework_session_s':
+                        if "Done" in log.get('homework_details', {}).get('selected_options', []) or "Complete" in log.get('homework_details', {}).get('selected_options', []):
+                            completed_homework_logs += 1
+
+            if total_homework_logs == 0: return "No Homework"
+            completion_percentage = (completed_homework_logs / total_homework_logs) * 100
+            return f"{completion_percentage:.0f}% Complete"
 
         return "Unknown Stat"
 
@@ -4419,8 +4444,36 @@ class SeatingChartApp:
             #   # self.update_status(f"Error during Excel autosave: {e}")
     
     def load_custom_behaviors(self):
+        """
+        Loads custom behaviors from file. Includes a migration path for older data formats
+        (list of strings) to the new format (list of dicts with a 'category').
+        """
         loaded_data = self._read_and_decrypt_file(CUSTOM_BEHAVIORS_FILE)
-        self.custom_behaviors = loaded_data if isinstance(loaded_data, list) else []
+        migrated_behaviors = []
+        needs_migration = False
+
+        if isinstance(loaded_data, list):
+            for item in loaded_data:
+                if isinstance(item, str):
+                    # This is the old format (a simple string). Convert it.
+                    migrated_behaviors.append({"name": item, "category": "Neutral"})
+                    needs_migration = True
+                elif isinstance(item, dict) and "name" in item:
+                    # This is the new format. Ensure 'category' exists.
+                    if "category" not in item:
+                        item["category"] = "Neutral"
+                        needs_migration = True
+                    migrated_behaviors.append(item)
+
+            self.custom_behaviors = migrated_behaviors
+
+            # If migration occurred, save the updated data back to the file.
+            if needs_migration:
+                print("Migrating custom behaviors to new format...")
+                self.save_custom_behaviors()
+        else:
+            # If the file is empty or doesn't exist, initialize with an empty list.
+            self.custom_behaviors = []
 
     def save_custom_behaviors(self):
         self._encrypt_and_write_file(CUSTOM_BEHAVIORS_FILE, self.custom_behaviors)

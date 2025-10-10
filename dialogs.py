@@ -332,7 +332,7 @@ class AddStatBoxDialog(simpledialog.Dialog):
 
         ttk.Label(master, text="Statistic Type:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
         self.stat_type_var = tk.StringVar(value=self.stat_box_data.get("stat_type") if self.stat_box_data else "student_presence_percentage")
-        self.stat_type_combo = ttk.Combobox(master, textvariable=self.stat_type_var, values=["student_presence_percentage", "student_presence_fraction"], state="readonly")
+        self.stat_type_combo = ttk.Combobox(master, textvariable=self.stat_type_var, values=["student_presence_percentage", "student_presence_fraction", "class_good_behavior_percentage", "class_bad_behavior_percentage", "average_quiz_score", "homework_completion_percentage"], state="readonly")
         self.stat_type_combo.grid(row=1, column=1, padx=5, pady=2)
 
         ttk.Label(master, text="Width:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
