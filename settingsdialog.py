@@ -1684,7 +1684,134 @@ class SettingsDialog(simpledialog.Dialog):
             self.redo_stack = []
 
 
-    
+    def theme_set(self, event):
+        #print(self.app.theme_style_using, "old")
+        self.app.theme_style_using = self.theme.get()
+        self.settings_changed_flag = True
+        #print("Theme: ", self.theme.get())
+        self.theme2 = self.theme.get()
+        #print("theme2", self.theme2)
+
+    def style_set(self, event=None):
+        self.app.type_theme = self.style.get()
+        self.theme_combo.configure(state='disabled' if "sun-valley" not in self.style.get().lower() else 'readonly')
+        self.theme_combo.set("Light") if "sun-valley" not in self.style.get().lower() else "System"
+    def set_or_change_password(self):
+        new_pw = self.new_pw_var.get()
+        confirm_pw = self.confirm_pw_var.get()
+        if not new_pw:
+            messagebox.showerror("Password Error", "New password cannot be empty.", parent=self)
+            return
+        if new_pw != confirm_pw:
+            messagebox.showerror("Password Error", "Passwords do not match.", parent=self)
+            return
+        if len(new_pw) < 4: # Basic length check
+            messagebox.showwarning("Weak Password", "Password should be at least 4 characters.", parent=self)
+            # Allow user to proceed if they insist
+
+        self.password_manager.set_password(new_pw)
+        self.settings_changed_flag = True # Settings (hash) changed
+        self.new_pw_var.set(""); self.confirm_pw_var.set("")
+        self.current_pw_status_label.config(text="Status: Password IS SET")
+        self.remove_pw_button_ref.config(state=tk.NORMAL)
+        messagebox.showinfo("Password Set", "Application password has been set/changed.", parent=self)
+
+    def prompt_for_password(self, title, prompt_message, for_editing=False):
+        if self.password_manager.is_locked:
+             if not hasattr(self, '_lock_screen_active') or not self._lock_screen_active.winfo_exists(): self.show_lock_screen()
+             return not self.password_manager.is_locked
+        if for_editing and not self.settings.get("password_on_edit_action", False) and not self.password_manager.is_password_set(): return True
+        if not self.password_manager.is_password_set(): return True
+        dialog = PasswordPromptDialog(self.master, title, prompt_message, self.password_manager)
+        return dialog.result
+
+    def remove_password(self):
+        if self.password_manager.is_password_set():
+            if self.prompt_for_password("Confirm Password", "Enter current password to confirm identity", for_editing=True):
+                if messagebox.askyesno("Confirm Removal", "Are you sure you want to remove the application password?", parent=self):
+                    self.password_manager.set_password(None) # Set to None effectively removes it
+                    self.settings_changed_flag = True
+                    self.current_pw_status_label.config(text="Status: Password NOT SET")
+                    self.remove_pw_button_ref.config(state=tk.DISABLED)
+                    self.pw_on_open_var.set(False) # Disable options that require a password
+                    self.pw_on_edit_var.set(False)
+                    self.pw_auto_lock_var.set(False)
+                    messagebox.showinfo("Password Removed", "Application password has been removed.", parent=self)
+        else:
+            messagebox.showinfo("No Password", "No application password is currently set.", parent=self)
+
+    def create_color_font_settings_ui(self, parent_frame, start_row, fill_key, outline_key, font_fam_key, font_size_key, font_color_key):
+        # Fill Color
+        ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
+        fill_var = tk.StringVar(value=self.settings.get(fill_key, DEFAULT_BOX_FILL_COLOR), name=f"{fill_key}_var")
+        setattr(self, f"{fill_key}_var", fill_var) # Store var on self
+        fill_var.trace_add("write", lambda *args: self.on_setting_change(fill_var, fill_key, *args))
+        ttk.Entry(parent_frame, textvariable=fill_var, width=12).grid(row=start_row,column=1,sticky=tk.W,padx=5,pady=3)
+        ttk.Button(parent_frame, text="Choose...", command=lambda v=fill_var: self.choose_color_for_var(v)).grid(row=start_row,column=2,sticky=tk.W,padx=2,pady=3)
+        # Outline Color
+        ttk.Label(parent_frame, text="Default Outline Color:").grid(row=start_row+1,column=0,sticky=tk.W,padx=5,pady=3)
+        outline_var = tk.StringVar(value=self.settings.get(outline_key, DEFAULT_BOX_OUTLINE_COLOR), name=f"{outline_key}_var")
+        setattr(self, f"{outline_key}_var", outline_var)
+        outline_var.trace_add("write", lambda *args: self.on_setting_change(outline_var, outline_key, *args))
+        ttk.Entry(parent_frame, textvariable=outline_var, width=12).grid(row=start_row+1,column=1,sticky=tk.W,padx=5,pady=3)
+        ttk.Button(parent_frame, text="Choose...", command=lambda v=outline_var: self.choose_color_for_var(v)).grid(row=start_row+1,column=2,sticky=tk.W,padx=2,pady=3)
+        # Font Family
+        ttk.Label(parent_frame, text="Default Font Family:").grid(row=start_row+2,column=0,sticky=tk.W,padx=5,pady=3)
+        font_fam_var = tk.StringVar(value=self.settings.get(font_fam_key, DEFAULT_FONT_FAMILY), name=f"{font_fam_key}_var")
+        setattr(self, f"{font_fam_key}_var", font_fam_var)
+        font_fam_var.trace_add("write", lambda *args: self.on_setting_change(font_fam_var, font_fam_key, *args))
+        available_fonts = self.settings.get("available_fonts", [DEFAULT_FONT_FAMILY])
+        ff_combo = ttk.Combobox(parent_frame, textvariable=font_fam_var, values=available_fonts, width=20, state="readonly")
+        ff_combo.grid(row=start_row+2,column=1,columnspan=2,sticky=tk.EW,padx=5,pady=3)
+        ff_combo.bind("<MouseWheel>", lambda event: "break") # Prevent main canvas scroll
+        # Font Size
+        ttk.Label(parent_frame, text="Names Font Size (pts):").grid(row=start_row+3,column=0,sticky=tk.W,padx=5,pady=3)
+        font_size_var = tk.IntVar(value=self.settings.get(font_size_key, DEFAULT_FONT_SIZE), name=f"{font_size_key}_var")
+        setattr(self, f"{font_size_key}_var", font_size_var)
+        font_size_var.trace_add("write", lambda *args: self.on_setting_change(font_size_var, font_size_key, *args))
+        ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=font_size_var, width=5).grid(row=start_row+3,column=1,sticky=tk.W,padx=5,pady=3)
+        # Font Color
+        ttk.Label(parent_frame, text="Default Font Color:").grid(row=start_row+4,column=0,sticky=tk.W,padx=5,pady=3)
+        font_color_var = tk.StringVar(value=self.settings.get(font_color_key, DEFAULT_FONT_COLOR), name=f"{font_color_key}_var")
+        setattr(self, f"{font_color_key}_var", font_color_var)
+        font_color_var.trace_add("write", lambda *args: self.on_setting_change(font_color_var, font_color_key, *args))
+        ttk.Entry(parent_frame, textvariable=font_color_var, width=12).grid(row=start_row+4,column=1,sticky=tk.W,padx=5,pady=3)
+        ttk.Button(parent_frame, text="Choose...", command=lambda v=font_color_var: self.choose_color_for_var(v)).grid(row=start_row+4,column=2,sticky=tk.W,padx=2,pady=3)
+        ttk.Button(parent_frame, text="Reset", command=lambda v=font_color_var: self.reset_color_for_var(v, DEFAULT_FONT_COLOR)).grid(row=start_row+4,column=3,sticky=tk.W,padx=2,pady=3)
+
+        # Behaviors Font Size
+        ttk.Label(parent_frame, text="Behaviors Font Size (pts):").grid(row=start_row+5,column=0,sticky=tk.W,padx=5,pady=3)
+        behavior_font_size_var = tk.IntVar(value=self.settings.get('behavior_font_size', DEFAULT_FONT_SIZE), name='behavior_font_size_var')
+        setattr(self, 'behavior_font_size_var', behavior_font_size_var)
+        behavior_font_size_var.trace_add("write", lambda *args: self.on_setting_change(behavior_font_size_var, 'behavior_font_size', *args))
+        ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=behavior_font_size_var, width=5).grid(row=start_row+5,column=1,sticky=tk.W,padx=5,pady=3)
+
+    def reset_color_for_var(self, color_var, default): # Helper for color reset buttons in settings
+        color_var.set(default) # Reset to empty string
+
+    def choose_color_for_var(self, color_var): # Helper for color choosers in settings
+        initial_color = color_var.get()
+        if not initial_color: # If empty, pick a default to show in chooser
+            if "fill" in color_var._name: initial_color = DEFAULT_BOX_FILL_COLOR
+            elif "outline" in color_var._name: initial_color = DEFAULT_BOX_OUTLINE_COLOR
+            else: initial_color = DEFAULT_FONT_COLOR
+
+        color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
+        if color_code and color_code[1]: color_var.set(color_code[1])
+
+    def choose_color_for_canvas(self, color_var): # Helper for color choosers in settings
+        initial_color = color_var.get()
+        if initial_color == "Default": initial_color = None
+        if not initial_color: # If empty, pick a default to show in chooser
+            if "fill" in color_var._name: initial_color = DEFAULT_BOX_FILL_COLOR
+            elif "outline" in color_var._name: initial_color = DEFAULT_BOX_OUTLINE_COLOR
+            else: initial_color = DEFAULT_FONT_COLOR
+
+        color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
+        if color_code and color_code[1]: color_var.set(color_code[1])
+
+    def reset_canvas_color(self, button):
+        button.set("Default")
     def save_undo_history(self):
         history = {
             'undo': self.undo_stack,
