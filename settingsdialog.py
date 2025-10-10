@@ -224,6 +224,14 @@ class SettingsDialog(simpledialog.Dialog):
         security_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(security_tab, text="Security")
         self.create_security_tab(security_tab)
 
+        # --- Stat Boxes Tab ---
+        stat_boxes_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(stat_boxes_tab, text="Stat Boxes")
+        self.create_stat_boxes_tab(stat_boxes_tab)
+
+        # --- Stat Boxes Tab ---
+        stat_boxes_tab = ttk.Frame(self.notebook, padding=10); self.notebook.add(stat_boxes_tab, text="Stat Boxes")
+        self.create_stat_boxes_tab(stat_boxes_tab)
+
         # After creating all tabs, call update_all_widget_states to set the initial state
         self.update_all_widget_states()
 
@@ -1069,6 +1077,36 @@ class SettingsDialog(simpledialog.Dialog):
         self.output_dpi_global_label.grid(row=0, column=2, sticky=tk.W, padx=5)
         self.create_sharing_toggle(dpi_frame, "output_dpi", row=0, column=3)
         self.widget_map["output_dpi"] = {"widget": self.export_image_spin, "label_widget": self.output_dpi_global_label}
+
+    def create_stat_boxes_tab(self, tab_frame):
+        lf_presence = ttk.LabelFrame(tab_frame, text="Student Presence Statistics", padding=10)
+        lf_presence.pack(fill=tk.X, pady=5)
+
+        ttk.Label(lf_presence, text="Define 'Present' as:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+        self.presence_definition_var = tk.StringVar(value=self.settings.get("statbox_presence_definition", "any_log"), name='presence_definition_var')
+        self.presence_definition_var.trace_add("write", lambda *args: self.on_setting_change(self.presence_definition_var, "statbox_presence_definition", *args))
+        self.presence_definition_combo = ttk.Combobox(lf_presence, textvariable=self.presence_definition_var, values=["any_log", "specific_behavior"], state="readonly")
+        self.presence_definition_combo.grid(row=0, column=1, sticky=tk.W, padx=5, pady=3)
+        self.presence_definition_combo.bind("<<ComboboxSelected>>", self.toggle_specific_behavior_ui)
+        self.widget_map["statbox_presence_definition"] = {"widget": self.presence_definition_combo}
+
+        self.specific_behavior_frame = ttk.Frame(lf_presence)
+        self.specific_behavior_frame.grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=5, pady=3)
+        ttk.Label(self.specific_behavior_frame, text="Specific Behavior:").pack(side=tk.LEFT)
+        self.specific_behavior_var = tk.StringVar(value=self.settings.get("statbox_presence_behavior", ""), name='specific_behavior_var')
+        self.specific_behavior_var.trace_add("write", lambda *args: self.on_setting_change(self.specific_behavior_var, "statbox_presence_behavior", *args))
+        self.specific_behavior_combo = ttk.Combobox(self.specific_behavior_frame, textvariable=self.specific_behavior_var, values=self.all_behaviors_ref, state="readonly")
+        self.specific_behavior_combo.pack(side=tk.LEFT, padx=5)
+        self.widget_map["statbox_presence_behavior"] = {"widget": self.specific_behavior_combo}
+
+        self.toggle_specific_behavior_ui()
+
+    def toggle_specific_behavior_ui(self, event=None):
+        if self.presence_definition_var.get() == "specific_behavior":
+            self.specific_behavior_frame.grid()
+        else:
+            self.specific_behavior_frame.grid_remove()
+
     def create_security_tab(self, tab_frame):
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)
         lf_password.pack(fill=tk.X, pady=5)
