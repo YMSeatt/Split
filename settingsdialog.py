@@ -328,46 +328,8 @@ class SettingsDialog(simpledialog.Dialog):
 
         self.style_set()
 
-    def style_set(self, event=None):
-        self.theme2 = self.theme.get()
-        try:
-            self.type_theme = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
-        except tk.TclError:
-            self.type_theme = "sv_ttk" # Fallback
-        if self.type_theme != "sv_ttk":
-            self.theme.set("Light")
-            self.theme_combo.configure(state='disabled')
-        else:
-            self.theme_combo.configure(state='readonly')
-        self.app.set_theme(self.theme.get(), self.custom_canvas_color.get())
 
-    def theme_set(self, event=None):
-        self.theme2 = self.theme.get()
-        self.app.set_theme(self.theme.get(), self.custom_canvas_color.get())
-
-    def choose_color_for_var(self, color_var):
-        initial_color = color_var.get()
-        try:
-            color_code = colorchooser.askcolor(title="Choose color", initialcolor=initial_color, parent=self)[1]
-            if color_code:
-                color_var.set(color_code)
-        except tk.TclError: # Can happen on some platforms if initialcolor is invalid
-            color_code = colorchooser.askcolor(title="Choose color", parent=self)[1]
-            if color_code:
-                color_var.set(color_code)
-
-    def choose_color_for_canvas(self, color_var):
-        initial_color = color_var.get()
-        try:
-            color_code = colorchooser.askcolor(title="Choose color", initialcolor=initial_color, parent=self)[1]
-        except tk.TclError:
-            color_code = colorchooser.askcolor(title="Choose color", parent=self)[1]
-        if color_code:
-            color_var.set(color_code)
-            self.app.set_theme(self.theme.get(), color_code)
-
-    def reset_color_for_var(self, color_var, default_color):
-        color_var.set(default_color)
+    
 
         # Canvas Management LabelFrame
         cmf = ttk.LabelFrame(tab_frame, text="Canvas Management", padding=10); cmf.pack(padx=5, fill=tk.BOTH)
@@ -488,6 +450,23 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Button(lf_view_options, text="Default", command=lambda v=self.guides_color_var: self.reset_color_for_var(v, "blue")).grid(row=0, column=6, sticky=tk.W, padx=2, pady=3)
         self.create_sharing_toggle(lf_view_options, "guides_color", row=0, column=7)
         self.widget_map["guides_color"] = {"widget": self.guides_color_entry}
+
+    def style_set(self, event=None):
+        self.theme2 = self.theme.get()
+        try:
+            self.type_theme = self.style.get() if self.style.get() != "sun-valley (Default)" else "sv_ttk"
+        except tk.TclError:
+            self.type_theme = "sv_ttk" # Fallback
+        if self.type_theme != "sv_ttk":
+            self.theme.set("Light")
+            self.theme_combo.configure(state='disabled')
+        else:
+            self.theme_combo.configure(state='readonly')
+        self.app.set_theme(self.theme.get(), self.custom_canvas_color.get())
+
+    def theme_set(self, event=None):
+        self.theme2 = self.theme.get()
+        self.app.set_theme(self.theme.get(), self.custom_canvas_color.get())
 
     def on_setting_change(self, var, key, *args):
         """
@@ -1796,18 +1775,7 @@ class SettingsDialog(simpledialog.Dialog):
             self.redo_stack = []
 
 
-    def theme_set(self, event):
-        #print(self.app.theme_style_using, "old")
-        self.app.theme_style_using = self.theme.get()
-        self.settings_changed_flag = True
-        #print("Theme: ", self.theme.get())
-        self.theme2 = self.theme.get()
-        #print("theme2", self.theme2)
-
-    def style_set(self, event=None):
-        self.app.type_theme = self.style.get()
-        self.theme_combo.configure(state='disabled' if "sun-valley" not in self.style.get().lower() else 'readonly')
-        self.theme_combo.set("Light") if "sun-valley" not in self.style.get().lower() else "System"
+    
     def set_or_change_password(self):
         new_pw = self.new_pw_var.get()
         confirm_pw = self.confirm_pw_var.get()
