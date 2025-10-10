@@ -627,6 +627,7 @@ class SeatingChartApp:
             "grid_snap_enabled": False,
             "grid_size": DEFAULT_GRID_SIZE,
             "behavior_initial_overrides": {},
+            "default_behavior_overrides": {},
             "homework_initial_overrides": {}, # New for homework display initials
             "current_mode": "behavior", # "behavior", "quiz", or "homework"
             "max_undo_history_days": MAX_UNDO_HISTORY_DAYS,
@@ -4498,7 +4499,25 @@ class SeatingChartApp:
     # as CUSTOM_HOMEWORK_TYPES_FILE now serves this purpose.
 
     def update_all_behaviors(self):
-        self.all_behaviors = DEFAULT_BEHAVIORS_LIST + [b["name"] if isinstance(b, dict) else str(b) for b in self.custom_behaviors]
+        """
+        Updates the main list of all behaviors, `self.all_behaviors`.
+        This method ensures all behaviors, default and custom, are in the correct
+        dictionary format with 'name' and 'category' keys. It applies any
+        user-defined overrides to the default behaviors.
+        """
+        # Process default behaviors, applying overrides
+        default_behavior_overrides = self.settings.get("default_behavior_overrides", {})
+        processed_default_behaviors = []
+        for behavior_name in DEFAULT_BEHAVIORS_LIST:
+            # Check for an override, otherwise default to "Neutral"
+            category = default_behavior_overrides.get(behavior_name, "Neutral")
+            processed_default_behaviors.append({"name": behavior_name, "category": category})
+
+        # Custom behaviors are assumed to be in the correct format already
+        # (guaranteed by load_custom_behaviors migration)
+
+        # Combine the lists
+        self.all_behaviors = processed_default_behaviors + self.custom_behaviors
 
     def update_all_homework_types(self): # NEW
         hidden_defaults = self.settings.get("hidden_default_homework_types", [])

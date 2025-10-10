@@ -671,9 +671,12 @@ class SettingsDialog(simpledialog.Dialog):
         self.custom_behaviors_listbox = tk.Listbox(lf_custom_b, height=5, exportselection=False)
         self.custom_behaviors_listbox.pack(fill=tk.X, expand=True, pady=(5,2))
         self.populate_custom_behaviors_listbox()
+        self.custom_behaviors_listbox.bind('<<ListboxSelect>>', self.on_behavior_selection_change)
+
         custom_b_edit_btns_frame = ttk.Frame(lf_custom_b); custom_b_edit_btns_frame.pack(fill=tk.X)
         ttk.Button(custom_b_edit_btns_frame, text="Edit Selected", command=self.edit_selected_custom_behavior).pack(side=tk.LEFT, padx=2)
-        ttk.Button(custom_b_edit_btns_frame, text="Remove Selected", command=self.remove_selected_custom_behavior).pack(side=tk.LEFT, padx=2)
+        self.remove_behavior_button = ttk.Button(custom_b_edit_btns_frame, text="Remove Selected", command=self.remove_selected_custom_behavior, state=tk.DISABLED)
+        self.remove_behavior_button.pack(side=tk.LEFT, padx=2)
 
         # Quiz Settings
         lf_quiz = ttk.LabelFrame(tab_frame, text="Quiz Logging & Session Settings", padding=10); lf_quiz.grid(sticky="nsew",column=0,row=1, pady=5)
@@ -1577,15 +1580,26 @@ class SettingsDialog(simpledialog.Dialog):
     # Custom Behaviors (for Log Behavior dialog)
     def populate_custom_behaviors_listbox(self):
         self.custom_behaviors_listbox.delete(0, tk.END)
-        for behavior_item in self.custom_behaviors_ref:
+
+        # This now uses the comprehensive `all_behaviors_ref` which is updated in the main app
+        for behavior_item in self.all_behaviors_ref:
             name = behavior_item.get("name", "Unknown")
             category = behavior_item.get("category", "Neutral")
-            display_text = f"{name} ({category})"
+
+            # Check if the behavior is a default one
+            is_default = any(d_name == name for d_name in DEFAULT_BEHAVIORS_LIST)
+
+            display_text = f"(Default) {name} ({category})" if is_default else f"{name} ({category})"
             self.custom_behaviors_listbox.insert(tk.END, display_text)
+
+            # Apply color coding for all behaviors based on category
+            color = "black" # Default for Neutral
             if category == "Good":
-                self.custom_behaviors_listbox.itemconfig(tk.END, {'fg': 'green'})
+                color = 'green'
             elif category == "Bad":
-                self.custom_behaviors_listbox.itemconfig(tk.END, {'fg': 'red'})
+                color = 'red'
+
+            self.custom_behaviors_listbox.itemconfig(tk.END, {'fg': color})
 
     def add_custom_behavior(self):
         if len(self.custom_behaviors_ref) >= MAX_CUSTOM_TYPES:
@@ -1600,47 +1614,87 @@ class SettingsDialog(simpledialog.Dialog):
 
     def edit_selected_custom_behavior(self):
         sel_idx = self.custom_behaviors_listbox.curselection()
-        if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to edit.", parent=self); return
-        idx = sel_idx[0]
-
-        # We need to find the correct item in the reference list, not by listbox index
-        selected_text = self.custom_behaviors_listbox.get(idx)
-        # Extract the name from the display text "Name (Category)"
-        behavior_name_to_find = selected_text.split(" (")[0]
-
-        original_item_index = -1
-        for i, item in enumerate(self.custom_behaviors_ref):
-            if item.get("name") == behavior_name_to_find:
-                original_item_index = i
-                break
-
-        if original_item_index == -1:
-            messagebox.showerror("Error", "Could not find the selected behavior to edit.", parent=self)
+        if not sel_idx:
+            messagebox.showinfo("No Selection", "Please select a behavior to edit.", parent=self)
             return
 
-        original_item = self.custom_behaviors_ref[original_item_index]
+        selected_text = self.custom_behaviors_listbox.get(sel_idx[0])
+        is_default = selected_text.startswith("(Default)")
 
-        dialog = EditBehaviorDialog(self, "Edit Custom Behavior", original_item)
-        if dialog.result:
-            new_name = dialog.result["name"]
-            new_category = dialog.result["category"]
+        if is_default:
+            # Logic for editing default behaviors (only category can be changed)
+            behavior_name = selected_text.replace("(Default) ", "").split(" (")[0]
 
-            # Check for duplicates if the name has changed
-            if new_name.lower() != original_item.get("name", "").lower() and any(item.get("name", "").lower() == new_name.lower() for i, item in enumerate(self.custom_behaviors_ref) if i != original_item_index):
-                messagebox.showwarning("Duplicate", f"Behavior '{new_name}' already exists.", parent=self)
+            # Find the current category from the all_behaviors list
+            current_category = "Neutral" # Fallback
+            for bhv in self.all_behaviors_ref:
+                if bhv['name'] == behavior_name:
+                    current_category = bhv['category']
+                    break
+
+            dialog = EditBehaviorCategoryDialog(self, f"Edit Category for '{behavior_name}'", behavior_name, current_category)
+            if dialog.result:
+                new_category = dialog.result
+                if "default_behavior_overrides" not in self.settings:
+                    self.settings["default_behavior_overrides"] = {}
+                self.settings["default_behavior_overrides"][behavior_name] = new_category
+                self.settings_changed_flag = True
+                # We need to update the main app's behavior list and then refresh our view
+                self.app.update_all_behaviors()
+                self.populate_custom_behaviors_listbox()
+
+        else:
+            # Original logic for editing custom behaviors
+            behavior_name_to_find = selected_text.split(" (")[0]
+            original_item_index = -1
+            for i, item in enumerate(self.custom_behaviors_ref):
+                if item.get("name") == behavior_name_to_find:
+                    original_item_index = i
+                    break
+
+            if original_item_index == -1:
+                messagebox.showerror("Error", "Could not find the selected custom behavior to edit.", parent=self)
                 return
 
-            self.custom_behaviors_ref[original_item_index]["name"] = new_name
-            self.custom_behaviors_ref[original_item_index]["category"] = new_category
-            self.settings_changed_flag = True
-            self.app.save_custom_behaviors()
-            self.populate_custom_behaviors_listbox()
+            original_item = self.custom_behaviors_ref[original_item_index]
+            dialog = EditBehaviorDialog(self, "Edit Custom Behavior", original_item)
+            if dialog.result:
+                new_name = dialog.result["name"]
+                new_category = dialog.result["category"]
+
+                if new_name.lower() != original_item.get("name", "").lower() and any(item.get("name", "").lower() == new_name.lower() for i, item in enumerate(self.custom_behaviors_ref) if i != original_item_index):
+                    messagebox.showwarning("Duplicate", f"Behavior '{new_name}' already exists.", parent=self)
+                    return
+
+                self.custom_behaviors_ref[original_item_index]["name"] = new_name
+                self.custom_behaviors_ref[original_item_index]["category"] = new_category
+                self.settings_changed_flag = True
+                self.app.save_custom_behaviors()
+                self.populate_custom_behaviors_listbox()
+
+    def on_behavior_selection_change(self, event):
+        sel_idx = self.custom_behaviors_listbox.curselection()
+        if not sel_idx:
+            self.remove_behavior_button.config(state=tk.DISABLED)
+            return
+
+        selected_text = self.custom_behaviors_listbox.get(sel_idx[0])
+        if selected_text.startswith("(Default)"):
+            self.remove_behavior_button.config(state=tk.DISABLED)
+        else:
+            self.remove_behavior_button.config(state=tk.NORMAL)
 
     def remove_selected_custom_behavior(self):
         sel_idx = self.custom_behaviors_listbox.curselection()
-        if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to remove.", parent=self); return
+        if not sel_idx:
+            messagebox.showinfo("No Selection", "Please select a behavior to remove.", parent=self)
+            return
 
         selected_text = self.custom_behaviors_listbox.get(sel_idx[0])
+        if selected_text.startswith("(Default)"):
+            messagebox.showerror("Error", "Cannot remove a default behavior.", parent=self)
+            return
+
         behavior_name_to_find = selected_text.split(" (")[0]
 
         original_item_index = -1
@@ -1655,7 +1709,10 @@ class SettingsDialog(simpledialog.Dialog):
 
         if messagebox.askyesno("Confirm Remove", "Remove selected custom behavior?", parent=self):
             del self.custom_behaviors_ref[original_item_index]
-            self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
+            self.settings_changed_flag = True
+            self.app.save_custom_behaviors()
+            self.populate_custom_behaviors_listbox()
+            self.on_behavior_selection_change(None) # Update button state
     
     def manage_behavior_initials(self):
         dialog = ManageInitialsDialog(self, self.settings["behavior_initial_overrides"], self.app.all_behaviors, "Behavior/Quiz")
