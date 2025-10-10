@@ -1266,9 +1266,9 @@ class StatBoxStyleDialog(simpledialog.Dialog):
         # Stat box defaults are not in settings, but hardcoded.
         # fill_color: "lightyellow", outline_color: "goldenrod"
         if key == "stat_box_fill_color":
-            var_to_set.set("lightyellow")
+            var_to_set.set(DEFAULT_STAT_BOX_FILL_COLOR)
         elif key == "stat_box_outline_color":
-            var_to_set.set("goldenrod")
+            var_to_set.set(DEFAULT_STAT_BOX_OUTLINE_COLOR)
 
     def apply(self):
         new_fill_color = self.fill_color_var.get().strip()
