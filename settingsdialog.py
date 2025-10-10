@@ -1102,10 +1102,13 @@ class SettingsDialog(simpledialog.Dialog):
         self.toggle_specific_behavior_ui()
 
     def toggle_specific_behavior_ui(self, event=None):
-        if self.presence_definition_var.get() == "specific_behavior":
-            self.specific_behavior_frame.grid()
-        else:
-            self.specific_behavior_frame.grid_remove()
+        try:
+            if self.presence_definition_var.get() == "specific_behavior":
+                self.specific_behavior_frame.grid()
+            else:
+                self.specific_behavior_frame.grid_remove()
+        except Exception as e:
+            print(f"Error toggling specific behavior UI: {e}")
 
     def create_security_tab(self, tab_frame):
         lf_password = ttk.LabelFrame(tab_frame, text="Application Password", padding=10)
@@ -1247,7 +1250,400 @@ class SettingsDialog(simpledialog.Dialog):
         self.undo_stack.append(action)
         self.redo_stack.clear()
         self.update_undo_redo_buttons()
+    def reset_all_settings(self):
+        if self.password_manager.is_locked:
+            if not self.prompt_for_password("Confirm Reset", "Enter password to confirm reset of all settings to default. This cannot be undone.", for_editing=True):
+                return
+        if messagebox.askyesno("Reset Settings", "Are you sure you want to reset all settings to default? This cannot be undone.", parent=self):
+            self.reset = True
+            self.settings_changed_flag = True
+            messagebox.showinfo("Settings Reset", "All settings have been reset to default.", parent=self)
+            self.settings = self._get_default_settings()
+            self.ok()# Reload settings
 
+    def _get_default_settings(self):
+        return {
+            "show_recent_incidents_on_boxes": True,
+            "num_recent_incidents_to_show": 2,
+            "recent_incident_time_window_hours": 24,
+            "show_full_recent_incidents": False,
+            "reverse_incident_order": True,
+            "selected_recent_behaviors_filter": None, # List of behavior names, or None for all
+            "show_recent_homeworks_on_boxes": True, # New
+            "num_recent_homeworks_to_show": 2, # New
+            "recent_homework_time_window_hours": 24, # New
+            "show_full_recent_homeworks": False, # New
+            "reverse_homework_order": True, # New
+            "selected_recent_homeworks_filter": None, # New
+            "autosave_interval_ms": 30000,
+            "default_student_box_width": DEFAULT_STUDENT_BOX_WIDTH,
+            "default_student_box_height": DEFAULT_STUDENT_BOX_HEIGHT,
+            "student_box_fill_color": DEFAULT_BOX_FILL_COLOR,
+            "student_box_outline_color": DEFAULT_BOX_OUTLINE_COLOR,
+            "student_font_family": DEFAULT_FONT_FAMILY,
+            "student_font_size": DEFAULT_FONT_SIZE,
+            "student_font_color": DEFAULT_FONT_COLOR,
+            "grid_snap_enabled": False,
+            "grid_size": DEFAULT_GRID_SIZE,
+            "current_mode": "behavior", # "behavior", "quiz", or "homework"
+            "max_undo_history_days": MAX_UNDO_HISTORY_DAYS,
+            "student_groups_enabled": True,
+            "show_zoom_level_display": True,
+            "available_fonts": sorted(list(tkfont.families())),
+
+            # Quiz specific
+            "default_quiz_name": "Pop Quiz",
+            "last_used_quiz_name_timeout_minutes": 60, # Timeout for remembering quiz name
+            "show_recent_incidents_during_quiz": True,
+            "live_quiz_score_font_color": DEFAULT_QUIZ_SCORE_FONT_COLOR,
+            "live_quiz_score_font_style_bold": DEFAULT_QUIZ_SCORE_FONT_STYLE_BOLD,
+            "quiz_mark_types": DEFAULT_QUIZ_MARK_TYPES.copy(),
+            "default_quiz_questions": 10,
+            "quiz_score_calculation": "percentage",
+            "combine_marks_for_display": True,
+            "live_quiz_questions": 5,
+            "live_quiz_initial_color": "#FF0000",
+            "live_quiz_final_color": "#00FF00",
+
+            # Homework specific (New)
+            "default_homework_name": "Homework Check", # Default name for manual log & live session
+            "last_used_homework_name_timeout_minutes": 60, # Timeout for remembering homework name (manual log)
+            "behavior_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for behavior log text
+            "quiz_log_font_size": DEFAULT_FONT_SIZE,       # Specific font size for quiz log text
+            "homework_log_font_size": DEFAULT_FONT_SIZE -1, # Specific font size for homework log text
+            "live_homework_session_mode": "Yes/No", # "Yes/No" or "Select"
+            "log_homework_marks_enabled": True, # Enable/disable detailed marks for manual log
+            "homework_mark_types": DEFAULT_HOMEWORK_MARK_TYPES.copy(),
+            "default_homework_items_for_yes_no_mode": 5, # For live session "Yes/No"
+            "live_homework_score_font_color": DEFAULT_HOMEWORK_SCORE_FONT_COLOR,
+            "live_homework_score_font_style_bold": DEFAULT_HOMEWORK_SCORE_FONT_STYLE_BOLD,
+
+
+            # Password settings
+            "app_password_hash": None,
+            "password_on_open": False,
+            "password_on_edit_action": False,
+            "password_auto_lock_enabled": False,
+            "password_auto_lock_timeout_minutes": 15,
+            "encrypt_data_files": True,
+
+            # Next ID counters (managed by _ensure_next_ids but good to have defaults)
+            "next_student_id_num": 1,
+            "next_furniture_id_num": 1,
+            "next_group_id_num": 1,
+            "next_quiz_template_id_num": 1,
+            "next_homework_template_id_num": 1, # New
+            "next_custom_homework_type_id_num": 1, # For custom homework types in Yes/No mode
+            # Internal state storage (prefixed with underscore)
+            "_last_used_quiz_name_for_session": "", # Stores last used quiz name for manual log
+            "_last_used_quiz_name_timestamp_for_session": None, # Timestamp for quiz name timeout
+            "_last_used_q_num_for_session": 10, # Stores last used num questions for manual quiz log
+            "_last_used_homework_name_for_session": "", # Stores last used homework name for manual log
+            "_last_used_homework_name_timestamp_for_session": None, # Timestamp for homework name timeout
+            "_last_used_hw_items_for_session": 5, # Stores last used num items for manual homework log
+            "theme": "System", # Newer
+            "type_theme": "sun-valley-light", # Newer
+            "enable_text_background_panel": True, # Default for the new setting
+            "show_rulers": False, # Default for rulers
+            "show_grid": False, # Default for grid visibility
+            "grid_color": "#000000", # Default light gray for grid lines
+            "save_guides_to_file": True, # New setting for guides
+            "guides_stay_when_rulers_hidden": True, # New setting for guides
+            "next_guide_id_num": 1, # Added in migration, also good here
+            "guides_color": "blue", # Default color for guides
+            "hidden_default_homework_types": [], # New for hiding default homework types
+            "allow_box_dragging": True, # New setting for box dragging
+            "canvas_color": "Default"
+        }
+
+    def theme_set(self, event):
+        #print(self.app.theme_style_using, "old")
+        self.app.theme_style_using = self.theme.get()
+        self.settings_changed_flag = True
+        #print("Theme: ", self.theme.get())
+        self.theme2 = self.theme.get()
+        #print("theme2", self.theme2)
+
+    def style_set(self, event=None):
+        self.app.type_theme = self.style.get()
+        self.theme_combo.configure(state='disabled' if "sun-valley" not in self.style.get().lower() else 'readonly')
+        self.theme_combo.set("Light") if "sun-valley" not in self.style.get().lower() else "System"
+
+    def set_or_change_password(self):
+        new_pw = self.new_pw_var.get()
+        confirm_pw = self.confirm_pw_var.get()
+        if not new_pw:
+            messagebox.showerror("Password Error", "New password cannot be empty.", parent=self)
+            return
+        if new_pw != confirm_pw:
+            messagebox.showerror("Password Error", "Passwords do not match.", parent=self)
+            return
+        if len(new_pw) < 4: # Basic length check
+            messagebox.showwarning("Weak Password", "Password should be at least 4 characters.", parent=self)
+            # Allow user to proceed if they insist
+
+        self.password_manager.set_password(new_pw)
+        self.settings_changed_flag = True # Settings (hash) changed
+        self.new_pw_var.set(""); self.confirm_pw_var.set("")
+        self.current_pw_status_label.config(text="Status: Password IS SET")
+        self.remove_pw_button_ref.config(state=tk.NORMAL)
+        messagebox.showinfo("Password Set", "Application password has been set/changed.", parent=self)
+
+    def prompt_for_password(self, title, prompt_message, for_editing=False):
+        if self.password_manager.is_locked:
+             if not hasattr(self, '_lock_screen_active') or not self._lock_screen_active.winfo_exists(): self.show_lock_screen()
+             return not self.password_manager.is_locked
+        if for_editing and not self.settings.get("password_on_edit_action", False) and not self.password_manager.is_password_set(): return True
+        if not self.password_manager.is_password_set(): return True
+        dialog = PasswordPromptDialog(self.master, title, prompt_message, self.password_manager)
+        return dialog.result
+
+    def remove_password(self):
+        if self.password_manager.is_password_set():
+            if self.prompt_for_password("Confirm Password", "Enter current password to confirm identity", for_editing=True):
+                if messagebox.askyesno("Confirm Removal", "Are you sure you want to remove the application password?", parent=self):
+                    self.password_manager.set_password(None) # Set to None effectively removes it
+                    self.settings_changed_flag = True
+                    self.current_pw_status_label.config(text="Status: Password NOT SET")
+                    self.remove_pw_button_ref.config(state=tk.DISABLED)
+                    self.pw_on_open_var.set(False) # Disable options that require a password
+                    self.pw_on_edit_var.set(False)
+                    self.pw_auto_lock_var.set(False)
+                    messagebox.showinfo("Password Removed", "Application password has been removed.", parent=self)
+        else:
+            messagebox.showinfo("No Password", "No application password is currently set.", parent=self)
+
+    # --- UI Helper for color/font settings ---
+    def create_color_font_settings_ui(self, parent_frame, start_row, fill_key, outline_key, font_fam_key, font_size_key, font_color_key):
+        # Fill Color
+        ttk.Label(parent_frame, text="Default Fill Color:").grid(row=start_row,column=0,sticky=tk.W,padx=5,pady=3)
+        fill_var = tk.StringVar(value=self.settings.get(fill_key, DEFAULT_BOX_FILL_COLOR), name=f"{fill_key}_var")
+        setattr(self, f"{fill_key}_var", fill_var) # Store var on self
+        fill_var.trace_add("write", lambda *args: self.on_setting_change(fill_var, fill_key, *args))
+        ttk.Entry(parent_frame, textvariable=fill_var, width=12).grid(row=start_row,column=1,sticky=tk.W,padx=5,pady=3)
+        ttk.Button(parent_frame, text="Choose...", command=lambda v=fill_var: self.choose_color_for_var(v)).grid(row=start_row,column=2,sticky=tk.W,padx=2,pady=3)
+        # Outline Color
+        ttk.Label(parent_frame, text="Default Outline Color:").grid(row=start_row+1,column=0,sticky=tk.W,padx=5,pady=3)
+        outline_var = tk.StringVar(value=self.settings.get(outline_key, DEFAULT_BOX_OUTLINE_COLOR), name=f"{outline_key}_var")
+        setattr(self, f"{outline_key}_var", outline_var)
+        outline_var.trace_add("write", lambda *args: self.on_setting_change(outline_var, outline_key, *args))
+        ttk.Entry(parent_frame, textvariable=outline_var, width=12).grid(row=start_row+1,column=1,sticky=tk.W,padx=5,pady=3)
+        ttk.Button(parent_frame, text="Choose...", command=lambda v=outline_var: self.choose_color_for_var(v)).grid(row=start_row+1,column=2,sticky=tk.W,padx=2,pady=3)
+        # Font Family
+        ttk.Label(parent_frame, text="Default Font Family:").grid(row=start_row+2,column=0,sticky=tk.W,padx=5,pady=3)
+        font_fam_var = tk.StringVar(value=self.settings.get(font_fam_key, DEFAULT_FONT_FAMILY), name=f"{font_fam_key}_var")
+        setattr(self, f"{font_fam_key}_var", font_fam_var)
+        font_fam_var.trace_add("write", lambda *args: self.on_setting_change(font_fam_var, font_fam_key, *args))
+        available_fonts = self.settings.get("available_fonts", [DEFAULT_FONT_FAMILY])
+        ff_combo = ttk.Combobox(parent_frame, textvariable=font_fam_var, values=available_fonts, width=20, state="readonly")
+        ff_combo.grid(row=start_row+2,column=1,columnspan=2,sticky=tk.EW,padx=5,pady=3)
+        ff_combo.bind("<MouseWheel>", lambda event: "break") # Prevent main canvas scroll
+        # Font Size
+        ttk.Label(parent_frame, text="Names Font Size (pts):").grid(row=start_row+3,column=0,sticky=tk.W,padx=5,pady=3)
+        font_size_var = tk.IntVar(value=self.settings.get(font_size_key, DEFAULT_FONT_SIZE), name=f"{font_size_key}_var")
+        setattr(self, f"{font_size_key}_var", font_size_var)
+        font_size_var.trace_add("write", lambda *args: self.on_setting_change(font_size_var, font_size_key, *args))
+        ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=font_size_var, width=5).grid(row=start_row+3,column=1,sticky=tk.W,padx=5,pady=3)
+        # Font Color
+        ttk.Label(parent_frame, text="Default Font Color:").grid(row=start_row+4,column=0,sticky=tk.W,padx=5,pady=3)
+        font_color_var = tk.StringVar(value=self.settings.get(font_color_key, DEFAULT_FONT_COLOR), name=f"{font_color_key}_var")
+        setattr(self, f"{font_color_key}_var", font_color_var)
+        font_color_var.trace_add("write", lambda *args: self.on_setting_change(font_color_var, font_color_key, *args))
+        ttk.Entry(parent_frame, textvariable=font_color_var, width=12).grid(row=start_row+4,column=1,sticky=tk.W,padx=5,pady=3)
+        ttk.Button(parent_frame, text="Choose...", command=lambda v=font_color_var: self.choose_color_for_var(v)).grid(row=start_row+4,column=2,sticky=tk.W,padx=2,pady=3)
+        ttk.Button(parent_frame, text="Reset", command=lambda v=font_color_var: self.reset_color_for_var(v, DEFAULT_FONT_COLOR)).grid(row=start_row+4,column=3,sticky=tk.W,padx=2,pady=3)
+
+        # Behaviors Font Size
+        ttk.Label(parent_frame, text="Behaviors Font Size (pts):").grid(row=start_row+5,column=0,sticky=tk.W,padx=5,pady=3)
+        behavior_font_size_var = tk.IntVar(value=self.settings.get('behavior_font_size', DEFAULT_FONT_SIZE), name='behavior_font_size_var')
+        setattr(self, 'behavior_font_size_var', behavior_font_size_var)
+        behavior_font_size_var.trace_add("write", lambda *args: self.on_setting_change(behavior_font_size_var, 'behavior_font_size', *args))
+        ttk.Spinbox(parent_frame, from_=6, to=24, textvariable=behavior_font_size_var, width=5).grid(row=start_row+5,column=1,sticky=tk.W,padx=5,pady=3)
+
+    def reset_color_for_var(self, color_var, default): # Helper for color reset buttons in settings
+        color_var.set(default) # Reset to empty string
+
+    def choose_color_for_var(self, color_var): # Helper for color choosers in settings
+        initial_color = color_var.get()
+        if not initial_color: # If empty, pick a default to show in chooser
+            if "fill" in color_var._name: initial_color = DEFAULT_BOX_FILL_COLOR
+            elif "outline" in color_var._name: initial_color = DEFAULT_BOX_OUTLINE_COLOR
+            else: initial_color = DEFAULT_FONT_COLOR
+
+        color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
+        if color_code and color_code[1]: color_var.set(color_code[1])
+
+    def choose_color_for_canvas(self, color_var): # Helper for color choosers in settings
+        initial_color = color_var.get()
+        if initial_color == "Default": initial_color = None
+        if not initial_color: # If empty, pick a default to show in chooser
+            if "fill" in color_var._name: initial_color = DEFAULT_BOX_FILL_COLOR
+            elif "outline" in color_var._name: initial_color = DEFAULT_BOX_OUTLINE_COLOR
+            else: initial_color = DEFAULT_FONT_COLOR
+
+        color_code = colorchooser.askcolor(initial_color, title="Choose color", parent=self)
+        if color_code and color_code[1]: color_var.set(color_code[1])
+
+    def reset_canvas_color(self, button):
+        button.set("Default")
+
+    # --- Methods for managing custom lists ---
+    def populate_conditional_rules_listbox(self):
+        self.rules_listbox.delete(0, tk.END)
+        for i, rule in enumerate(self.settings.get("conditional_formatting_rules", [])):
+            desc = f"Rule {i+1}: Type='{rule.get('type', 'Unknown')}'"
+            if rule['type'] == 'group':
+                group_name = self.app.student_groups.get(rule.get('group_id'), {}).get('name', 'Unknown Group')
+                desc += f", Group='{group_name}'"
+            elif rule['type'] == 'behavior_count':
+                desc += f", Behavior='{rule.get('behavior_name', 'N/A')}', Count>={rule.get('count_threshold',0)}, Hours={rule.get('time_window_hours',0)}"
+            elif rule['type'] == 'quiz_score_threshold':
+                desc += f", Quiz~'{rule.get('quiz_name_contains','Any')}', Score {rule.get('operator','N/A')} {rule.get('score_threshold_percent','N/A')}%"
+            elif rule['type'] == 'quiz_mark_count':
+                mark_name = "N/A"
+                for mt in self.app.settings.get("quiz_mark_types", []):
+                    if mt.get("id") == rule.get("mark_type_id"):
+                        mark_name = mt.get("name"); break
+                desc += f", Quiz~'{rule.get('quiz_name_contains','Any')}', Mark='{mark_name}', {rule.get('mark_operator','N/A')} {rule.get('mark_count_threshold','N/A')}"
+            elif rule['type'] == 'live_quiz_response':
+                desc += f", Quiz Response='{rule.get('quiz_response', 'N/A')}'"
+            elif rule['type'] == 'live_homework_yes_no':
+                hw_type_name = "N/A"
+                for ht in self.app.all_homework_session_types: # These are dicts with 'id' and 'name'
+                    if ht.get('id') == rule.get('homework_type_id'):
+                        hw_type_name = ht.get('name'); break
+                desc += f", HW Type='{hw_type_name}', Response='{rule.get('homework_response', 'N/A')}'"
+            elif rule['type'] == 'live_homework_select':
+                desc += f", HW Option='{rule.get('homework_option_name', 'N/A')}'"
+
+            desc += f" -> Fill='{rule.get('color','None')}', Outline='{rule.get('outline','None')}', Style='{rule.get('application_style','stripe')}'"
+            self.rules_listbox.insert(tk.END, desc)
+
+    def add_conditional_rule(self):
+        dialog = ConditionalFormattingRuleDialog(self.master_frame, self.app) # Pass app and correct parent
+        if dialog.result:
+            if "conditional_formatting_rules" not in self.settings: self.settings["conditional_formatting_rules"] = []
+            self.settings["conditional_formatting_rules"].append(dialog.result)
+            self.settings_changed_flag = True
+            self.populate_conditional_rules_listbox()
+    def edit_selected_conditional_rule(self):
+        selected_idx = self.rules_listbox.curselection()
+        if not selected_idx: messagebox.showinfo("No Selection", "Please select a rule to edit.", parent=self); return
+        idx_to_edit = selected_idx[0]
+        rule_copy = self.settings["conditional_formatting_rules"][idx_to_edit].copy()
+        dialog = ConditionalFormattingRuleDialog(self, self.app, rule_to_edit=rule_copy)
+        if dialog.result:
+            self.settings["conditional_formatting_rules"][idx_to_edit] = dialog.result
+            self.settings_changed_flag = True
+            self.populate_conditional_rules_listbox()
+
+    def remove_selected_conditional_rule(self):
+        selected_indices = self.rules_listbox.curselection() # Will be tuple of indices
+        if not selected_indices:
+            messagebox.showinfo("No Selection", "Please select rule(s) to remove.", parent=self)
+            return
+
+        confirm_msg = f"Are you sure you want to remove {len(selected_indices)} selected conditional formatting rule(s)?"
+        if messagebox.askyesno("Confirm Remove", confirm_msg, parent=self):
+            # Iterate reversed to avoid index shifting issues when deleting multiple items
+            for idx in sorted(selected_indices, reverse=True):
+                del self.settings["conditional_formatting_rules"][idx]
+            self.settings_changed_flag = True
+            self.populate_conditional_rules_listbox()
+
+    def bulk_edit_selected_rules(self):
+        selected_indices = self.rules_listbox.curselection()
+        if not selected_indices:
+            messagebox.showinfo("No Selection", "Please select at least one rule to bulk edit.", parent=self)
+            return
+
+        # Pass a list of rule *copies* to the dialog to avoid direct modification before confirmation
+        # Or pass indices and let dialog fetch/modify. For now, let's pass copies of rule dicts.
+        # However, the dialog will modify the actual rules in self.settings["conditional_formatting_rules"]
+        # if changes are applied.
+
+        # The dialog will need access to the main 'app' instance for things like available modes,
+        # and it will modify self.settings["conditional_formatting_rules"] directly or via a callback.
+        # Let's design it to modify a temporary copy and then apply changes back.
+
+        rules_to_edit_copies = [self.settings["conditional_formatting_rules"][i].copy() for i in selected_indices]
+
+        # Placeholder for the new dialog - will be created in dialogs.py
+        from dialogs import BulkEditConditionalRulesDialog # Assuming it will be in dialogs.py
+
+        bulk_dialog = BulkEditConditionalRulesDialog(self, self.app, rules_to_edit_copies, selected_indices) # Pass self (SettingsDialog) as parent
+
+        if bulk_dialog.changes_applied_flag: # If the dialog successfully applied changes
+            # The bulk_dialog should have modified the original rules in self.settings
+            # or returned the modified rules to be applied here.
+            # Assuming the dialog modifies the rules in place for now.
+            self.settings_changed_flag = True # Mark that settings have changed overall
+            self.populate_conditional_rules_listbox() # Refresh the listbox
+            messagebox.showinfo("Bulk Edit Complete", f"{len(selected_indices)} rules updated.", parent=self)
+        else:
+            # self.update_status("Bulk edit cancelled or no changes made.") # No status bar here
+            pass
+
+    def force_canvas_border_visi(self):
+        self.force_canvas_border_btn.configure(state="normal" if self.canvas_border_var.get() == True else 'disabled')
+
+    def _manage_custom_list_generic(self, listbox, custom_list_ref, item_type_name, add_func_name, edit_func_name):
+        # This is a placeholder for a more generic dialog if needed, for now specific ones are used
+        pass
+
+    # Custom Behaviors (for Log Behavior dialog)
+    def populate_custom_behaviors_listbox(self):
+        self.custom_behaviors_listbox.delete(0, tk.END)
+        for behavior_item in self.custom_behaviors_ref: # List of dicts or old strings
+            name = behavior_item["name"] if isinstance(behavior_item, dict) else behavior_item
+            self.custom_behaviors_listbox.insert(tk.END, name)
+    def add_custom_behavior(self):
+        if len(self.custom_behaviors_ref) >= MAX_CUSTOM_TYPES:
+            messagebox.showwarning("Limit Reached", f"Maximum of {MAX_CUSTOM_TYPES} custom {item_type_name.lower()}s allowed.", parent=self); return
+        name = simpledialog.askstring("Add Custom Behavior", "Enter name for the new behavior:", parent=self)
+        if name and name.strip():
+            name = name.strip()
+            if any(cb_item == name or (isinstance(cb_item, dict) and cb_item.get("name") == name) for cb_item in self.custom_behaviors_ref):
+                 messagebox.showwarning("Duplicate", f"Behavior '{name}' already exists.", parent=self); return
+            self.custom_behaviors_ref.append({"name": name}) # Store as dict
+            self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
+    def edit_selected_custom_behavior(self):
+        sel_idx = self.custom_behaviors_listbox.curselection()
+        if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to edit.", parent=self); return
+        idx = sel_idx[0]
+        old_item = self.custom_behaviors_ref[idx]
+        old_name = old_item["name"] if isinstance(old_item, dict) else old_item
+        new_name = simpledialog.askstring("Edit Custom Behavior", "Enter new name:", initialvalue=old_name, parent=self)
+        if new_name and new_name.strip():
+            new_name = new_name.strip()
+            if new_name != old_name and any(cb_item == new_name or (isinstance(cb_item, dict) and cb_item.get("name") == new_name and (idx != i if isinstance(cb_item,dict) else True) ) for i, cb_item in enumerate(self.custom_behaviors_ref)):
+                 messagebox.showwarning("Duplicate", f"Behavior '{new_name}' already exists.", parent=self); return
+            self.custom_behaviors_ref[idx] = {"name": new_name}
+            self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
+    def remove_selected_custom_behavior(self):
+        sel_idx = self.custom_behaviors_listbox.curselection()
+        if not sel_idx: messagebox.showinfo("No Selection", "Please select a behavior to remove.", parent=self); return
+        if messagebox.askyesno("Confirm Remove", "Remove selected custom behavior?", parent=self):
+            del self.custom_behaviors_ref[sel_idx[0]]
+            self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
+    
+    def manage_behavior_initials(self):
+        dialog = ManageInitialsDialog(self, self.settings["behavior_initial_overrides"], self.app.all_behaviors, "Behavior/Quiz")
+        if dialog.initials_changed: self.settings_changed_flag = True
+    def manage_homework_initials(self): # New
+        dialog = ManageInitialsDialog(self, self.settings["homework_initial_overrides"], self.app.all_homework_statuses, "Homework Log")
+        if dialog.initials_changed: self.settings_changed_flag = True
+    def manage_quiz_mark_types(self):
+        dialog = ManageMarkTypesDialog(self, self.settings["quiz_mark_types"], "Quiz Mark Types", DEFAULT_QUIZ_MARK_TYPES)
+        if dialog.mark_types_changed: self.settings_changed_flag = True
+    def manage_homework_mark_types(self): # New
+        dialog = ManageMarkTypesDialog(self, self.settings["homework_mark_types"], "Homework Mark Types", DEFAULT_HOMEWORK_MARK_TYPES)
+        if dialog.mark_types_changed: self.settings_changed_flag = True
+    def manage_live_homework_select_options(self):
+        dialog = ManageLiveSelectOptionsDialog(self, self.settings.get("live_homework_select_mode_options", DEFAULT_HOMEWORK_SESSION_BUTTONS.copy()))
+        if dialog.options_changed_flag:
+            self.settings["live_homework_select_mode_options"] = dialog.current_options
+            self.settings_changed_flag = True
     def undo(self):
         if not self.undo_stack:
             return
@@ -1329,6 +1725,27 @@ class SettingsDialog(simpledialog.Dialog):
         if hasattr(self, 'status_bar'):
             self.status_bar.config(text=message)
 
+    def load_undo_history(self):
+        try:
+            loaded_data = _read_and_decrypt_file(get_app_data_path("settings_undo_history.json"))
+            history = loaded_data
+            # with open(get_app_data_path("settings_undo_history.json"), 'r') as f:
+            #     history = json.load(f)
+            if history is not None:
+                self.undo_stack = history.get('undo', [])
+                self.redo_stack = history.get('redo', [])
+            else:
+                self.undo_stack = []
+                self.redo_stack = []
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.undo_stack = []
+            self.redo_stack = []
+        except AttributeError:
+            self.undo_stack = []
+            self.redo_stack = []
+
+
+    
     def save_undo_history(self):
         history = {
             'undo': self.undo_stack,
@@ -1462,3 +1879,18 @@ class SettingsDialog(simpledialog.Dialog):
             "allow_box_dragging": True, # New setting for box dragging
             "canvas_color": "Default"
         }
+        
+
+# --- Main Execution ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    from seatingchartmain import SeatingChartApp
+    import sv_ttk
+    sv_ttk.set_theme("Light")
+    app = SeatingChartApp(root)
+    try:
+        import darkdetect; import threading
+        t = threading.Thread(target=darkdetect.listener, args=(app.theme_auto, ))
+        t.daemon = True; t.start()
+    except: pass
+    root.mainloop()

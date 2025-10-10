@@ -56,6 +56,11 @@ MAX_UNDO_HISTORY_DAYS = 90
 LAYOUT_COLLISION_OFFSET = 5
 RESIZE_HANDLE_SIZE = 10 # World units for resize handle
 
+DEFAULT_STAT_BOX_FILL_COLOR = "lightyellow"
+DEFAULT_STAT_BOX_OUTLINE_COLOR = "goldenrod"
+
+
+
 # --- Path Handling ---
 def get_app_data_path(filename):
     try:
