@@ -1313,7 +1313,9 @@ class SettingsDialog(simpledialog.Dialog):
 
         else: # Handle reset
             self.app.type_theme = "sun-valley-light" # Reset to default theme
-            self.settings = self._get_default_settings()
+            default_settings = self._get_default_settings()
+            self.settings.clear()
+            self.settings.update(default_settings)
             self.app.custom_canvas_color = "Default"
 
         # The settings_changed_flag is now the source of truth
