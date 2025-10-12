@@ -9,6 +9,7 @@ try:
     from encryption_key import encryption_key as ENCRYPTION_KEY
     f = Fernet(ENCRYPTION_KEY)
 except (ImportError, ModuleNotFoundError):
+    print("WARNING: encryption_key.py not found or is invalid. Data will NOT be encrypted.")
     ENCRYPTION_KEY = None
     f = None
 # --- Encryption and Decryption Functions ---
