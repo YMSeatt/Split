@@ -9,7 +9,7 @@ import datetime
 # to allow for direct imports of your modules.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from data_encryption import encrypt_data, decrypt_data
+from data_encryption import encrypt_data, decrypt_data, f
 from other import PasswordManager
 from seatingchartmain import name_similarity_ratio, SeatingChartApp, levenshtein_distance
 
@@ -24,6 +24,7 @@ class TestDataEncryption(unittest.TestCase):
         decrypted = decrypt_data(encrypted)
         self.assertEqual(original_string, decrypted)
 
+    @unittest.skipIf(f is None, "Encryption key not available")
     def test_encryption_is_not_deterministic(self):
         """Test that encrypting the same string twice yields different ciphertexts."""
         original_string = "Another test string."
