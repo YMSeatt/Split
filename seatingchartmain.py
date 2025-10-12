@@ -4547,10 +4547,12 @@ class SeatingChartApp:
         # Process default behaviors, applying overrides
         default_behavior_overrides = self.settings.get("default_behavior_overrides", {})
         processed_default_behaviors = []
-        for behavior_name in DEFAULT_BEHAVIORS_LIST:
-            # Check for an override, otherwise default to "Neutral"
-            behavior_name = behavior_name.get("name")
-            category = default_behavior_overrides.get(behavior_name, "Neutral")
+        for behavior_dict in DEFAULT_BEHAVIORS_LIST:
+            behavior_name = behavior_dict.get("name")
+            # Start with the default category
+            default_category = behavior_dict.get("category", "Neutral")
+            # Check for an override, if it exists, use it. Otherwise, use the default.
+            category = default_behavior_overrides.get(behavior_name, default_category)
             processed_default_behaviors.append({"name": behavior_name, "category": category})
 
         # Custom behaviors are assumed to be in the correct format already
