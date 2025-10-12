@@ -1,3 +1,4 @@
+from calendar import c
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog, font as tkfont
 import json
@@ -159,8 +160,46 @@ if not os.path.exists(LAYOUT_TEMPLATES_DIR):
     os.makedirs(LAYOUT_TEMPLATES_DIR, exist_ok=True)
 
 DEFAULT_BEHAVIORS_LIST = [
-    "Talking", "Off Task", "Out of Seat", "Uneasy", "Placecheck",
-    "Great Participation", "Called On", "Complimented", "Fighting", "Other"
+    {
+        "name": "Talking",
+        "category": "Bad"
+    },
+    {
+        "name": "Off Task",
+        "category": "Bad"
+    },
+    {
+        "name": "Out of Seat",
+        "category": "Bad"
+    },
+    {
+        "name": "Uneasy",
+        "category": "Neutral"
+    },
+    { 
+        "name": "Placecheck",
+        "category": "Neutral"
+    },
+    {
+        "name": "Great Participation",
+        "category": "Good"
+    },
+    {
+        "name": "Called On",    
+        "category": "Neutral"
+    },
+    {
+        "name": "Complimented",
+        "category": "Neutral"
+    },
+    {
+        "name": "Fighting",
+        "category": "Bad"
+    },
+    {
+        "name": "Other",
+        "category": "Neutral"
+    },
 ]
 
 # for manual detailed logging, i would want these | currently used for sessions (yes/no)
@@ -4510,6 +4549,7 @@ class SeatingChartApp:
         processed_default_behaviors = []
         for behavior_name in DEFAULT_BEHAVIORS_LIST:
             # Check for an override, otherwise default to "Neutral"
+            behavior_name = behavior_name.get("name")
             category = default_behavior_overrides.get(behavior_name, "Neutral")
             processed_default_behaviors.append({"name": behavior_name, "category": category})
 

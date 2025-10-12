@@ -120,8 +120,46 @@ if not os.path.exists(LAYOUT_TEMPLATES_DIR):
     os.makedirs(LAYOUT_TEMPLATES_DIR, exist_ok=True)
 
 DEFAULT_BEHAVIORS_LIST = [
-    "Talking", "Off Task", "Out of Seat", "Uneasy", "Placecheck",
-    "Great Participation", "Called On", "Complimented", "Fighting", "Other"
+    {
+        "name": "Talking",
+        "category": "Bad"
+    },
+    {
+        "name": "Off Task",
+        "category": "Bad"
+    },
+    {
+        "name": "Out of Seat",
+        "category": "Bad"
+    },
+    {
+        "name": "Uneasy",
+        "category": "Neutral"
+    },
+    { 
+        "name": "Placecheck",
+        "category": "Neutral"
+    },
+    {
+        "name": "Great Participation",
+        "category": "Good"
+    },
+    {
+        "name": "Called On",    
+        "category": "Neutral"
+    },
+    {
+        "name": "Complimented",
+        "category": "Neutral"
+    },
+    {
+        "name": "Fighting",
+        "category": "Bad"
+    },
+    {
+        "name": "Other",
+        "category": "Neutral"
+    },
 ]
 
 
@@ -481,7 +519,7 @@ class EditBehaviorCategoryDialog(simpledialog.Dialog):
 
         self.category_var = tk.StringVar(value=self.current_category)
         self.category_combobox = ttk.Combobox(master, textvariable=self.category_var,
-                                              values=['Good', 'Bad', 'Neutral'], state="readonly")
+                                              values=['Good', 'Neutral', 'Bad'], state="readonly")
         self.category_combobox.pack(pady=5)
         return self.category_combobox
 

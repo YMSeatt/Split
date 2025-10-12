@@ -10,7 +10,7 @@ import shutil
 #from openpyxl.styles import Font as OpenpyxlFont, Alignment as OpenpyxlAlignment
 #from openpyxl.utils import get_column_letter
 
-from dialogs import PasswordPromptDialog, ConditionalFormattingRuleDialog
+from dialogs import PasswordPromptDialog, ConditionalFormattingRuleDialog, EditBehaviorCategoryDialog
 from quizhomework import ManageInitialsDialog, ManageMarkTypesDialog, ManageLiveSelectOptionsDialog
 #from seatingchartmain import SeatingChartApp
 from data_encryption import decrypt_data, encrypt_data, _read_and_decrypt_file, _encrypt_and_write_file
@@ -107,8 +107,46 @@ if not os.path.exists(LAYOUT_TEMPLATES_DIR):
     os.makedirs(LAYOUT_TEMPLATES_DIR, exist_ok=True)
 
 DEFAULT_BEHAVIORS_LIST = [
-    "Talking", "Off Task", "Out of Seat", "Uneasy", "Placecheck",
-    "Great Participation", "Called On", "Complimented", "Fighting", "Other"
+    {
+        "name": "Talking",
+        "category": "Bad"
+    },
+    {
+        "name": "Off Task",
+        "category": "Bad"
+    },
+    {
+        "name": "Out of Seat",
+        "category": "Bad"
+    },
+    {
+        "name": "Uneasy",
+        "category": "Neutral"
+    },
+    { 
+        "name": "Placecheck",
+        "category": "Neutral"
+    },
+    {
+        "name": "Great Participation",
+        "category": "Good"
+    },
+    {
+        "name": "Called On",    
+        "category": "Neutral"
+    },
+    {
+        "name": "Complimented",
+        "category": "Neutral"
+    },
+    {
+        "name": "Fighting",
+        "category": "Bad"
+    },
+    {
+        "name": "Other",
+        "category": "Neutral"
+    },
 ]
 
 
@@ -668,10 +706,16 @@ class SettingsDialog(simpledialog.Dialog):
         ttk.Button(custom_b_btns_frame, text="Manage Quiz Mark Types...", command=self.manage_quiz_mark_types).pack(side=tk.LEFT, padx=2, pady=3)
 
 
-        self.custom_behaviors_listbox = tk.Listbox(lf_custom_b, height=5, exportselection=False)
-        self.custom_behaviors_listbox.pack(fill=tk.X, expand=True, pady=(5,2))
-        self.populate_custom_behaviors_listbox()
-        self.custom_behaviors_listbox.bind('<<ListboxSelect>>', self.on_behavior_selection_change)
+        self.behaviors_tree = ttk.Treeview(lf_custom_b, columns=('name', 'category', 'type'), show='headings', height=5, selectmode='browse')
+        self.behaviors_tree.heading('name', text='Behavior Name')
+        self.behaviors_tree.heading('category', text='Category')
+        self.behaviors_tree.heading('type', text='Type')
+        self.behaviors_tree.column('name', width=150)
+        self.behaviors_tree.column('category', width=80, anchor='center')
+        self.behaviors_tree.column('type', width=80, anchor='center')
+        self.behaviors_tree.pack(fill=tk.X, expand=True, pady=(5,2))
+        self.populate_behaviors_treeview()
+        self.behaviors_tree.bind('<<TreeviewSelect>>', self.on_behavior_selection_change)
 
         custom_b_edit_btns_frame = ttk.Frame(lf_custom_b); custom_b_edit_btns_frame.pack(fill=tk.X)
         ttk.Button(custom_b_edit_btns_frame, text="Edit Selected", command=self.edit_selected_custom_behavior).pack(side=tk.LEFT, padx=2)
@@ -1578,28 +1622,31 @@ class SettingsDialog(simpledialog.Dialog):
         pass
 
     # Custom Behaviors (for Log Behavior dialog)
-    def populate_custom_behaviors_listbox(self):
-        self.custom_behaviors_listbox.delete(0, tk.END)
+    def populate_behaviors_treeview(self):
+        for i in self.behaviors_tree.get_children():
+            self.behaviors_tree.delete(i)
 
-        # This now uses the comprehensive `all_behaviors_ref` which is updated in the main app
+        self.behaviors_tree.tag_configure('Good', foreground='green')
+        self.behaviors_tree.tag_configure('Bad', foreground='red')
+        self.behaviors_tree.tag_configure('Neutral', foreground='black')
+
         for behavior_item in self.all_behaviors_ref:
             name = behavior_item.get("name", "Unknown")
-            category = behavior_item.get("category", "Neutral")
+            category = behavior_item.get("category", "Neutral") 
+            
+            is_custom = any(c['name'] == name for c in self.custom_behaviors_ref)
+            b_type = "Custom" if is_custom else "Default"
 
-            # Check if the behavior is a default one
-            is_default = any(d_name == name for d_name in DEFAULT_BEHAVIORS_LIST)
+            if not is_custom:
+                override = self.settings.get("default_behavior_overrides", {}).get(name)
+                if override:
+                    category = override
+                else:
+                    default_item = next((d for d in DEFAULT_BEHAVIORS_LIST if d['name'] == name), None)
+                    if default_item:
+                        category = default_item['category']
 
-            display_text = f"(Default) {name} ({category})" if is_default else f"{name} ({category})"
-            self.custom_behaviors_listbox.insert(tk.END, display_text)
-
-            # Apply color coding for all behaviors based on category
-            color = "black" # Default for Neutral
-            if category == "Good":
-                color = 'green'
-            elif category == "Bad":
-                color = 'red'
-
-            self.custom_behaviors_listbox.itemconfig(tk.END, {'fg': color})
+            self.behaviors_tree.insert('', 'end', values=(name, category, b_type), tags=(category,))
 
     def add_custom_behavior(self):
         if len(self.custom_behaviors_ref) >= MAX_CUSTOM_TYPES:
@@ -1610,45 +1657,38 @@ class SettingsDialog(simpledialog.Dialog):
             if any(cb_item.get("name") == name for cb_item in self.custom_behaviors_ref):
                  messagebox.showwarning("Duplicate", f"Behavior '{name}' already exists.", parent=self); return
             self.custom_behaviors_ref.append({"name": name, "category": "Neutral"}) # Add with default category
-            self.settings_changed_flag = True; self.app.save_custom_behaviors(); self.populate_custom_behaviors_listbox()
+            self.settings_changed_flag = True
+            self.app.save_custom_behaviors()
+            self.app.update_all_behaviors()
+            self.all_behaviors_ref = self.app.all_behaviors
+            self.populate_behaviors_treeview()
 
     def edit_selected_custom_behavior(self):
-        sel_idx = self.custom_behaviors_listbox.curselection()
-        if not sel_idx:
+        selected_item = self.behaviors_tree.selection()
+        if not selected_item:
             messagebox.showinfo("No Selection", "Please select a behavior to edit.", parent=self)
             return
 
-        selected_text = self.custom_behaviors_listbox.get(sel_idx[0])
-        is_default = selected_text.startswith("(Default)")
+        item_values = self.behaviors_tree.item(selected_item[0], 'values')
+        behavior_name, category, b_type = item_values[0], item_values[1], item_values[2]
+
+        is_default = (b_type == "Default")
 
         if is_default:
-            # Logic for editing default behaviors (only category can be changed)
-            behavior_name = selected_text.replace("(Default) ", "").split(" (")[0]
-
-            # Find the current category from the all_behaviors list
-            current_category = "Neutral" # Fallback
-            for bhv in self.all_behaviors_ref:
-                if bhv['name'] == behavior_name:
-                    current_category = bhv['category']
-                    break
-
-            dialog = EditBehaviorCategoryDialog(self, f"Edit Category for '{behavior_name}'", behavior_name, current_category)
+            dialog = EditBehaviorCategoryDialog(self, f"Edit Category for '{behavior_name}'", behavior_name, category)
             if dialog.result:
                 new_category = dialog.result
                 if "default_behavior_overrides" not in self.settings:
                     self.settings["default_behavior_overrides"] = {}
                 self.settings["default_behavior_overrides"][behavior_name] = new_category
                 self.settings_changed_flag = True
-                # We need to update the main app's behavior list and then refresh our view
                 self.app.update_all_behaviors()
-                self.populate_custom_behaviors_listbox()
-
+                self.all_behaviors_ref = self.app.all_behaviors
+                self.populate_behaviors_treeview()
         else:
-            # Original logic for editing custom behaviors
-            behavior_name_to_find = selected_text.split(" (")[0]
             original_item_index = -1
             for i, item in enumerate(self.custom_behaviors_ref):
-                if item.get("name") == behavior_name_to_find:
+                if item.get("name") == behavior_name:
                     original_item_index = i
                     break
 
@@ -1670,32 +1710,37 @@ class SettingsDialog(simpledialog.Dialog):
                 self.custom_behaviors_ref[original_item_index]["category"] = new_category
                 self.settings_changed_flag = True
                 self.app.save_custom_behaviors()
-                self.populate_custom_behaviors_listbox()
+                self.app.update_all_behaviors()
+                self.all_behaviors_ref = self.app.all_behaviors
+                self.populate_behaviors_treeview()
 
     def on_behavior_selection_change(self, event):
-        sel_idx = self.custom_behaviors_listbox.curselection()
-        if not sel_idx:
+        selected_item = self.behaviors_tree.selection()
+        if not selected_item:
             self.remove_behavior_button.config(state=tk.DISABLED)
             return
 
-        selected_text = self.custom_behaviors_listbox.get(sel_idx[0])
-        if selected_text.startswith("(Default)"):
+        item_values = self.behaviors_tree.item(selected_item[0], 'values')
+        b_type = item_values[2]
+
+        if b_type == "Default":
             self.remove_behavior_button.config(state=tk.DISABLED)
         else:
             self.remove_behavior_button.config(state=tk.NORMAL)
 
     def remove_selected_custom_behavior(self):
-        sel_idx = self.custom_behaviors_listbox.curselection()
-        if not sel_idx:
+        selected_item = self.behaviors_tree.selection()
+        if not selected_item:
             messagebox.showinfo("No Selection", "Please select a behavior to remove.", parent=self)
             return
 
-        selected_text = self.custom_behaviors_listbox.get(sel_idx[0])
-        if selected_text.startswith("(Default)"):
+        item_values = self.behaviors_tree.item(selected_item[0], 'values')
+        behavior_name_to_find = item_values[0]
+        b_type = item_values[2]
+
+        if b_type == "Default":
             messagebox.showerror("Error", "Cannot remove a default behavior.", parent=self)
             return
-
-        behavior_name_to_find = selected_text.split(" (")[0]
 
         original_item_index = -1
         for i, item in enumerate(self.custom_behaviors_ref):
@@ -1711,8 +1756,10 @@ class SettingsDialog(simpledialog.Dialog):
             del self.custom_behaviors_ref[original_item_index]
             self.settings_changed_flag = True
             self.app.save_custom_behaviors()
-            self.populate_custom_behaviors_listbox()
-            self.on_behavior_selection_change(None) # Update button state
+            self.app.update_all_behaviors()
+            self.all_behaviors_ref = self.app.all_behaviors
+            self.populate_behaviors_treeview()
+            self.on_behavior_selection_change(None)
     
     def manage_behavior_initials(self):
         dialog = ManageInitialsDialog(self, self.settings["behavior_initial_overrides"], self.app.all_behaviors, "Behavior/Quiz")
